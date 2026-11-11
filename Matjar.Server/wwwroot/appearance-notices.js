@@ -1,27 +1,133 @@
 
 /* ========================================================
+   Customizable Notification Chimes & Styles Engine
+   ======================================================== */
+let activeChimeType = localStorage.getItem('ts-notification-chime') || 'gold-chime';
+let activeVibeType = localStorage.getItem('ts-notification-vibe') || 'standard';
+
+function playSelectedNotificationChime(type = activeChimeType) {
+  if (type === 'silent') return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = ctx.currentTime;
+    
+    if (type === 'crystal-bell') {
+      // جرس بلوري فاخر
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(1046.5, now); // C6
+      osc.frequency.exponentialRampToValueAtTime(1318.5, now + 0.08); // E6
+      gain.gain.setValueAtTime(0.35, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(now + 0.6);
+    } else if (type === 'modern-pulse') {
+      // نبض إلكتروني حديث
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(750, now);
+      osc.frequency.setValueAtTime(1100, now + 0.08);
+      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(now + 0.25);
+    } else if (type === 'soft-marimba') {
+      // ماريمبا ناعمة
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.12);
+      gain.gain.setValueAtTime(0.4, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(now + 0.45);
+    } else {
+      // رنين المتجر الذهبي (الافتراضي)
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, now); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.15); // A5
+      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.38);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(now + 0.38);
+    }
+  } catch(e) {}
+}
+
+function getVibrationPattern(type = activeVibeType) {
+  if (type === 'none') return [];
+  if (type === 'pulse') return [120, 70, 120, 70, 120, 70, 120];
+  if (type === 'long') return [600, 200, 600];
+  return [250, 100, 250, 100, 250]; // standard
+}
+
+function notificationStyleModal() {
+  modal('تخصيص نغمات وشكل إشعارات التطبيق', `
+  <form class="form" data-form="save-notification-style">
+    <div style="background:rgba(212,175,55,0.12);border:1px solid rgba(212,175,55,0.35);padding:14px;border-radius:14px;font-size:12.5px;line-height:1.8;color:#fef08a">
+      <strong>تخصيص تجربة التنبيهات في هاتفك:</strong><br>
+      اختر نغمة التنبيه المفضلة ونمط الاهتزاز عند وصول طلبية أو رسالة جديدة.
+    </div>
+
+    <label>نغمة إشعار المتجر (Ringtone / Chime)
+      <select name="chime" id="sel-chime-type">
+        <option value="gold-chime" ${activeChimeType==='gold-chime'?'selected':''}>⭐ رنين المتجر الذهبي (نغمة وترية ناعمة - الافتراضي)</option>
+        <option value="crystal-bell" ${activeChimeType==='crystal-bell'?'selected':''}>🔔 جرس بلوري فاخر (Crystal Bell)</option>
+        <option value="modern-pulse" ${activeChimeType==='modern-pulse'?'selected':''}>⚡ نبض تقني حديث (Modern Pulse)</option>
+        <option value="soft-marimba" ${activeChimeType==='soft-marimba'?'selected':''}>🎵 نغمة الماريمبا الدافئة (Warm Acoustic)</option>
+        <option value="silent" ${activeChimeType==='silent'?'selected':''}>🔕 صامت (بدون صوت - اهتزاز فقط)</option>
+      </select>
+    </label>
+    
+    <div class="inline">
+      <button type="button" class="btn small secondary" data-action="preview-selected-chime">
+        🔊 استماع وتجربة النغمة المحددة الآن
+      </button>
+    </div>
+
+    <label>نمط اهتزاز الهاتف (Vibration Pattern)
+      <select name="vibration">
+        <option value="standard" ${activeVibeType==='standard'?'selected':''}>📱 اهتزاز قياسي متوازن</option>
+        <option value="pulse" ${activeVibeType==='pulse'?'selected':''}>⚡ نبضات اهتزاز متكررة وسريعة</option>
+        <option value="long" ${activeVibeType==='long'?'selected':''}>📳 اهتزاز مميز وطويل</option>
+        <option value="none" ${activeVibeType==='none'?'selected':''}>🚫 بدون اهتزاز</option>
+      </select>
+    </label>
+
+    <div style="border-top:1px dashed var(--line);padding-top:12px;margin-top:6px">
+      <button type="button" class="btn small" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="test-phone-notification">
+        📲 إرسال إشعار تجريبي كامل لشاشة هاتفك
+      </button>
+    </div>
+
+    <button class="btn full" type="submit">حفظ إعدادات التنبيهات</button>
+    <div class="form-error" hidden></div>
+  </form>
+  `);
+}
+
+
+/* ========================================================
    Mobile Push Notifications Engine (محرك إشعارات الجوال المنبثقة)
    ======================================================== */
 let knownNoticeIds = new Set();
 let isFirstNoticeCheck = true;
 
 // تشغيل نغمة تنبيه لطيفة مع الإشعار
-function playNotificationChime() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
-    gain.gain.setValueAtTime(0.25, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.35);
-  } catch(e) {}
-}
+function playNotificationChime() { playSelectedNotificationChime(); }
 
 // إرسال الإشعار المنبثق لشاشة الجوال ولوحة الإشعارات العلوية
 async function triggerMobileNotification(title, message, url = './') {
@@ -120,6 +226,13 @@ function paintAppearance(){
   else{bar.hidden=true;bar.textContent='';}
  }
  paintInterface();
+
+ const loadEl = document.querySelector('.loading');
+ if (loadEl) {
+  const lTitle = a.loadingTitle || a.storeName || localStorage.getItem('ts-loading-title') || 'التسوق';
+  const lSub = a.loadingSubtitle || localStorage.getItem('ts-loading-sub') || 'نجهّز لك تجربة أجمل…';
+  loadEl.innerHTML = `${esc(lTitle)}<span>${esc(lSub)}</span>`;
+ }
  document.querySelectorAll('.notice-count').forEach(el=>{const n=noticeCache.filter(n=>!n.read).length;const text=n?String(n):'';if(el.textContent!==text)el.textContent=text;});
 }
 let paintQueued=false;new MutationObserver(()=>{if(paintQueued)return;paintQueued=true;setTimeout(()=>{paintQueued=false;paintAppearance();},0);}).observe(document.getElementById('app'),{childList:true,subtree:true});
@@ -146,13 +259,50 @@ async function updateNotices(){
     }
   }catch{}
 }
-setInterval(()=>{if(!document.hidden&&user){updateNotices();refreshDesigns();refreshAppearance();refreshBanners();}},20000);
+
+/* ========================================================
+   Instant Real-Time Live Auto-Update Engine (محرك التحديث الفوري والتلقائي)
+   ======================================================== */
+let isLiveSyncBusy = false;
+
+async function executeInstantLiveSync() {
+  if (isLiveSyncBusy || !user || document.hidden) return;
+  isLiveSyncBusy = true;
+  try {
+    await updateNotices();
+    // إذا كان في لوحة التحكم أو الطلبات، تحديث الطلبات والمستخدمين فوراً
+    if (typeof refresh === 'function' && ['home', 'orders', 'courier', 'history', 'users', 'staff'].includes(page)) {
+      await refresh();
+    }
+  } catch(e) {
+  } finally {
+    isLiveSyncBusy = false;
+  }
+}
+
+// تحديث فوري وتلقائي كل 3 ثوانٍ
+setInterval(executeInstantLiveSync, 3500);
+
+// تحديث فوري فائق السرعة بمجرد الرجوع أو فتح الشاشة
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && user) {
+    executeInstantLiveSync();
+  }
+});
+window.addEventListener('focus', () => {
+  if (user) executeInstantLiveSync();
+});
+
 
 function appearanceEditor(){
  const a=storeAppearance;draftLogo=a.logo;
  modal('شاشة تعديل شكل المتجر والأيقونة والاسم',`<form class="form" data-form="appearance">
  <label>اسم المتجر<input name="storeName" value="${esc(a.storeName)}" required maxlength="60" placeholder="اسم متجرك"></label>
  <label>الوصف أو الشعار الفرعي<input name="subtitle" value="${esc(a.subtitle||'كل ما تحب، أقرب إليك')}" maxlength="100" placeholder="مثال: كل ما تحب، أقرب إليك"></label>
+ <div class="row">
+  <label>عنوان شاشة الانتظار والتحميل (Loading Title)<input name="loadingTitle" value="${esc(a.loadingTitle||a.storeName||'التسوق')}" maxlength="60" placeholder="مثال: التسوق"></label>
+  <label>عبارة الانتظار والترحيب (Waiting Text)<input name="loadingSubtitle" value="${esc(a.loadingSubtitle||'نجهّز لك تجربة أجمل…')}" maxlength="120" placeholder="مثال: نجهّز لك تجربة تسوق استثنائية…"></label>
+ </div>
  <div class="appearance-colors">
   <label>اللون الرئيسي<input type="color" name="primary" value="${a.primary}"></label>
   <label>الخلفية<input type="color" name="background" value="${a.background}"></label>
@@ -182,50 +332,150 @@ function appearancePreview(){
 }
 
 // Banners & Ads Management (إدارة وتعديل الإعلانات)
+
+/* ========================================================
+   Advanced Banner & Advertisement Board Manager
+   ======================================================== */
 async function bannersManager(){
- const all=await request('/banners/all');
- modal('إدارة إعلانات وبانرات المتجر',`<div class="stack">
- <button class="btn" data-action="new-banner">+ إضافة إعلان وبانر جديد</button>
- <p class="hint">تظهر هذه الإعلانات والبانرات للعملاء في أعلى واجهة المتجر وتتحرك تلقائياً.</p>
- ${all.map(b=>`<article class="ticket-card" style="border-right:5px solid ${b.active?'var(--green)':'var(--muted)'}">
-  <div style="display:flex;gap:14px;align-items:center">
-   ${b.image?`<img src="${esc(b.image)}" style="width:80px;height:55px;object-fit:cover;border-radius:8px" alt="إعلان">`:''}
-   <div style="flex:1"><strong>${esc(b.title)}</strong><small style="display:block">${esc(b.subtitle)} · ${b.active?'نشط':'معطل'}</small></div>
-   <button class="btn small secondary" data-action="edit-banner" data-id="${esc(b.id)}">تعديل</button>
-   <button class="btn small danger" data-action="delete-banner" data-id="${esc(b.id)}">حذف</button>
-  </div>
- </article>`).join('')||'<p class="hint">لا توجد إعلانات بعد. اضغط «إضافة إعلان جديد» لإنشاء أول بانر.</p>'}
+ const all = await request('/banners/all');
+ modal('لوحة إدارة وتخصيص إعلانات وبانرات المتجر', `<div class="stack">
+ <div style="background:rgba(212,175,55,0.12);border:1px solid rgba(212,175,55,0.35);padding:14px;border-radius:14px;font-size:12.5px;line-height:1.8;color:#fef08a">
+  <strong>لوحة التحكم الشاملة في الإعلانات والبانرات:</strong><br>
+  أضف إعلانات مصورة، خصص طريقة الحركة (انزلاق، تلاشي، تكبير)، وحدد مكان الظهور في <b>صفحة الدخول</b> أو <b>الصفحة الرئيسية للمتجر</b>.
+ </div>
+ 
+ <div class="inline" style="justify-content:space-between">
+  <button class="btn small" type="button" data-action="new-banner">+ إضافة إعلان وبانر جديد</button>
+ </div>
+ 
+ <div style="display:grid;gap:12px;max-height:52vh;overflow-y:auto;padding-left:4px">
+  ${all.map(b=>`
+  <article class="ticket-card" style="border:1px solid rgba(212,175,55,0.25);border-right:6px solid ${b.active?'#22c55e':'#ef4444'};background:rgba(4,25,19,0.85);border-radius:14px;padding:14px">
+   <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+    ${b.image?`<img src="${esc(b.image)}" style="width:90px;height:65px;object-fit:cover;border-radius:10px;border:1px solid rgba(212,175,55,0.3)" alt="إعلان">`:''}
+    <div style="flex:1;min-width:200px">
+     <div style="display:flex;gap:8px;align-items:center">
+      <strong style="color:#ffffff;font-size:14.5px">${esc(b.title)}</strong>
+      <span class="badge" style="background:var(--vip-gold-gradient);color:#031711;font-size:10px;font-weight:bold">${esc(b.badge||'★ عرض خاص')}</span>
+     </div>
+     <small style="display:block;color:#cbd5e1;margin-top:4px">${esc(b.subtitle)}</small>
+     <div style="display:flex;gap:10px;font-size:11px;color:#94a3b8;margin-top:6px;flex-wrap:wrap">
+      <span>الظهور: <b style="color:#fef08a">${b.placement==='Login'?'صفحة الدخول فقط':b.placement==='Home'?'الرئيسية فقط':'الدخول والرئيسية معا'}</b></span>
+      <span>·</span>
+      <span>الحركة: <b style="color:#fef08a">${b.animation==='fade'?'تلاشي ناعم':b.animation==='zoom'?'تكبير سينمائي':'انزلاق سلس'}</b></span>
+      <span>·</span>
+      <span>الحالة: <b style="color:${b.active?'#22c55e':'#ef4444'}">${b.active?'نشط ومفعل':'معطل مؤقتا'}</b></span>
+     </div>
+    </div>
+    <div class="inline" style="gap:6px">
+     <button class="btn small secondary" type="button" data-action="edit-banner" data-id="${esc(b.id)}">تعديل الإعلان</button>
+     <button class="btn small danger" type="button" data-action="delete-banner" data-id="${esc(b.id)}">حذف</button>
+    </div>
+   </div>
+  </article>`).join('')||'<p class="hint">لا توجد إعلانات بعد. اضغط «إضافة إعلان وبانر جديد» للبدء.</p>'}
+ </div>
+ 
+ <button class="btn full secondary" type="button" data-action="close">إغلاق</button>
  </div>`);
 }
+
 function bannerEditor(id){
- const b=storeBanners.find(x=>x.id===id)||{title:'',subtitle:'',image:'',linkUrl:'',buttonText:'اكتشف الآن',bgColor:'#087e66',textColor:'#ffffff',active:true,sortOrder:0};
- modal(id?'تعديل الإعلان':'إضافة إعلان وبانر جديد',`<form class="form" data-form="banner" data-id="${esc(id||'')}">
- <label>عنوان الإعلان الرئيسي<input name="title" value="${esc(b.title)}" required minlength="2" maxlength="100" placeholder="مثال: خصومات حصرية لموسم الشتاء"></label>
- <label>العنوان الفرعي أو التفاصيل<input name="subtitle" value="${esc(b.subtitle)}" maxlength="200" placeholder="مثال: خصم يصل إلى 40% على جميع الأزياء"></label>
- <label>صورة الإعلان أو البانر<input type="file" id="banner-image" accept="image/png,image/jpeg,image/webp"></label>
- <input type="hidden" name="image" id="banner-image-data" value="${esc(b.image)}">
- <div id="banner-preview-box">${b.image?`<img src="${esc(b.image)}" style="width:100%;max-height:160px;object-fit:cover;border-radius:12px;margin:10px 0" alt="معاينة البانر">`:''}</div>
- <div class="row">
-  <label>لون خلفية البانر<input type="color" name="bgColor" value="${b.bgColor}"></label>
-  <label>لون نص البانر<input type="color" name="textColor" value="${b.textColor}"></label>
- </div>
- <div class="row">
-  <label>نص الزر<input name="buttonText" value="${esc(b.buttonText)}" maxlength="40"></label>
-  <label>ترتيب العرض<input type="number" name="sortOrder" value="${b.sortOrder}" min="0"></label>
- </div>
- <label>رابط التوجيه (اختياري)<input name="linkUrl" value="${esc(b.linkUrl)}" placeholder="قسم أو رابط المنتج"></label>
- <label class="check"><input type="checkbox" name="active" ${b.active?'checked':''}>الإعلان نشط ويظهر للعملاء</label>
- <button class="btn full" type="submit">حفظ الإعلان</button>
- <div class="form-error" hidden></div></form>`);
- $('#banner-image').onchange=async e=>{
-  const file=e.target.files[0];if(!file)return;
-  try{
-   const data=await normalizeImage(file,1200,800000);
-   $('#banner-image-data').value=data;
-   $('#banner-preview-box').innerHTML=`<img src="${esc(data)}" style="width:100%;max-height:160px;object-fit:cover;border-radius:12px;margin:10px 0" alt="معاينة البانر">`;
-  }catch(err){toast(err.message);}
+ const b = storeBanners.find(x=>x.id===id) || {
+  title:'', subtitle:'', image:'', linkUrl:'', buttonText:'اكتشف العرض الآن',
+  bgColor:'#087e66', textColor:'#ffffff', placement:'Both', animation:'slide',
+  badge:'★ عرض خاص وحصري', active:true, sortOrder:0
  };
+ 
+ modal(id?'تعديل الإعلان والبانر':'إضافة إعلان وبانر جديد', `<form class="form" data-form="banner" data-id="${esc(id||'')}">
+ <label>عنوان الإعلان الرئيسي
+  <input name="title" value="${esc(b.title)}" required minlength="2" maxlength="100" placeholder="مثال: عروض وتخفيضات موسم الشتاء الحصرية">
+ </label>
+ <label>العنوان الفرعي أو الوصف الترويجي
+  <input name="subtitle" value="${esc(b.subtitle)}" maxlength="200" placeholder="مثال: خصم فوري يصل إلى 40% وتوصيل مجاني سريع لجميع الطلبات">
+ </label>
+ 
+ <div class="row">
+  <label>شارة الإعلان البارزة (Badge)
+   <input name="badge" value="${esc(b.badge||'★ عرض خاص وحصري')}" maxlength="40" placeholder="مثال: 🔥 خصم 40% أو ★ تشكيلة الموسم">
+  </label>
+  <label>مكان ظهور الإعلان في المتجر
+   <select name="placement">
+    <option value="Both" ${b.placement==='Both'?'selected':''}>⭐ يظهر في صفحة الدخول والصفحة الرئيسية معاً</option>
+    <option value="Login" ${b.placement==='Login'?'selected':''}>🔐 صفحة الدخول الرئيسية فقط</option>
+    <option value="Home" ${b.placement==='Home'?'selected':''}>🛍️ الصفحة الرئيسية لكتالوج المتجر فقط</option>
+   </select>
+  </label>
+ </div>
+
+ <div class="row">
+  <label>طريقة وحركة العرض (Animation / Motion)
+   <select name="animation">
+    <option value="slide" ${b.animation==='slide'?'selected':''}>↔️ انزلاق تلقائي سلس (Smooth Slide)</option>
+    <option value="fade" ${b.animation==='fade'?'selected':''}>✨ تلاشي وتداخل ناعم (Soft Fade)</option>
+    <option value="zoom" ${b.animation==='zoom'?'selected':''}>🔍 تكبير سينمائي بطيء (Ken Burns Zoom)</option>
+   </select>
+  </label>
+  <label>ترتيب الأسبقية في العرض
+   <input type="number" name="sortOrder" value="${b.sortOrder||0}" min="0">
+  </label>
+ </div>
+
+ <label>صورة الإعلان أو البانر (PNG / JPEG / WebP)
+  <input type="file" id="banner-image" accept="image/png,image/jpeg,image/webp">
+ </label>
+ <label>أو ضع رابط صورة عالي الدقة مباشرة
+  <input name="imageUrl" id="banner-img-url" value="${esc(b.image)}" placeholder="https://images.unsplash.com/photo-...">
+ </label>
+ <input type="hidden" name="image" id="banner-image-data" value="${esc(b.image)}">
+ 
+ <div id="banner-preview-box">
+  ${b.image?`<img src="${esc(b.image)}" style="width:100%;max-height:160px;object-fit:cover;border-radius:12px;margin:8px 0;border:1px solid rgba(212,175,55,0.3)" alt="معاينة الإعلان">`:''}
+ </div>
+
+ <div class="row">
+  <label>لون خلفية الإعلان<input type="color" name="bgColor" value="${b.bgColor||'#087e66'}"></label>
+  <label>لون نصوص الإعلان<input type="color" name="textColor" value="${b.textColor||'#ffffff'}"></label>
+ </div>
+
+ <div class="row">
+  <label>نص زر الشراء أو الاكتشاف<input name="buttonText" value="${esc(b.buttonText||'اكتشف العرض الآن')}" maxlength="40"></label>
+  <label>الرابط أو القسم الموجه إليه<input name="linkUrl" value="${esc(b.linkUrl||'الكل')}" placeholder="الكل أو أزياء أو إلكترونيات..."></label>
+ </div>
+
+ <label class="check">
+  <input type="checkbox" name="active" ${b.active?'checked':''}> <strong>تفعيل الإعلان فوراً وعرضه للمستخدمين</strong>
+ </label>
+
+ <button class="btn full" type="submit">حفظ الإعلان وتطبيقه فوراً</button>
+ <div class="form-error" hidden></div>
+ </form>`);
+
+ const fileInput = document.getElementById('banner-image');
+ if(fileInput){
+  fileInput.onchange = async () => {
+   const file = fileInput.files?.[0];
+   if(!file) return;
+   const reader = new FileReader();
+   reader.onload = e => {
+    const dataUrl = e.target?.result;
+    document.getElementById('banner-image-data').value = dataUrl;
+    document.getElementById('banner-preview-box').innerHTML = `<img src="${dataUrl}" style="width:100%;max-height:160px;object-fit:cover;border-radius:12px;margin:8px 0;border:1px solid rgba(212,175,55,0.3)" alt="معاينة الصورة">`;
+   };
+   reader.readAsDataURL(file);
+  };
+ }
+ const urlInput = document.getElementById('banner-img-url');
+ if(urlInput){
+  urlInput.oninput = () => {
+   const url = urlInput.value.trim();
+   if(url){
+    document.getElementById('banner-image-data').value = url;
+    document.getElementById('banner-preview-box').innerHTML = `<img src="${url}" style="width:100%;max-height:160px;object-fit:cover;border-radius:12px;margin:8px 0;border:1px solid rgba(212,175,55,0.3)" alt="معاينة الصورة">`;
+   }
+  };
+ }
 }
+
 
 // Detailed Staff Management (تطوير وإدارة عمال المتجر تفصيلياً)
 async function staffManager(){
@@ -300,15 +550,36 @@ async function appearanceAction(name,id){
  if(name==='delete-staff'){await request('/staff/'+id,'DELETE');await refresh();await staffManager();toast('تم حذف ملف العامل');return true;}
  if(name==='notices'){await noticesCenter();return true;}
  if(name==='enable-notifications'||name==='test-phone-notification'){await requestMobileNotificationPermission();return true;}
+ if(name==='notification-style'){notificationStyleModal();return true;}
+ if(name==='preview-selected-chime'){
+  const sel = document.getElementById('sel-chime-type');
+  playSelectedNotificationChime(sel ? sel.value : activeChimeType);
+  toast('تم تشغيل معاينة نغمة التنبيه');
+  return true;
+ }
  if(name==='compose-notice'){await composeNotice();return true;}
  if(name==='read-notice'){await request('/notifications/'+id+'/read','PUT');await noticesCenter();return true;}
  return false;
 }
 
 async function appearanceForm(kind,id,f,form){
+ if(kind==='save-notification-style'){
+  activeChimeType = f.chime || 'gold-chime';
+  activeVibeType = f.vibration || 'standard';
+  localStorage.setItem('ts-notification-chime', activeChimeType);
+  localStorage.setItem('ts-notification-vibe', activeVibeType);
+  closeModal();
+  playSelectedNotificationChime();
+  toast('تم حفظ نغمة وشكل إشعارات التطبيق بنجاح');
+  return true;
+ }
  if(kind==='appearance'){
   if(imageLoading)throw new Error('انتظر اكتمال تجهيز الصورة');
-  storeAppearance=await request('/appearance','PUT',{storeName:f.storeName,subtitle:f.subtitle,primary:f.primary,background:f.background,ink:f.ink,font:f.font,logo:draftLogo,announcement:f.announcement||'',announcementActive:f.announcementActive==='on'});
+  storeAppearance=await request('/appearance','PUT',{storeName:f.storeName,subtitle:f.subtitle,loadingTitle:f.loadingTitle||f.storeName||'التسوق',loadingSubtitle:f.loadingSubtitle||'نجهّز لك تجربة أجمل…',primary:f.primary,background:f.background,ink:f.ink,font:f.font,logo:draftLogo,announcement:f.announcement||'',announcementActive:f.announcementActive==='on'});
+  try {
+   localStorage.setItem('ts-loading-title', f.loadingTitle||f.storeName||'التسوق');
+   localStorage.setItem('ts-loading-sub', f.loadingSubtitle||'نجهّز لك تجربة أجمل…');
+  } catch(e){}
   closeModal();paintAppearance();toast('تم تطبيق شكل وهوية المتجر والأيقونة الجديدة بنجاح');return true;
  }
  if(kind==='banner'){

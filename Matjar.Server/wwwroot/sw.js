@@ -1,4 +1,4 @@
-const CACHE_NAME = 'altasawuq-shell-v1.6';
+const CACHE_NAME = 'altasawuq-shell-v1.9';
 const SHELL_ASSETS = [
   './',
   './index.html',
@@ -35,9 +35,11 @@ self.addEventListener('activate', event => {
   );
 });
 
+/* استراتيجية التحديث الفوري: Network-First لجلب أحدث التعديلات والملفات فوراً من السيرفر */
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET' || url.pathname.startsWith('/api/')) return;
+  
   event.respondWith(
     fetch(event.request)
       .then(response => {

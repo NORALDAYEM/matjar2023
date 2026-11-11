@@ -1,3 +1,46 @@
+
+/* ==========================================================================
+   ADVANCED GOOGLE MAPS & GOOGLE PLAY APP INTEGRATION (خرائط جوجل المتطورة وتطبيق Google Play)
+   ========================================================================== */
+
+// حساب المسافة الحقيقية بالكيلومتر بين نقطتين جغرافيتين
+function calcDistanceKm(lat1, lon1, lat2, lon2) {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return 0;
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+// فتح الملاحة التوجيهية مباشرة في تطبيق خرائط Google Play / Google Maps المثبت على الجوال
+function openInGooglePlayMaps(lat, lng, label = 'موقع تسليم الطلب') {
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  
+  if (isAndroid) {
+    // 1. محاولة فتح تطبيق خرائط Google Play الرسمي مباشرة للملاحة خطوة بخطوة
+    const navGeo = `google.navigation:q=${lat},${lng}&mode=d`;
+    window.location.href = navUri = navGeo;
+    setTimeout(() => {
+      // 2. إذا لم يفتح، توجيه إلى رابط خرائط Google التوجيهي
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, '_blank');
+    }, 600);
+  } else if (isIOS) {
+    // فتح تطبيق Google Maps على الآيفون
+    window.location.href = `comgooglemaps://?daddr=${lat},${lng}&directionsmode=driving`;
+    setTimeout(() => {
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, '_blank');
+    }, 600);
+  } else {
+    // متصفح الكمبيوتر
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, '_blank');
+  }
+}
+
 let checkoutDestination=null, mapView=null, mapTimer=null, sharingWatch=null, sharingOrder=null, sharingBusy=false, lastSent=0;
 
 function disposeMap(){clearInterval(mapTimer);mapTimer=null;if(mapView){mapView.remove();mapView=null;}}
@@ -106,10 +149,21 @@ async function tracking(id){
    let buttonsHtml='';
    if(d.destination){
     const dest=d.destination;
-    buttonsHtml+=`<a class="btn-gmaps" target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps/dir/?api=1&destination=${dest.latitude},${dest.longitude}&travelmode=driving">
-     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-     ${own?'فتح الملاحة عبر خرائط Google لموقع العميل':'الملاحة إلى موقع التسليم عبر Google Maps'}
-    </a>`;
+    let etaHtml = '';
+    if(d.courierLocation){
+      const km = calcDistanceKm(d.courierLocation.latitude, d.courierLocation.longitude, dest.latitude, dest.longitude);
+      const estMin = Math.max(3, Math.round(km * 2.5 + 4));
+      etaHtml = `<div style="background:rgba(212,175,55,0.14);border:1px solid rgba(212,175,55,0.4);padding:8px 14px;border-radius:10px;color:#fef08a;font-size:12px;width:100%;text-align:center;font-weight:bold;margin-bottom:8px">
+        📍 المسافة المتبقية للمندوب: ${km.toFixed(1)} كم · الوصول التقديري: ${estMin} دقيقة
+      </div>`;
+    }
+    buttonsHtml += etaHtml;
+    buttonsHtml += `<button type="button" class="btn" style="background:#1a73e8;color:#ffffff;font-weight:bold;gap:8px" onclick="openInGooglePlayMaps(${dest.latitude},${dest.longitude})">
+     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+     <span>🚀 فتح الملاحة في تطبيق خرائط Google Play</span>
+    </button>
+    <a class="btn-gmaps" target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps/dir/?api=1&destination=${dest.latitude},${dest.longitude}&travelmode=driving">
+     <span>${own?"فتح الملاحة عبر خرائط Google لموقع العميل":"الملاحة إلى موقع التسليم عبر Google Maps"}</span></a>`;
    }
    if(d.courierLocation&&!own){
     const cLoc=d.courierLocation;
@@ -129,7 +183,7 @@ async function tracking(id){
  mapTimer=setInterval(async()=>{
   if(!$('#modal').open)return disposeMap();
   try{const d=await request('/orders/'+id+'/tracking');paint(d);}catch(e){clearInterval(mapTimer);}
- },8000);
+ },2500);
 }
 
 function startSharing(id){

@@ -1,3 +1,78 @@
+
+/* ========================================================
+   Interactive Product Details & Multi-Image Gallery Viewer
+   ======================================================== */
+function viewProductModal(id){
+ const p = products.find(x => x.id === id) || (dashboard?.products || []).find(x => x.id === id);
+ if (!p) return;
+ const mainImg = p.image || defaultRealImages[p.icon] || '';
+ const gallery = [mainImg, ...(p.galleryImages || [])].filter(Boolean);
+ 
+ modal(p.name, `
+ <div class="stack" style="text-align:right">
+  <div style="width:100%;height:260px;border-radius:18px;overflow:hidden;background:#031711;border:1px solid rgba(212,175,55,0.3);position:relative">
+   ${mainImg ? `<img id="gallery-main-display" src="${esc(mainImg)}" style="width:100%;height:100%;object-fit:cover;transition:all .3s" alt="${esc(p.name)}">` : art(p.icon)}
+   <span class="vip-product-badge" style="top:12px;right:12px">${p.stock ? '★ متوفر للتسليم' : 'نفد من المخزون'}</span>
+  </div>
+
+  ${gallery.length > 1 ? `
+  <div style="display:flex;gap:10px;overflow-x:auto;padding:6px 0">
+   ${gallery.map((img, idx) => `
+    <div style="width:65px;height:65px;border-radius:12px;overflow:hidden;border:2px solid ${idx===0?'#fef08a':'rgba(212,175,55,0.3)'};cursor:pointer;flex-shrink:0" onclick="document.getElementById('gallery-main-display').src='${esc(img)}'">
+     <img src="${esc(img)}" style="width:100%;height:100%;object-fit:cover" alt="زاوية إضافية">
+    </div>`).join('')}
+  </div>` : ''}
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+   <span style="color:#fef08a;font-size:13px;font-weight:600">${esc(p.category)}</span>
+   <span class="vip-price" style="font-size:22px">${money(p.price)} <small style="color:#94a3b8">${currencyLabel(commerce.currency)}</small></span>
+  </div>
+
+  <p style="font-size:13.5px;color:#e2e8f0;line-height:1.8;background:rgba(255,255,255,0.05);padding:14px;border-radius:14px;border:1px solid rgba(212,175,55,0.2)">
+   ${esc(p.description || 'منتج فاخر عالي الجودة تم اختياره بعناية مع ضمان أصلي وتوصيل سريع.')}
+  </p>
+
+  <div class="inline" style="justify-content:space-between;gap:12px;margin-top:10px">
+   <button class="btn full" style="background:var(--vip-gold-gradient);color:#031711;font-weight:800;font-size:15px" data-action="add" data-id="${esc(p.id)}">
+    🛒 إضافة إلى حقيبة التسوق
+   </button>
+  </div>
+ </div>`);
+}
+
+
+function adminEditPasswordModal(id){
+ const u = (dashboard.users||[]).find(x=>x.id===id);
+ if(!u) return;
+ modal('تعديل كلمة المرور لحساب: ' + u.name, `
+ <form class="form" data-form="admin-save-password" data-id="${esc(id)}">
+  <div style="background:rgba(212,175,55,0.1);border:1px solid rgba(212,175,55,0.3);padding:12px;border-radius:12px;font-size:12px;color:#fef08a">
+   أدخل كلمة المرور الجديدة التي ترغب في تعيينها للمستخدم <b>${esc(u.name)}</b> (${esc(u.email)}).
+  </div>
+  <label>كلمة المرور الجديدة (6 أحرف أو أكثر)
+   <input name="password" type="text" minlength="6" maxlength="128" required placeholder="اكتب كلمة المرور الجديدة هنا">
+  </label>
+  <button class="btn full" type="submit">حفظ كلمة المرور وتفعيلها فوراً</button>
+  <div class="form-error" hidden></div>
+ </form>`);
+}
+
+function adminDeleteUserModal(id){
+ const u = (dashboard.users||[]).find(x=>x.id===id);
+ if(!u) return;
+ modal('تأكيد حذف الحساب نهائياً', `
+ <div class="stack">
+  <p style="color:#ef4444;font-size:14px;line-height:1.7">
+   ⚠️ هل أنت متأكد من رغبتك في حذف حساب المستخدم <b>${esc(u.name)}</b> (${esc(u.email)}) نهائياً؟
+   <br><small style="color:#94a3b8">سيتم إلغاء وصول المستخدم وإنهاء كافة جلساته النشطة.</small>
+  </p>
+  <div class="inline" style="justify-content:flex-end;gap:10px;margin-top:14px">
+   <button class="btn ghost" type="button" data-action="close">إلغاء التراجع</button>
+   <button class="btn danger" type="button" data-action="confirm-admin-delete" data-id="${esc(id)}">تأكيد الحذف النهائي</button>
+  </div>
+ </div>`);
+}
+
 'use strict';
 const $ = s => document.querySelector(s);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -145,7 +220,7 @@ function render(){
  document.body.dataset.page = page;
  if(!user){renderAuth();return;}
  const current=navs().find(n=>n[0]===page)||navs()[0];
- $('#app').innerHTML=`<div id="announcement-banner" class="announcement-bar" hidden></div><aside class="sidebar"><div class="brand"><img src="icon.svg" alt="شعار المتجر"><div>${esc(storeAppearance.storeName)}<small style="color:var(--vip-gold);font-weight:bold">★ متجر رسمي معتمد</small></div></div><nav class="nav" aria-label="القائمة الرئيسية">${navHtml()}</nav><div class="sidebar-footer"><div class="panel" style="background:linear-gradient(135deg, rgba(6,78,59,0.08) 0%, rgba(212,175,55,0.12) 100%);border:1px solid rgba(212,175,55,0.3);padding:17px"><strong style="font-size:12px;color:var(--vip-emerald)">تجربة تسوق فاخرة واستثنائية</strong><p class="hint" style="margin-top:8px">منتجات حصرية بجودة فائقة وخدمة تسليم مباشرة على مدار الساعة.</p></div><div class="profile"><span class="avatar" style="border:2px solid var(--vip-gold)">${esc(user.name[0])}</span><div><strong>${esc(user.name)}</strong><small style="color:var(--vip-gold)">${roles[user.role]}</small></div></div><button class="btn ghost small" data-action="logout">${icon('logout',17)}تسجيل الخروج</button></div></aside><main class="content"><header class="topbar"><div><div class="eyebrow">${user.role==='Customer'?'مرحباً بك في عالم '+esc(storeAppearance.storeName)+' الفاخر':roles[user.role]+' / مساحة التحكم الرئيسية'}</div><div class="title">${current[2]} <small>· ${esc(user.name)}</small></div></div><div class="left"><button class="icon-btn" data-action="notices" aria-label="الإشعارات">${icon('bell')}<small class="notice-count"></small></button>${pill('متجر رسمي معتمد','shield')}<button class="icon-btn" data-action="navigate" data-id="${user.role==='Customer'?'cart':'orders'}" aria-label="${user.role==='Customer'?'فتح السلة':'عرض الطلبات'}">${icon(user.role==='Customer'?'cart':'box')}</button><span class="avatar">${esc(user.name[0])}</span></div></header>${demo?`<div class="demo-bar" style="background:#fff9ea;border-color:#f5dc99"><span>⭐ الحساب الرئيسي للمتجر: <b>Ahmed</b> (الرمز: <b>583192</b>)</span><button data-action="switch-role">تبديل الواجهة</button><button data-action="appearance">🎨 مظهر المتجر واللوجو</button><button data-action="banners-manager">📢 إدارة الإعلانات</button><button data-action="connect">ربط المتجر</button></div>`:''}<section id="view"></section></main><nav class="mobile-nav" aria-label="تنقل التطبيق">${navHtml(true)}</nav>`;
+ $('#app').innerHTML=`<div id="announcement-banner" class="announcement-bar" hidden></div><aside class="sidebar"><div class="brand"><img src="icon.svg" alt="شعار المتجر"><div>${esc(storeAppearance.storeName)}<small style="color:var(--vip-gold);font-weight:bold">★ متجر رسمي معتمد</small></div></div><nav class="nav" aria-label="القائمة الرئيسية">${navHtml()}</nav><div class="sidebar-footer"><div class="panel" style="background:linear-gradient(135deg, rgba(6,78,59,0.08) 0%, rgba(212,175,55,0.12) 100%);border:1px solid rgba(212,175,55,0.3);padding:17px"><strong style="font-size:12px;color:var(--vip-emerald)">تجربة تسوق فاخرة واستثنائية</strong><p class="hint" style="margin-top:8px">منتجات حصرية بجودة فائقة وخدمة تسليم مباشرة على مدار الساعة.</p></div><div class="profile"><span class="avatar" style="border:2px solid var(--vip-gold)">${esc(user.name[0])}</span><div><strong>${esc(user.name)}</strong><small style="color:var(--vip-gold)">${roles[user.role]}</small></div></div><button class="btn ghost small" data-action="logout">${icon('logout',17)}تسجيل الخروج</button></div></aside><main class="content"><header class="topbar"><div><div class="eyebrow">${user.role==='Customer'?'مرحباً بك في عالم '+esc(storeAppearance.storeName)+' الفاخر':roles[user.role]+' / مساحة التحكم الرئيسية'}</div><div class="title">${current[2]} <small>· ${esc(user.name)}</small></div></div><div class="left"><button class="icon-btn" data-action="instant-refresh" title="تحديث المتجر والبيانات فوراً" aria-label="تحديث">${icon('refresh',18)}</button><button class="icon-btn" data-action="notices" aria-label="الإشعارات">${icon('bell')}<small class="notice-count"></small></button>${pill('متجر رسمي معتمد','shield')}<button class="icon-btn" data-action="navigate" data-id="${user.role==='Customer'?'cart':'orders'}" aria-label="${user.role==='Customer'?'فتح السلة':'عرض الطلبات'}">${icon(user.role==='Customer'?'cart':'box')}</button><span class="avatar">${esc(user.name[0])}</span></div></header>${demo?`<div class="demo-bar" style="background:#fff9ea;border-color:#f5dc99"><span>⭐ الحساب الرئيسي للمتجر: <b>Ahmed</b> (الرمز: <b>583192</b>)</span><button data-action="switch-role">تبديل الواجهة</button><button data-action="appearance">🎨 مظهر المتجر واللوجو</button><button data-action="banners-manager">📢 إدارة الإعلانات</button><button data-action="connect">ربط المتجر</button></div>`:''}<section id="view"></section></main><nav class="mobile-nav" aria-label="تنقل التطبيق">${navHtml(true)}</nav>`;
  paintAppearance();
  const view=$('#view');
  if(page==='home')view.innerHTML=user.role==='Support'?supportHome():user.role==='Customer'?shop():user.role==='Courier'?courier(false):overview();
@@ -162,7 +237,7 @@ function render(){
 function productCard(p,manage=false){
  const realImg = p.image || defaultRealImages[p.icon] || '';
  return `<article class="vip-product-card">
-  <div class="vip-product-img-box">
+  <div class="vip-product-img-box" style="cursor:pointer" data-action="view-product" data-id="${esc(p.id)}">
    <span class="vip-product-badge">${p.stock ? '★ متوفر للتسليم' : 'نفد من المخزون'}</span>
    ${realImg ? `<img src="${esc(realImg)}" class="vip-product-img" alt="${esc(p.name)}" loading="lazy">` : art(p.icon)}
    ${!manage ? `<button data-action="favorite" data-id="${esc(p.id)}" class="wish ${favorites.includes(p.id)?'selected':''}" aria-label="إضافة للمفضلة">${icon('heart',15)}</button>` : ''}
@@ -181,10 +256,75 @@ function productCard(p,manage=false){
  </article>`;
 }
 
-function renderBannersCarousel(){
- if(!storeBanners?.length)return '';
- return `<div class="banner-carousel">${storeBanners.map(b=>`<div class="banner-card" style="background-color:${esc(b.bgColor)};color:${esc(b.textColor)};background-image:linear-gradient(rgba(0,0,0,0.3),rgba(0,0,0,0.65)),url(${esc(b.image||'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&auto=format&fit=crop&q=80')})"><div><span class="vip-brand-badge">★ عرض حصري معتمد</span><h2>${esc(b.title)}</h2>${b.subtitle?`<p>${esc(b.subtitle)}</p>`:''}<button class="btn small" style="background:var(--vip-gold-gradient);color:#0a1a12;font-weight:bold" data-action="banner-click" data-id="${esc(b.linkUrl||'')}">${esc(b.buttonText||'اكتشف العرض الآن')}</button></div></div>`).join('')}</div>`;
+
+/* ==========================================================================
+   DYNAMIC LUXURY ADS & BANNER CAROUSEL ENGINE (محرك لوحة الإعلانات المتحركة)
+   ========================================================================== */
+let loginAdTimer = null;
+let currentLoginAdIndex = 0;
+
+function renderLoginAdsCarousel(){
+ const ads = (storeBanners || []).filter(b => b.active && (b.placement === 'Login' || b.placement === 'Both' || !b.placement));
+ if(!ads.length) return '';
+ 
+ const ad = ads[currentLoginAdIndex % ads.length];
+ const animClass = ad.animation === 'fade' ? 'ad-fade' : ad.animation === 'zoom' ? 'ad-zoom' : 'ad-slide';
+
+ return `
+ <div class="login-ads-wrapper">
+  <div class="login-ad-card ${animClass}" style="background-color:${esc(ad.bgColor||'#087e66')};color:${esc(ad.textColor||'#ffffff')};background-image:linear-gradient(rgba(2,23,17,0.35),rgba(2,17,13,0.75)),url(${esc(ad.image||'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&auto=format&fit=crop&q=80')})">
+   <div class="login-ad-content">
+    <span class="badge" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold;margin-bottom:8px;display:inline-block">${esc(ad.badge||'★ عرض خاص وحصري')}</span>
+    <h2 style="font-size:20px;color:#ffffff;line-height:1.4;margin-bottom:6px">${esc(ad.title)}</h2>
+    <p style="font-size:12.5px;color:#e2e8f0;line-height:1.6;margin-bottom:12px">${esc(ad.subtitle||'')}</p>
+   </div>
+   <div class="login-ad-dots">
+    ${ads.map((_, i) => `<span class="ad-dot ${i === (currentLoginAdIndex % ads.length) ? 'active' : ''}" onclick="switchLoginAd(${i})"></span>`).join('')}
+   </div>
+  </div>
+ </div>`;
 }
+
+function switchLoginAd(idx){
+ currentLoginAdIndex = idx;
+ const container = document.getElementById('login-ads-container');
+ if(container){
+  container.innerHTML = renderLoginAdsCarousel();
+ }
+}
+
+function startLoginAdTimer(){
+ clearInterval(loginAdTimer);
+ loginAdTimer = setInterval(() => {
+  const container = document.getElementById('login-ads-container');
+  if(container && (storeBanners||[]).filter(b=>b.active&&(b.placement==='Login'||b.placement==='Both')).length > 1){
+   currentLoginAdIndex++;
+   container.innerHTML = renderLoginAdsCarousel();
+  }
+ }, 4500);
+}
+
+function renderBannersCarousel(){
+ const ads = (storeBanners || []).filter(b => b.active && (b.placement === 'Home' || b.placement === 'Both' || !b.placement));
+ if(!ads.length) return '';
+ 
+ return `
+ <div class="banner-carousel">
+  ${ads.map(b => {
+   const animClass = b.animation === 'fade' ? 'ad-fade' : b.animation === 'zoom' ? 'ad-zoom' : 'ad-slide';
+   return `
+   <div class="banner-card ${animClass}" style="background-color:${esc(b.bgColor)};color:${esc(b.textColor)};background-image:linear-gradient(rgba(0,0,0,0.35),rgba(0,0,0,0.75)),url(${esc(b.image||'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&auto=format&fit=crop&q=80')})">
+    <div style="z-index:2">
+     <span class="badge" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold;margin-bottom:8px;display:inline-block">${esc(b.badge||'★ عرض حصري')}</span>
+     <h2>${esc(b.title)}</h2>
+     ${b.subtitle?`<p>${esc(b.subtitle)}</p>`:''}
+     <button class="btn small" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="banner-click" data-id="${esc(b.linkUrl||'')}">${esc(b.buttonText||'اكتشف العرض الآن')}</button>
+    </div>
+   </div>`;
+  }).join('')}
+ </div>`;
+}
+
 
 function shop(){
  const cats=['الكل',...new Set(products.map(p=>p.category))];
@@ -257,25 +397,111 @@ function staffPageView(){
 }
 
 function usersView(){
- if(user.role!=='Admin')return empty('هذه الصفحة مخصصة للإدارة');
+ if(user.role!=='Admin')return empty('هذه الصفحة مخصصة لإدارة المتجر');
+ const list = dashboard.users || [];
+ const onlineCount = list.filter(u=>u.isOnline).length;
+ const frozenCount = list.filter(u=>!u.active).length;
+ 
  return `<div class="section-head">
-  <div><h1>إدارة الحسابات وتنشيط المستخدمين</h1><p>مراجعة الحسابات الجديدة المجمدة، التنشيط المباشر، وضبط الصلاحيات</p></div>
-  <div class="inline"><button class="btn secondary" data-action="registration-fields">📋 تخصيص نموذج التسجيل</button><button class="btn" data-action="new-user">${icon('plus',17)}إضافة مستخدم جديد</button></div>
+  <div>
+   <h1>إدارة المستخدمين والحسابات المتصلة والصلاحيات</h1>
+   <p>تحكم دقيق وشامل: مراقبة المتصلين، تعديل وتوليد كلمات المرور، تجميد وتنشيط الحسابات، وضبط الصلاحيات</p>
+  </div>
+  <div class="inline">
+   <button class="btn secondary" data-action="registration-fields">📋 تخصيص نموذج التسجيل</button>
+   <button class="btn" data-action="new-user">${icon('plus',17)}إضافة مستخدم جديد</button>
+  </div>
  </div>
- <div class="panel">${dashboard.users.map(u=>`<div class="user-row">
-  <div class="inline">
-   <span class="avatar">${esc(u.name[0])}</span>
-   <div>
-    <h3>${esc(u.name)}</h3>
-    <p>${esc(u.email)} · <span style="color:var(--vip-gold)">${roles[u.role]||u.role}</span></p>
-   </div>
-  </div>
-  <div class="inline">
-   <span class="badge ${u.active?'Ready':'Cancelled'}">${u.active?'فعال ونشط':'مجمد بانتظار التنشيط'}</span>
-   ${!u.active?`<button class="btn small" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="activate-user" data-id="${esc(u.id)}">✓ تنشيط الحساب الآن</button>`:''}
-   <button class="btn small ghost" data-action="permissions" data-id="${esc(u.id)}" ${u.id===user.id?'disabled':''}>${icon('shield',15)}الصلاحيات</button>
-  </div>
- </div>`).join('')}</div>`;
+
+ <div class="stats" style="grid-template-columns:repeat(4,1fr);margin:16px 0 24px">
+  <div class="stat"><div class="label">إجمالي الحسابات${icon('users',18)}</div><strong>${list.length}</strong><small>مستخدم مسجل في المتجر</small></div>
+  <div class="stat featured"><div class="label">المتصلون الآن${icon('check',18)}</div><strong>${onlineCount}</strong><small>جلسات نشطة حالياً</small></div>
+  <div class="stat"><div class="label">حسابات مجمدة${icon('shield',18)}</div><strong>${frozenCount}</strong><small>بانتظار التنشيط أو معلقة</small></div>
+  <div class="stat"><div class="label">العملاء والشركاء${icon('cart',18)}</div><strong>${list.filter(u=>u.role==='Customer').length}</strong><small>عملاء مسجلين</small></div>
+ </div>
+
+ <div style="display:grid;gap:14px">
+  ${list.map(u=>{
+   const isSelf = u.id === user.id;
+   const isAdminOwner = u.name.toLowerCase() === 'ahmed' && u.role === 'Admin';
+   return `
+   <article class="order" style="background:rgba(4,25,19,0.85);border:1px solid rgba(212,175,55,0.28);border-radius:18px;padding:18px">
+    <div class="order-top" style="align-items:flex-start">
+     <div style="display:flex;align-items:center;gap:14px">
+      <div style="position:relative">
+       <span class="avatar" style="width:46px;height:46px;border:2px solid ${u.isOnline?'#22c55e':'var(--line)'};font-size:18px">${esc(u.name[0])}</span>
+       <span style="position:absolute;bottom:0;right:0;width:12px;height:12px;border-radius:50%;background:${u.isOnline?'#22c55e':'#64748b'};border:2px solid #041913" title="${u.isOnline?'متصل الآن':'غير متصل'}"></span>
+      </div>
+      <div>
+       <div style="display:flex;align-items:center;gap:8px">
+        <h3 style="font-size:16px;color:#ffffff;margin:0">${esc(u.name)}</h3>
+        ${isSelf ? '<span class="badge Ready" style="font-size:10px">أنت (حسابك الحالي)</span>' : ''}
+        ${isAdminOwner ? '<span class="badge" style="background:var(--vip-gold-gradient);color:#031711;font-size:10px;font-weight:bold">👑 المدير العام الرئيسي</span>' : ''}
+       </div>
+       <p style="font-size:12px;color:#94a3b8;margin:4px 0 0" dir="ltr">${esc(u.email)}</p>
+       <div style="display:flex;gap:12px;font-size:11px;color:#cbd5e1;margin-top:6px;flex-wrap:wrap">
+        <span>الدور: <b style="color:#fef08a">${roles[u.role]||u.role}</b></span>
+        <span>·</span>
+        <span>الحالة: <b style="color:${u.active?'#22c55e':'#ef4444'}">${u.active?'نشط وفعال':'مجمد بانتظار التنشيط'}</b></span>
+        <span>·</span>
+        <span>الاتصال: <b style="color:${u.isOnline?'#22c55e':'#94a3b8'}">${u.isOnline?`🟢 متصل الآن (${u.sessionCount||1} أجهزة)`:'⚪ غير متصل'}</b></span>
+       </div>
+      </div>
+     </div>
+     
+     <div class="inline" style="gap:8px">
+      <span class="badge ${u.active?'Ready':'Cancelled'}">${u.active?'نشط':'مجمد'}</span>
+     </div>
+    </div>
+
+    ${u.tempPassword ? `
+    <div style="background:rgba(212,175,55,0.12);border:1px dashed rgba(212,175,55,0.4);padding:10px 14px;border-radius:12px;margin:12px 0;display:flex;align-items:center;justify-content:space-between;font-size:12px">
+     <div>
+      <span style="color:#fef08a">🔑 كلمة المرور المؤقتة المسجلة:</span>
+      <code style="color:#ffffff;background:#031711;padding:3px 8px;border-radius:6px;margin:0 6px;font-size:13px">${esc(u.tempPassword)}</code>
+     </div>
+     <button class="btn small ghost" type="button" data-action="copy-text" data-id="${esc(u.tempPassword)}">نسخ كلمة المرور</button>
+    </div>` : ''}
+
+    <div class="order-bottom" style="margin-top:14px;padding-top:14px;border-top:1px dashed rgba(212,175,55,0.25)">
+     <div class="order-actions" style="width:100%;justify-content:flex-start;gap:8px">
+      <!-- زر تعديل كلمة المرور -->
+      <button class="btn small secondary" type="button" data-action="admin-edit-password" data-id="${esc(u.id)}">
+       🔑 تعديل كلمة المرور
+      </button>
+
+      <!-- زر توليد كلمة مرور مؤقتة وعرضها -->
+      <button class="btn small secondary" type="button" data-action="admin-gen-password" data-id="${esc(u.id)}" title="توليد كلمة سر جديدة وعرضها لنسخها وإرسالها للعميل">
+       🎲 توليد كلمة سر مؤقتة
+      </button>
+
+      <!-- زر تجميد / تنشيط الحساب -->
+      ${!isSelf ? `
+      <button class="btn small ${u.active?'danger':'ghost'}" type="button" data-action="admin-toggle-freeze" data-id="${esc(u.id)}" style="${!u.active?'background:var(--vip-gold-gradient);color:#031711;font-weight:bold':''}">
+       ${u.active ? '❄️ تجميد الحساب' : '✓ تنشيط الحساب الآن'}
+      </button>` : ''}
+
+      <!-- زر إنهاء الجلسات النشطة -->
+      ${u.isOnline && !isSelf ? `
+      <button class="btn small ghost" type="button" data-action="admin-terminate-sessions" data-id="${esc(u.id)}" title="تسجيل خروج المستخدم من كافة الأجهزة المتصلة">
+       🚪 إنهاء الجلسات النشطة
+      </button>` : ''}
+
+      <!-- زر الصلاحيات الدقيقة -->
+      <button class="btn small ghost" type="button" data-action="permissions" data-id="${esc(u.id)}" ${isSelf?'disabled':''}>
+       🛡️ الصلاحيات الدقيقة
+      </button>
+
+      <!-- زر حذف الحساب نهائياً -->
+      ${!isSelf && !isAdminOwner ? `
+      <button class="btn small danger" type="button" data-action="admin-delete-user" data-id="${esc(u.id)}" title="حذف حساب المستخدم نهائياً">
+       🗑️ حذف الحساب
+      </button>` : ''}
+     </div>
+    </div>
+   </article>`;
+  }).join('')}
+ </div>`;
 }
 
 function editProfileModal(){
@@ -290,7 +516,7 @@ function editProfileModal(){
  <div class="form-error" hidden></div></form>`);
 }
 
-function accountView(){return `<div class="section-head"><div><h1>حسابك في المتجر</h1><p>تفاصيل الحساب، وإدارة المظهر، والإعلانات، وطاقم العمل</p></div></div><div class="panel stack" style="max-width:650px"><div class="inline"><span class="avatar" style="border:2px solid var(--vip-gold)">${esc(user.name[0])}</span><div><h2>${esc(user.name)}</h2><p class="hint" style="color:var(--vip-emerald);font-weight:bold">${roles[user.role]||user.role} · ${esc(user.email)}</p></div></div><button class="btn secondary" data-action="edit-profile">✏️ تعديل اسم المستخدم وكلمة المرور</button>${has('appearance.manage')?'<button class="btn" style="background:var(--vip-gold-gradient);color:#081c13;font-weight:bold" data-action="appearance">🎨 شاشة تعديل شكل المتجر والأيقونة والاسم</button><button class="btn secondary" data-action="banners-manager">📢 إدارة الإعلانات وبانرات العروض</button>':''}${has('users.manage')?'<button class="btn secondary" data-action="staff-manager">👥 إدارة عمال المتجر تفصيلياً</button><button class="btn" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="registration-fields">📋 تخصيص نموذج تسجيل المستخدمين الجدد (الأهم والخيارات)</button>':''}${has('commissions.manage')?'<button class="btn secondary" data-action="commissions">العمولات والأسعار</button>':''}${has('policies.manage')?'<button class="btn secondary" data-action="policy-editor">الاتفاقيات وشروط المتجر وحذف الحساب</button>':''}${has('registrations.manage')?'<button class="btn secondary" data-action="registrations">لوحة تسجيل العملاء والتجار والمناديب</button>':''}<button class="btn secondary" data-action="store-policies">اتفاقية التسجيل وشروط المتجر</button>${has('commerce.manage')?'<button class="btn secondary" data-action="commerce-settings">العملات واللغة وطرق الدفع</button>':''}${has('payments.review')?'<button class="btn secondary" data-action="payment-reviews">مراجعة الدفع والإيصالات</button>':''}<button class="btn secondary" data-action="install-app">📱 تثبيت التطبيق (آيفون / أندرويد)</button><button class="btn secondary" data-action="language">تغيير اللغة / Language</button><button class="btn secondary" data-action="device-permissions">أذونات الكاميرا والمايك والموقع</button><button class="btn" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="enable-notifications">🔔 تفعيل واختبار إشعارات الجوال (تنبيهات الهاتف)</button>${has('appearance.manage')?'<button class="btn secondary" data-action="interface-design">تصميم الشاشات المتقدم</button>':''}${has('notifications.send')?'<button class="btn secondary" data-action="compose-notice">إرسال إشعارات</button>':''}<button class="btn secondary" data-action="notices">الإشعارات الواردة <span class="notice-count"></span></button><button class="btn secondary" data-action="support">مركز الدعم الفني المباشر</button><button class="btn ghost" data-action="privacy">الخصوصية وحذف الحساب</button><button class="btn secondary" data-action="connect">إعداد اتصال المتجر</button>${demo?'<button class="btn secondary" data-action="switch-role">استعراض واجهة أخرى</button>':''}<button class="btn ghost" data-action="logout">تسجيل الخروج</button>${user.role!=='Admin'?'<button class="btn danger" data-action="delete-account">طلب حذف حسابي</button>':''}<p class="hint">الإصدار 1.8.0 · المتجر المطور (iOS & Android)</p></div>`;}
+function accountView(){return `<div class="section-head"><div><h1>حسابك في المتجر</h1><p>تفاصيل الحساب، وإدارة المظهر، والإعلانات، وطاقم العمل</p></div></div><div class="panel stack" style="max-width:650px"><div class="inline"><span class="avatar" style="border:2px solid var(--vip-gold)">${esc(user.name[0])}</span><div><h2>${esc(user.name)}</h2><p class="hint" style="color:var(--vip-emerald);font-weight:bold">${roles[user.role]||user.role} · ${esc(user.email)}</p></div></div><button class="btn secondary" data-action="edit-profile">✏️ تعديل اسم المستخدم وكلمة المرور</button>${has('appearance.manage')?'<button class="btn" style="background:var(--vip-gold-gradient);color:#081c13;font-weight:bold" data-action="appearance">🎨 شاشة تعديل شكل المتجر والأيقونة والاسم</button><button class="btn secondary" data-action="banners-manager">📢 إدارة الإعلانات وبانرات العروض</button>':''}${has('users.manage')?'<button class="btn secondary" data-action="staff-manager">👥 إدارة عمال المتجر تفصيلياً</button><button class="btn" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="registration-fields">📋 تخصيص نموذج تسجيل المستخدمين الجدد (الأهم والخيارات)</button>':''}${has('commissions.manage')?'<button class="btn secondary" data-action="commissions">العمولات والأسعار</button>':''}${has('policies.manage')?'<button class="btn secondary" data-action="policy-editor">الاتفاقيات وشروط المتجر وحذف الحساب</button>':''}${has('registrations.manage')?'<button class="btn secondary" data-action="registrations">لوحة تسجيل العملاء والتجار والمناديب</button>':''}<button class="btn secondary" data-action="store-policies">اتفاقية التسجيل وشروط المتجر</button>${has('commerce.manage')?'<button class="btn secondary" data-action="commerce-settings">العملات واللغة وطرق الدفع</button>':''}${has('payments.review')?'<button class="btn secondary" data-action="payment-reviews">مراجعة الدفع والإيصالات</button>':''}<button class="btn secondary" data-action="install-app">📱 تثبيت التطبيق (آيفون / أندرويد)</button><button class="btn secondary" data-action="language">تغيير اللغة / Language</button><button class="btn secondary" data-action="device-permissions">أذونات الكاميرا والمايك والموقع</button><button class="btn" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="notification-style">🔔 تخصيص نغمات وشكل إشعارات التطبيق</button><button class="btn secondary" data-action="enable-notifications">📲 اختبار إشعار فوري على شاشة الجوال</button>${has('appearance.manage')?'<button class="btn secondary" data-action="interface-design">تصميم الشاشات المتقدم</button>':''}${has('notifications.send')?'<button class="btn secondary" data-action="compose-notice">إرسال إشعارات</button>':''}<button class="btn secondary" data-action="notices">الإشعارات الواردة <span class="notice-count"></span></button><button class="btn secondary" data-action="support">مركز الدعم الفني المباشر</button><button class="btn ghost" data-action="privacy">الخصوصية وحذف الحساب</button><button class="btn secondary" data-action="connect">إعداد اتصال المتجر</button>${demo?'<button class="btn secondary" data-action="switch-role">استعراض واجهة أخرى</button>':''}<button class="btn ghost" data-action="logout">تسجيل الخروج</button>${user.role!=='Admin'?'<button class="btn danger" data-action="delete-account">طلب حذف حسابي</button>':''}<p class="hint">الإصدار 1.8.0 · المتجر المطور (iOS & Android)</p></div>`;}
 
 /* ========================================================
     Dedicated Final Login Screen (شاشة الدخول النهائية )
@@ -456,11 +682,13 @@ function resetRegFields(){
 
 function renderAuth(tab='login'){
  document.body.dataset.page = 'auth';
+ startLoginAdTimer();
  const isLogin = tab === 'login';
  const isRegister = tab === 'register';
  const isForgot = tab === 'forgot';
 
- $('#app').innerHTML = `<div class="vip-auth-page">
+ $('#app').innerHTML = `<div class="vip-auth-page" style="display:flex;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap">
+  <div id="login-ads-container">${renderLoginAdsCarousel()}</div>
   <div class="vip-auth-card">
    <div class="vip-logo-container">
     <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -572,11 +800,9 @@ function renderAuth(tab='login'){
    </div>`}
    
    <div class="vip-auth-footer">
-    <a href="#" data-action="install-app">📱 تثبيت على الجوال</a>
+    <button type="button" class="btn-text-muted" data-action="install-app">📱 تثبيت على الجوال</button>
     <span style="color:#475569">|</span>
-    <a href="#" data-action="connect">إعداد الاتصال</a>
-    <span style="color:#475569">|</span>
-    <a href="#" data-action="privacy">الخصوصية</a>
+    <button type="button" class="btn-text-muted" data-action="privacy">الخصوصية وحماية البيانات</button>
    </div>
   </div>
  </div>`;
@@ -650,6 +876,87 @@ async function action(name,id){
  if(name==='skip-permissions'){
   localStorage.setItem('ts-permissions-prompted','true');
   closeModal();
+  return;
+ }
+  if(name==='admin-edit-password'){adminEditPasswordModal(id);return;}
+ if(name==='admin-delete-user'){adminDeleteUserModal(id);return;}
+ if(name==='copy-text'){
+  try {
+   navigator.clipboard.writeText(id);
+   toast('تم نسخ كلمة المرور: ' + id);
+  } catch(e) { toast('كلمة المرور: ' + id); }
+  return;
+ }
+ if(name==='admin-gen-password'){
+  try {
+   const randomPass = 'Pass@' + Math.floor(100000 + Math.random() * 900000);
+   if(!apiBase){
+    const d=demoData();
+    const u=d.users.find(x=>x.id===id);
+    if(u){u.password=randomPass; u.tempPassword=randomPass; saveDemoData(d);}
+   } else {
+    await request('/users/'+id+'/reset-password','POST',{newPassword:randomPass});
+   }
+   await refresh();
+   modal('تم توليد كلمة المرور بنجاح', `
+   <div class="stack" style="text-align:center">
+    <h3 style="color:#22c55e">✓ تم إنشاء كلمة مرور مؤقتة جديدة</h3>
+    <p class="hint">تم تحديث كلمة مرور المستخدم بنجاح. يمكنك نسخها وتزويد العميل بها:</p>
+    <div style="background:#031711;border:1px solid rgba(212,175,55,0.4);border-radius:12px;padding:14px;margin:10px 0">
+     <code style="font-size:18px;color:#fde047;letter-spacing:1px">${randomPass}</code>
+    </div>
+    <button class="btn full" type="button" data-action="copy-text" data-id="${randomPass}">📋 نسخ كلمة المرور</button>
+    <button class="btn ghost full" type="button" data-action="close">إغلاق</button>
+   </div>`);
+  } catch(e) { toast(e.message); }
+  return;
+ }
+ if(name==='admin-toggle-freeze'){
+  try {
+   if(!apiBase){
+    const d=demoData();
+    const u=d.users.find(x=>x.id===id);
+    if(u){u.active=!u.active; saveDemoData(d);}
+   } else {
+    await request('/users/'+id+'/toggle-freeze','POST');
+   }
+   await refresh();
+   toast('تم تحديث حالة الحساب بنجاح');
+  } catch(e) { toast(e.message); }
+  return;
+ }
+ if(name==='admin-terminate-sessions'){
+  try {
+   if(!apiBase){
+    toast('تم إنهاء كافة الجلسات النشطة للمستخدم');
+   } else {
+    await request('/users/'+id+'/terminate-sessions','POST');
+    toast('تم تسجيل خروج المستخدم من كافة الأجهزة المتصلة بنجاح');
+   }
+   await refresh();
+  } catch(e) { toast(e.message); }
+  return;
+ }
+ if(name==='confirm-admin-delete'){
+  try {
+   if(!apiBase){
+    const d=demoData();
+    d.users=d.users.filter(x=>x.id!==id);
+    saveDemoData(d);
+   } else {
+    await request('/users/'+id,'DELETE');
+   }
+   closeModal();
+   await refresh();
+   toast('تم حذف حساب المستخدم نهائياً بنجاح');
+  } catch(e) { toast(e.message); }
+  return;
+ }
+  if(name==='view-product'){viewProductModal(id);return;}
+ if(name==='instant-refresh'){
+  await refresh();
+  if(typeof updateNotices==='function')await updateNotices();
+  toast('تم تحديث كافة بيانات المتجر بنجاح!');
   return;
  }
  if(name==='to-register'){renderAuth('register');return;}
@@ -765,6 +1072,21 @@ document.addEventListener('submit',async e=>{
    toast('تمت إضافة الخيار بنجاح إلى نموذج تسجيل المستخدمين الجدد');
    return;
   }
+    if(kind==='admin-save-password'){
+   const newPass=(f.password||'').trim();
+   if(newPass.length < 6) throw new Error('كلمة المرور 6 أحرف فأكثر');
+   if(!apiBase){
+    const d=demoData();
+    const u=d.users.find(x=>x.id===id);
+    if(u){u.password=newPass; u.tempPassword=newPass; saveDemoData(d);}
+   } else {
+    await request('/users/'+id+'/reset-password','POST',{newPassword:newPass});
+   }
+   closeModal();
+   await refresh();
+   toast('تم حفظ وتعديل كلمة المرور بنجاح للمستخدم');
+   return;
+  }
   if(kind==='register'){
    if(!apiBase){
     const d=demoData();
@@ -876,7 +1198,12 @@ window.addEventListener('appinstalled', () => {
 async function init(){
  checkAndPromptInitialPermissions();
  if('serviceWorker' in navigator && !isNativeWrapper() && (location.protocol==='https:' || ['localhost','127.0.0.1'].includes(location.hostname))){
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
+  
+  navigator.serviceWorker.register('sw.js').then(reg => {
+   // فحص التحديثات البرمجية الجديدة للمتجر تلقائياً في الخلفية
+   setInterval(() => { reg.update().catch(()=>{}); }, 45000);
+  }).catch(()=>{});
+
  }
  try{config=await(await fetch('config.json')).json();apiBase=apiBase||config.apiBaseUrl||(!isNativeWrapper()?location.origin:'');
   await refreshGovernance();await refreshCommerce();await refreshDesigns();await refreshAppearance();await refreshBanners();
