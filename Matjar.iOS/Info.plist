@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDisplayName</key>
+  <string>التسوق</string>
+  <key>CFBundleName</key>
+  <string>التسوق</string>
+  <key>CFBundleIdentifier</key>
+  <string>com.altasawuq.market</string>
+  <key>CFBundleShortVersionString</key>
+  <string>1.6.0</string>
+  <key>CFBundleVersion</key>
+  <string>7</string>
+  <key>LSRequiresIPhoneOS</key>
+  <true/>
+  <key>UIDeviceFamily</key>
+  <array>
+    <integer>1</integer>
+    <integer>2</integer>
+  </array>
+  <key>UILaunchStoryboardName</key>
+  <string>LaunchScreen</string>
+  <key>UISupportedInterfaceOrientations</key>
+  <array>
+    <string>UIInterfaceOrientationPortrait</string>
+    <string>UIInterfaceOrientationLandscapeLeft</string>
+    <string>UIInterfaceOrientationLandscapeRight</string>
+  </array>
+  <key>NSCameraUsageDescription</key>
+  <string>نستخدم الكاميرا لالتقاط صور المنتجات أو المحادثة داخل الدردشة عند طلبك فقط.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>نستخدم المايك لتسجيل الرسائل الصوتية داخل محادثة الطلب أو الدعم الفني عند ضغط زر التسجيل فقط.</string>
+  <key>NSLocationWhenInUseUsageDescription</key>
+  <string>نستخدم الموقع لتحديد نقطة تسليم الطلب على الخريطة أو مشاركة موقع المندوب أثناء التوصيل النشط فقط.</string>
+  <key>NSPhotoLibraryUsageDescription</key>
+  <string>نستخدم مكتبة الصور لإرفاق صورة إيصال التحويل أو صورة داخل الدردشة عند اختيارك لها.</string>
+  <key>WKAppBoundDomains</key>
+  <array>
+    <string>appassets.iosplatform.net</string>
+  </array>
+</dict>
+</plist>

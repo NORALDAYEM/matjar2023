@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-ios</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
+    <ApplicationId>com.altasawuq.market</ApplicationId>
+    <ApplicationVersion>7</ApplicationVersion>
+    <ApplicationDisplayVersion>1.7.0</ApplicationDisplayVersion>
+    <ApplicationTitle>التسوق</ApplicationTitle>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PublishTrimmed>false</PublishTrimmed>
+  </PropertyGroup>
+  <ItemGroup>
+    <BundleResource Include="../Matjar.Server/wwwroot/**/*" Link="wwwroot/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>
