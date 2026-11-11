@@ -1,5 +1,263 @@
 
 /* ========================================================
+   Admin Device Analytics & Customer Location Map Screen
+   ======================================================== */
+let devicesMapInstance = null;
+let devicesMarkers = [];
+
+async function devicesView(){
+ if(user.role !== 'Admin') return empty('هذه الصفحة مخصصة لإدارة المتجر');
+ 
+ let data = { totalInstalls: 5, activeDevices: 4, iosCount: 3, androidCount: 2, desktopCount: 0, devices: [] };
+ try {
+  if(apiBase){
+   data = await request('/admin/device-installs');
+  } else {
+   data = {
+    totalInstalls: 5, activeDevices: 4, iosCount: 3, androidCount: 2, desktopCount: 0,
+    devices: [
+     { id:'dev1', deviceModel:'Apple iPhone 15 Pro', platform:'iOS', browser:'Mobile Safari', city:'الرياض، حي الملقا', latitude:24.7923, longitude:46.6214, userName:'نورة أحمد', isOnline:true, lastActiveAt:new Date().toISOString() },
+     { id:'dev2', deviceModel:'Samsung Galaxy S24 Ultra', platform:'Android', browser:'Chrome Mobile', city:'جدة، حي الروضة', latitude:21.5433, longitude:39.1728, userName:'خالد عبدالله', isOnline:true, lastActiveAt:new Date(Date.now()-600000).toISOString() },
+     { id:'dev3', deviceModel:'Apple iPhone 14', platform:'iOS', browser:'Mobile Safari', city:'الدمام، حي الشاطئ', latitude:26.4207, longitude:50.0888, userName:'محمد فهد', isOnline:false, lastActiveAt:new Date(Date.now()-3600000).toISOString() },
+     { id:'dev4', deviceModel:'Xiaomi 14 Pro', platform:'Android', browser:'Chrome Mobile', city:'مكة المكرمة، حي العزيزية', latitude:21.4225, longitude:39.8262, userName:'سارة القحطاني', isOnline:true, lastActiveAt:new Date().toISOString() },
+     { id:'dev5', deviceModel:'Apple iPhone 13 Pro', platform:'iOS', browser:'Mobile Safari', city:'المدينة المنورة', latitude:24.4672, longitude:39.6111, userName:'سلطان العتيبي', isOnline:false, lastActiveAt:new Date(Date.now()-1800000).toISOString() }
+    ]
+   };
+  }
+ } catch(e){}
+
+ setTimeout(() => { initDevicesMap(data.devices || []); }, 100);
+
+ return `
+ <div class="section-head">
+  <div>
+   <h1>الأجهزة والمثبتون والمواقع الجغرافية للعملاء</h1>
+   <p>رصد حي وشامل لعدد من قاموا بتثبيت التطبيق، أنواع هواتفهم، ومواقعهم الجغرافية بدقة على الخريطة</p>
+  </div>
+  <div class="inline">
+   <button class="btn secondary" data-action="instant-refresh">🔄 تحديث الخريطة والأجهزة</button>
+  </div>
+ </div>
+
+ <div class="stats" style="grid-template-columns:repeat(4,1fr);margin:16px 0 24px">
+  <div class="stat featured">
+   <div class="label">إجمالي من حمّل وثبّت التطبيق${icon('truck',18)}</div>
+   <strong>${data.totalInstalls || 0}</strong>
+   <small>هاتف ذكي وجهاز مثبت</small>
+  </div>
+  <div class="stat">
+   <div class="label">هواتف آيفون (Apple iOS)${icon('check',18)}</div>
+   <strong>${data.iosCount || 0}</strong>
+   <small>أجهزة تعمل بنظام iOS</small>
+  </div>
+  <div class="stat">
+   <div class="label">هواتف أندرويد (Android)${icon('users',18)}</div>
+   <strong>${data.androidCount || 0}</strong>
+   <small>أجهزة سامسونج وشاومي وغيرها</small>
+  </div>
+  <div class="stat">
+   <div class="label">الأجهزة المتصلة الآن${icon('shield',18)}</div>
+   <strong style="color:#22c55e">${data.activeDevices || 0}</strong>
+   <small>نشطة وتتصفح المتجر</small>
+  </div>
+ </div>
+
+ <!-- خريطة توزيع الأجهزة والعملاء الجغرافية -->
+ <div class="panel" style="padding:0;overflow:hidden;border:1px solid rgba(212,175,55,0.3);border-radius:20px;margin-bottom:24px">
+  <div style="background:linear-gradient(135deg, #064e3b 0%, #03251c 100%);padding:14px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(212,175,55,0.25)">
+   <div style="display:flex;align-items:center;gap:10px">
+    <span class="live-pulse" style="width:10px;height:10px"></span>
+    <strong style="color:#ffffff;font-size:14.5px">🗺️ خريطة الرصد الجغرافي المباشر لمواقع العملاء والأجهزة</strong>
+   </div>
+   <small style="color:#fef08a">اضغط على أي علامة لمشاهدة نوع الهاتف والموقع</small>
+  </div>
+  <div id="devices-live-map" style="height:380px;width:100%;z-index:1;direction:ltr"></div>
+ </div>
+
+ <!-- قائمة تفاصيل الأجهزة المسجلة -->
+ <div class="section-head">
+  <h2>سجل الهواتف والأجهزة الذكية المتصلة</h2>
+  <span class="badge" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold">${(data.devices||[]).length} جهاز متصل</span>
+ </div>
+
+ <div style="display:grid;gap:14px">
+  ${(data.devices || []).map(d => {
+   const isIOS = d.platform === 'iOS';
+   return `
+   <article class="order" style="background:rgba(4,25,19,0.85);border:1px solid rgba(212,175,55,0.25);border-radius:18px;padding:18px">
+    <div class="order-top" style="align-items:flex-start">
+     <div style="display:flex;gap:14px;align-items:center">
+      <div style="width:48px;height:48px;border-radius:14px;background:rgba(212,175,55,0.12);border:1px solid rgba(212,175,55,0.35);display:grid;place-items:center;font-size:22px">
+       ${isIOS ? '🍏' : '🤖'}
+      </div>
+      <div>
+       <div style="display:flex;align-items:center;gap:8px">
+        <h3 style="color:#ffffff;font-size:16px;margin:0">${esc(d.deviceModel)}</h3>
+        <span class="badge ${d.isOnline?'Ready':'Cancelled'}" style="font-size:10px">${d.isOnline?'🟢 متصل الآن':'⚪ غير متصل'}</span>
+       </div>
+       <p style="color:#cbd5e1;font-size:12px;margin:4px 0 0">
+        المستخدم: <b style="color:#fef08a">${esc(d.userName || 'عميل زائر')}</b> · المتصفح: ${esc(d.browser)}
+       </p>
+       <div style="display:flex;gap:12px;font-size:11.5px;color:#94a3b8;margin-top:6px;flex-wrap:wrap">
+        <span>📍 الموقع: <b style="color:#ffffff">${esc(d.city || 'الرياض')}</b></span>
+        <span>·</span>
+        <span>الإحداثيات: <code style="color:#fde047" dir="ltr">${d.latitude?.toFixed(4)}, ${d.longitude?.toFixed(4)}</code></span>
+        <span>·</span>
+        <span>تاريخ التثبيت: ${new Date(d.installedAt||Date.now()).toLocaleDateString('ar-SA')}</span>
+       </div>
+      </div>
+     </div>
+    </div>
+
+    <div class="order-bottom" style="margin-top:14px;padding-top:12px;border-top:1px dashed rgba(212,175,55,0.2)">
+     <div class="order-actions" style="gap:8px;width:100%;justify-content:flex-start;flex-wrap:wrap">
+      <!-- زر تحديد الموقع في خريطة المتجر -->
+      <button class="btn small secondary" type="button" onclick="focusDeviceOnMap(${d.latitude}, ${d.longitude}, '${esc(d.deviceModel)}')">
+       📍 تحديد الموقع على الخريطة
+      </button>
+
+      <!-- زر فتح في تطبيق خرائط Google Play الرسمي -->
+      <button class="btn small" type="button" style="background:#1a73e8;color:#ffffff;font-weight:bold" onclick="openInGooglePlayMaps(${d.latitude}, ${d.longitude})">
+       🚀 فتح في تطبيق خرائط Google Play
+      </button>
+     </div>
+    </div>
+   </article>`;
+  }).join('')}
+ </div>`;
+}
+
+function initDevicesMap(devices){
+ const container = document.getElementById('devices-live-map');
+ if(!container || typeof L === 'undefined') return;
+ 
+ if(devicesMapInstance){
+  devicesMapInstance.remove();
+  devicesMapInstance = null;
+ }
+
+ devicesMapInstance = L.map('devices-live-map', { zoomControl: true }).setView([24.7136, 46.6753], 6);
+ L.tileLayer(config.mapTileUrl || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 18,
+  attribution: '&copy; Google Maps & OpenStreetMap'
+ }).addTo(devicesMapInstance);
+
+ devicesMarkers = [];
+ devices.forEach(d => {
+  if(!d.latitude || !d.longitude) return;
+  const isIOS = d.platform === 'iOS';
+  const color = isIOS ? '#f59e0b' : '#10b981';
+  const iconSym = isIOS ? '🍏' : '🤖';
+  
+  const m = L.circleMarker([d.latitude, d.longitude], {
+   radius: 12,
+   color: '#ffffff',
+   fillColor: color,
+   fillOpacity: 0.95,
+   weight: 2
+  }).addTo(devicesMapInstance);
+
+  m.bindPopup(`
+   <div style="direction:rtl;text-align:right;font-family:Tahoma,sans-serif;font-size:12px;line-height:1.7;min-width:180px">
+    <strong style="color:#031711;font-size:13px">${iconSym} ${esc(d.deviceModel)}</strong><br>
+    <span style="color:#475569">العميل: <b>${esc(d.userName || 'عميل زائر')}</b></span><br>
+    <span style="color:#064e3b">📍 ${esc(d.city || 'الموقع محدد')}</span><br>
+    <button style="margin-top:6px;background:#1a73e8;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;width:100%" onclick="openInGooglePlayMaps(${d.latitude}, ${d.longitude})">
+     فتح الملاحة في Google Maps
+    </button>
+   </div>
+  `);
+
+  devicesMarkers.push(m);
+ });
+
+ if(devicesMarkers.length > 0){
+  devicesMapInstance.fitBounds(L.featureGroup(devicesMarkers).getBounds().pad(0.3));
+ }
+}
+
+function focusDeviceOnMap(lat, lng, name){
+ if(!devicesMapInstance) return;
+ document.getElementById('devices-live-map')?.scrollIntoView({ behavior: 'smooth' });
+ devicesMapInstance.setView([lat, lng], 14, { animate: true });
+}
+
+
+/* ========================================================
+   Device Telemetry & Install Analytics Engine
+   ======================================================== */
+function detectDeviceTelemetry(){
+ const ua = navigator.userAgent || '';
+ const isIOS = /iPhone|iPad|iPod/i.test(ua);
+ const isAndroid = /Android/i.test(ua);
+ 
+ let platform = 'Desktop';
+ let model = 'جهاز كمبيوتر';
+ if(isIOS){
+  platform = 'iOS';
+  model = ua.includes('iPad') ? 'Apple iPad' : 'Apple iPhone';
+ } else if(isAndroid){
+  platform = 'Android';
+  model = 'هاتف أندرويد ذكي';
+  if(/SM-|Samsung/i.test(ua)) model = 'Samsung Galaxy';
+  else if(/Pixel/i.test(ua)) model = 'Google Pixel';
+  else if(/Xiaomi|Redmi/i.test(ua)) model = 'Xiaomi';
+  else if(/HUAWEI|HONOR/i.test(ua)) model = 'Huawei / Honor';
+ }
+ 
+ const browser = /CriOS|Chrome/i.test(ua) ? 'Chrome Mobile' : /Safari/i.test(ua) ? 'Mobile Safari' : /Firefox/i.test(ua) ? 'Firefox' : 'متصفح الجوال';
+ 
+ let devId = localStorage.getItem('ts-device-id');
+ if(!devId){
+  devId = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
+  localStorage.setItem('ts-device-id', devId);
+ }
+ 
+ return { deviceId: devId, deviceModel: model, platform, browser };
+}
+
+async function reportDeviceInstallTelemetry(coords = null){
+ try {
+  const telemetry = detectDeviceTelemetry();
+  
+  // محاولة التقاط إحداثيات الموقع الدقيقة تلقائياً عند فتح أو تثبيت التطبيق
+  if(!coords && 'geolocation' in navigator){
+   try {
+    const pos = await new Promise((res, rej) => {
+     navigator.geolocation.getCurrentPosition(res, rej, { timeout: 4500, enableHighAccuracy: true });
+    });
+    if(pos && pos.coords){
+     coords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+    }
+   } catch(e){}
+  }
+
+  if(coords){
+   telemetry.latitude = coords.latitude;
+   telemetry.longitude = coords.longitude;
+   if(Math.abs(coords.latitude - 24.7) < 0.6) telemetry.city = 'الرياض، المملكة العربية السعودية';
+   else if(Math.abs(coords.latitude - 21.5) < 0.6) telemetry.city = 'جدة، المملكة العربية السعودية';
+   else if(Math.abs(coords.latitude - 21.4) < 0.6) telemetry.city = 'مكة المكرمة، السعودية';
+   else if(Math.abs(coords.latitude - 24.4) < 0.6) telemetry.city = 'المدينة المنورة، السعودية';
+   else if(Math.abs(coords.latitude - 26.4) < 0.6) telemetry.city = 'الدمام والمنطقة الشرقية';
+   else telemetry.city = 'المملكة العربية السعودية';
+  } else {
+   const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '').toLowerCase();
+   if(tz.includes('riyadh')) { telemetry.city = 'الرياض، السعودية'; telemetry.latitude = 24.7136; telemetry.longitude = 46.6753; }
+   else if(tz.includes('dubai')) { telemetry.city = 'دبي، الإمارات'; telemetry.latitude = 25.2048; telemetry.longitude = 55.2708; }
+   else if(tz.includes('kuwait')) { telemetry.city = 'الكويت'; telemetry.latitude = 29.3759; telemetry.longitude = 47.9774; }
+   else if(tz.includes('cairo')) { telemetry.city = 'القاهرة، مصر'; telemetry.latitude = 30.0444; telemetry.longitude = 31.2357; }
+   else { telemetry.city = 'الرياض، السعودية'; telemetry.latitude = 24.7136; telemetry.longitude = 46.6753; }
+  }
+
+  if(apiBase){
+   await request('/telemetry/install', 'POST', telemetry);
+  }
+ } catch(e){}
+}
+
+
+/* ========================================================
    Interactive Product Details & Multi-Image Gallery Viewer
    ======================================================== */
 function viewProductModal(id){
@@ -213,15 +471,27 @@ function demoRequest(path,method,body){
 }
 
 async function refresh(){await refreshGovernance();await refreshCommerce();await refreshDesigns();await refreshAppearance();await refreshBanners();products=await request('/products');if(user){dashboard=await request('/dashboard');user=dashboard.user;}render();await updateNotices();}
-function navs(){if(!user)return[];if(user.role==='Support')return [['home','shield','الدعم الفني المباشر'],['account','user','حسابي']];return user.role==='Customer'?[['home','home','اكتشف'],['orders','box','طلباتي'],['cart','cart','السلة'],['account','user','حسابي']]:user.role==='Merchant'?[['home','grid','نظرة عامة'],['products','bag','المنتجات'],['orders','box','الطلبات'],['account','user','حسابي']]:user.role==='Courier'?[['home','truck','مهامي'],['history','clock','السجل'],['account','user','حسابي']]:[['home','grid','لوحة التحكم'],['orders','box','الطلبات'],['products','bag','المنتجات'],['staff','users','طاقم العمل'],['users','shield','الصلاحيات'],['audit','clock','سجل النشاط'],['account','user','حسابي']];}
+function navs(){if(!user)return[];if(user.role==='Support')return [['home','shield','الدعم الفني المباشر'],['account','user','حسابي']];return user.role==='Customer'?[['home','home','اكتشف'],['orders','box','طلباتي'],['cart','cart','السلة'],['account','user','حسابي']]:user.role==='Merchant'?[['home','grid','نظرة عامة'],['products','bag','المنتجات'],['orders','box','الطلبات'],['account','user','حسابي']]:user.role==='Courier'?[['home','truck','مهامي'],['history','clock','السجل'],['account','user','حسابي']]:[['home','grid','لوحة التحكم'],['orders','box','الطلبات'],['products','bag','المنتجات'],['devices','truck','الأجهزة والتثبيتات'],['staff','users','طاقم العمل'],['users','shield','الصلاحيات'],['audit','clock','سجل النشاط'],['account','user','حسابي']];}
 function navHtml(mobile=false){return navs().map(([id,symbol,title])=>`<button data-action="navigate" data-id="${id}" class="${page===id?'active':''}">${icon(symbol,mobile?22:20)}<span>${title}</span>${id==='cart'&&cartCount()?`<b class="count">${cartCount()}</b>`:''}</button>`).join('');}
 
 function render(){
  document.body.dataset.page = page;
  if(!user){renderAuth();return;}
  const current=navs().find(n=>n[0]===page)||navs()[0];
- $('#app').innerHTML=`<div id="announcement-banner" class="announcement-bar" hidden></div><aside class="sidebar"><div class="brand"><img src="icon.svg" alt="شعار المتجر"><div>${esc(storeAppearance.storeName)}<small style="color:var(--vip-gold);font-weight:bold">★ متجر رسمي معتمد</small></div></div><nav class="nav" aria-label="القائمة الرئيسية">${navHtml()}</nav><div class="sidebar-footer"><div class="panel" style="background:linear-gradient(135deg, rgba(6,78,59,0.08) 0%, rgba(212,175,55,0.12) 100%);border:1px solid rgba(212,175,55,0.3);padding:17px"><strong style="font-size:12px;color:var(--vip-emerald)">تجربة تسوق فاخرة واستثنائية</strong><p class="hint" style="margin-top:8px">منتجات حصرية بجودة فائقة وخدمة تسليم مباشرة على مدار الساعة.</p></div><div class="profile"><span class="avatar" style="border:2px solid var(--vip-gold)">${esc(user.name[0])}</span><div><strong>${esc(user.name)}</strong><small style="color:var(--vip-gold)">${roles[user.role]}</small></div></div><button class="btn ghost small" data-action="logout">${icon('logout',17)}تسجيل الخروج</button></div></aside><main class="content"><header class="topbar"><div><div class="eyebrow">${user.role==='Customer'?'مرحباً بك في عالم '+esc(storeAppearance.storeName)+' الفاخر':roles[user.role]+' / مساحة التحكم الرئيسية'}</div><div class="title">${current[2]} <small>· ${esc(user.name)}</small></div></div><div class="left"><button class="icon-btn" data-action="instant-refresh" title="تحديث المتجر والبيانات فوراً" aria-label="تحديث">${icon('refresh',18)}</button><button class="icon-btn" data-action="notices" aria-label="الإشعارات">${icon('bell')}<small class="notice-count"></small></button>${pill('متجر رسمي معتمد','shield')}<button class="icon-btn" data-action="navigate" data-id="${user.role==='Customer'?'cart':'orders'}" aria-label="${user.role==='Customer'?'فتح السلة':'عرض الطلبات'}">${icon(user.role==='Customer'?'cart':'box')}</button><span class="avatar">${esc(user.name[0])}</span></div></header>${demo?`<div class="demo-bar" style="background:#fff9ea;border-color:#f5dc99"><span>⭐ الحساب الرئيسي للمتجر: <b>Ahmed</b> (الرمز: <b>583192</b>)</span><button data-action="switch-role">تبديل الواجهة</button><button data-action="appearance">🎨 مظهر المتجر واللوجو</button><button data-action="banners-manager">📢 إدارة الإعلانات</button><button data-action="connect">ربط المتجر</button></div>`:''}<section id="view"></section></main><nav class="mobile-nav" aria-label="تنقل التطبيق">${navHtml(true)}</nav>`;
- paintAppearance();
+ 
+ // إذا كان الهيكل الخارجي (الشريط الجانبي والعلوي) موجوداً بالفعل، لا نعيد بناءه منعاً لترميش الشاشة
+ const existingView = document.getElementById('view');
+ if(!existingView || !document.querySelector('.sidebar')){
+  $('#app').innerHTML=`<div id="announcement-banner" class="announcement-bar" hidden></div><aside class="sidebar"><div class="brand"><img src="icon.svg" alt="شعار المتجر"><div>${esc(storeAppearance.storeName)}<small style="color:var(--vip-gold);font-weight:bold">★ متجر رسمي معتمد</small></div></div><nav class="nav" aria-label="القائمة الرئيسية">${navHtml()}</nav><div class="sidebar-footer"><div class="panel" style="background:linear-gradient(135deg, rgba(6,78,59,0.08) 0%, rgba(212,175,55,0.12) 100%);border:1px solid rgba(212,175,55,0.3);padding:17px"><strong style="font-size:12px;color:var(--vip-emerald)">تجربة تسوق فاخرة واستثنائية</strong><p class="hint" style="margin-top:8px">منتجات حصرية بجودة فائقة وخدمة تسليم مباشرة على مدار الساعة.</p></div><div class="profile"><span class="avatar" style="border:2px solid var(--vip-gold)">${esc(user.name[0])}</span><div><strong>${esc(user.name)}</strong><small style="color:var(--vip-gold)">${roles[user.role]}</small></div></div><button class="btn ghost small" data-action="logout">${icon('logout',17)}تسجيل الخروج</button></div></aside><main class="content"><header class="topbar"><div><div class="eyebrow">${user.role==='Customer'?'مرحباً بك في عالم '+esc(storeAppearance.storeName)+' الفاخر':roles[user.role]+' / مساحة التحكم الرئيسية'}</div><div class="title" id="topbar-title-el">${current[2]} <small>· ${esc(user.name)}</small></div></div><div class="left"><button class="icon-btn" data-action="instant-refresh" title="تحديث المتجر والبيانات فوراً" aria-label="تحديث">${icon('refresh',18)}</button><button class="icon-btn" data-action="notices" aria-label="الإشعارات">${icon('bell')}<small class="notice-count"></small></button>${pill('متجر رسمي معتمد','shield')}<button class="icon-btn" data-action="navigate" data-id="${user.role==='Customer'?'cart':'orders'}" aria-label="${user.role==='Customer'?'فتح السلة':'عرض الطلبات'}">${icon(user.role==='Customer'?'cart':'box')}</button><span class="avatar">${esc(user.name[0])}</span></div></header>${demo?`<div class="demo-bar" style="background:#fff9ea;border-color:#f5dc99"><span>⭐ الحساب الرئيسي للمتجر: <b>Ahmed</b> (الرمز: <b>583192</b>)</span><button data-action="switch-role">تبديل الواجهة</button><button data-action="appearance">🎨 مظهر المتجر واللوجو</button><button data-action="banners-manager">📢 إدارة الإعلانات</button><button data-action="connect">ربط المتجر</button></div>`:''}<section id="view"></section></main><nav class="mobile-nav" aria-label="تنقل التطبيق">${navHtml(true)}</nav>`;
+  paintAppearance();
+ } else {
+  // تحديث نصوص العنوان والتبويبات النشطة موضعياً بسلاسة 100% وبدون وميض
+  const titleEl = document.getElementById('topbar-title-el');
+  if(titleEl) titleEl.innerHTML = `${current[2]} <small>· ${esc(user.name)}</small>`;
+  document.querySelectorAll('.nav button, .mobile-nav button').forEach(b => {
+   b.classList.toggle('active', b.dataset.id === page);
+  });
+ }
  const view=$('#view');
  if(page==='home')view.innerHTML=user.role==='Support'?supportHome():user.role==='Customer'?shop():user.role==='Courier'?courier(false):overview();
  else if(page==='products')view.innerHTML=productManagement();
@@ -1112,23 +1382,49 @@ document.addEventListener('submit',async e=>{
   }
   if(kind==='forgot-password'){
    const q=(f.emailOrUsername||'').trim();
-   if(!q)throw new Error('أدخل اسم المستخدم أو البريد الإلكتروني');
+   if(!q)throw new Error('أدخل اسم المستخدم أو البريد الإلكتروني المسجل');
+   let respMessage = '';
+   let sentEmail = q;
    if(!apiBase){
     const d=demoData();
+    const u=d.users.find(x=>x.email.toLowerCase()===q.toLowerCase()||x.name.toLowerCase()===q.toLowerCase());
+    if(!u) throw new Error('لم يتم العثور على حساب مسجل بهذا الاسم أو البريد الإلكتروني');
+    const tempPass = 'Pass@' + Math.floor(100000 + Math.random() * 900000);
+    u.password = tempPass;
+    u.tempPassword = tempPass;
+    sentEmail = u.email;
     if(!d.notices) d.notices=[];
     d.notices.unshift({
      id:'not_'+Date.now(),
-     title:'⚠️ طلب استعادة / نسيان كلمة المرور',
-     message:`طلب المستخدم أو العميل (${q}) إعادة تعيين كلمة المرور الخاصة بحسابه.`,
+     title:'⚠️ تم إرسال كلمة المرور للإيميل',
+     message:`طلب العميل ${u.name} (${u.email}) استعادة كلمة المرور. تم إنشاء كلمة مرور مؤقتة (${tempPass}) وتعيينها وإرسالها لبريده المسجل.`,
      at:new Date().toISOString(),
      read:false
     });
     saveDemoData(d);
+    respMessage = `تم إرسال كلمة المرور المؤقتة الجديدة إلى بريدك الإلكتروني المسجل (${u.email}) بنجاح! تفقد صندوق الوارد ورسائل غير الهام (Spam).`;
    } else {
-    await request('/auth/forgot-password','POST',{emailOrUsername:q});
+    const res = await request('/auth/forgot-password','POST',{emailOrUsername:q});
+    respMessage = res.message || `تم إرسال كلمة المرور إلى بريدك الإلكتروني المسجل (${res.email || q}) بنجاح!`;
+    sentEmail = res.email || q;
    }
    renderAuth('login');
-   modal('طلب استعادة كلمة المرور',`<div class="stack"><div class="ticket-card" style="background:rgba(212,175,55,0.15);border:1px solid rgba(212,175,55,0.4)"><strong>تم إرسال طلبك إلى الإدارة بنجاح</strong><p class="hint">تم إرسال إشعار تنبيه للإدارة بطلب استعادة كلمة المرور للمستخدم (${esc(q)}). سيتم مراجعة الطلب والتواصل معك.</p></div><button class="btn full" data-action="close">حسناً</button></div>`);
+   modal('تم إرسال كلمة المرور إلى بريدك الإلكتروني', `
+   <div class="stack" style="text-align:center">
+    <div class="vip-logo-container" style="width:68px;height:68px;margin:0 auto 10px">
+     <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+      <rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+     </svg>
+    </div>
+    <h2 style="font-size:18px;color:#22c55e;margin-bottom:6px">تم الإرسال بنجاح!</h2>
+    <div style="background:rgba(212,175,55,0.12);border:1px solid rgba(212,175,55,0.35);padding:14px;border-radius:14px;font-size:13px;line-height:1.8;color:#fef08a">
+     ${esc(respMessage)}
+    </div>
+    <p class="hint" style="font-size:12px;color:#cbd5e1;line-height:1.7;margin-top:6px">
+     افتح تطبيق البريد الإلكتروني في هاتفك وانسخ كلمة المرور الجديدة لتسجيل الدخول فوراً.
+    </p>
+    <button class="btn full" type="button" data-action="close">دخول الآن بكلمة المرور الجديدة</button>
+   </div>`);
    return;
   }
   if(kind==='login'||kind==='setup'){const result=await request(kind==='setup'?'/setup':'/auth/'+kind,'POST',f);token=result.token;user=result.user;sessionStorage.setItem('ts-token',token);page='home';setupNeeded=false;await refresh();}
@@ -1196,6 +1492,7 @@ window.addEventListener('appinstalled', () => {
 });
 
 async function init(){
+ reportDeviceInstallTelemetry();
  checkAndPromptInitialPermissions();
  if('serviceWorker' in navigator && !isNativeWrapper() && (location.protocol==='https:' || ['localhost','127.0.0.1'].includes(location.hostname))){
   

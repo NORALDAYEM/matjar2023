@@ -1128,3 +1128,111 @@ dialog::backdrop {
   background: var(--vip-gold-gradient);
   box-shadow: 0 0 12px rgba(212, 175, 55, 0.5);
 }
+
+/* ========================================================
+   Full Responsive Adaptive Mobile Layout (تكيف الشاشات مع كل هاتف)
+   ======================================================== */
+html, body {
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+#app {
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* تحسين ملاءمة النوتش وشريط الهاتف السفلي والعلوي */
+.content {
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+/* تكيف بطاقات المنتجات والإعلانات والأزرار مع شاشات الهواتف الذكية */
+@media (max-width: 768px) {
+  .content {
+    margin-right: 0 !important;
+    margin-left: 0 !important;
+    padding: max(16px, env(safe-area-inset-top)) 14px calc(90px + env(safe-area-inset-bottom)) !important;
+  }
+  
+  .topbar {
+    height: auto !important;
+    padding: 12px 0 !important;
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+  }
+  
+  .stats {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+  
+  .stat {
+    padding: 14px 12px !important;
+  }
+  
+  .stat strong {
+    font-size: 22px !important;
+  }
+  
+  .products {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+  
+  .vip-product-card {
+    padding: 10px !important;
+  }
+  
+  .vip-product-img-box {
+    height: 160px !important;
+  }
+  
+  .vip-auth-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 28px 18px !important;
+    margin: 0 !important;
+    border-radius: 22px !important;
+  }
+  
+  .login-ads-wrapper {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  
+  .order-actions {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 8px !important;
+  }
+  
+  .order-actions .btn {
+    width: 100% !important;
+  }
+  
+  dialog {
+    padding: 20px 16px !important;
+    width: calc(100% - 24px) !important;
+    border-radius: 20px !important;
+  }
+}
+
+/* شاشات الهواتف الصغيرة جداً (أقل من 375px) */
+@media (max-width: 360px) {
+  .products {
+    grid-template-columns: 1fr !important;
+  }
+  .stats {
+    grid-template-columns: 1fr !important;
+  }
+  .vip-auth-title {
+    font-size: 20px !important;
+  }
+}
