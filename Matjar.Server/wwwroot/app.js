@@ -290,7 +290,7 @@ function editProfileModal(){
  <div class="form-error" hidden></div></form>`);
 }
 
-function accountView(){return `<div class="section-head"><div><h1>حسابك في المتجر</h1><p>تفاصيل الحساب، وإدارة المظهر، والإعلانات، وطاقم العمل</p></div></div><div class="panel stack" style="max-width:650px"><div class="inline"><span class="avatar" style="border:2px solid var(--vip-gold)">${esc(user.name[0])}</span><div><h2>${esc(user.name)}</h2><p class="hint" style="color:var(--vip-emerald);font-weight:bold">${roles[user.role]||user.role} · ${esc(user.email)}</p></div></div><button class="btn secondary" data-action="edit-profile">✏️ تعديل اسم المستخدم وكلمة المرور</button>${has('appearance.manage')?'<button class="btn" style="background:var(--vip-gold-gradient);color:#081c13;font-weight:bold" data-action="appearance">🎨 شاشة تعديل شكل المتجر والأيقونة والاسم</button><button class="btn secondary" data-action="banners-manager">📢 إدارة الإعلانات وبانرات العروض</button>':''}${has('users.manage')?'<button class="btn secondary" data-action="staff-manager">👥 إدارة عمال المتجر تفصيلياً</button><button class="btn" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="registration-fields">📋 تخصيص نموذج تسجيل المستخدمين الجدد (الأهم والخيارات)</button>':''}${has('commissions.manage')?'<button class="btn secondary" data-action="commissions">العمولات والأسعار</button>':''}${has('policies.manage')?'<button class="btn secondary" data-action="policy-editor">الاتفاقيات وشروط المتجر وحذف الحساب</button>':''}${has('registrations.manage')?'<button class="btn secondary" data-action="registrations">لوحة تسجيل العملاء والتجار والمناديب</button>':''}<button class="btn secondary" data-action="store-policies">اتفاقية التسجيل وشروط المتجر</button>${has('commerce.manage')?'<button class="btn secondary" data-action="commerce-settings">العملات واللغة وطرق الدفع</button>':''}${has('payments.review')?'<button class="btn secondary" data-action="payment-reviews">مراجعة الدفع والإيصالات</button>':''}<button class="btn secondary" data-action="install-app">📱 تثبيت التطبيق (آيفون / أندرويد)</button><button class="btn secondary" data-action="language">تغيير اللغة / Language</button><button class="btn secondary" data-action="device-permissions">أذونات الكاميرا والمايك والموقع</button>${has('appearance.manage')?'<button class="btn secondary" data-action="interface-design">تصميم الشاشات المتقدم</button>':''}${has('notifications.send')?'<button class="btn secondary" data-action="compose-notice">إرسال إشعارات</button>':''}<button class="btn secondary" data-action="notices">الإشعارات الواردة <span class="notice-count"></span></button><button class="btn secondary" data-action="support">مركز الدعم الفني المباشر</button><button class="btn ghost" data-action="privacy">الخصوصية وحذف الحساب</button><button class="btn secondary" data-action="connect">إعداد اتصال المتجر</button>${demo?'<button class="btn secondary" data-action="switch-role">استعراض واجهة أخرى</button>':''}<button class="btn ghost" data-action="logout">تسجيل الخروج</button>${user.role!=='Admin'?'<button class="btn danger" data-action="delete-account">طلب حذف حسابي</button>':''}<p class="hint">الإصدار 1.8.0 · المتجر المطور (iOS & Android)</p></div>`;}
+function accountView(){return `<div class="section-head"><div><h1>حسابك في المتجر</h1><p>تفاصيل الحساب، وإدارة المظهر، والإعلانات، وطاقم العمل</p></div></div><div class="panel stack" style="max-width:650px"><div class="inline"><span class="avatar" style="border:2px solid var(--vip-gold)">${esc(user.name[0])}</span><div><h2>${esc(user.name)}</h2><p class="hint" style="color:var(--vip-emerald);font-weight:bold">${roles[user.role]||user.role} · ${esc(user.email)}</p></div></div><button class="btn secondary" data-action="edit-profile">✏️ تعديل اسم المستخدم وكلمة المرور</button>${has('appearance.manage')?'<button class="btn" style="background:var(--vip-gold-gradient);color:#081c13;font-weight:bold" data-action="appearance">🎨 شاشة تعديل شكل المتجر والأيقونة والاسم</button><button class="btn secondary" data-action="banners-manager">📢 إدارة الإعلانات وبانرات العروض</button>':''}${has('users.manage')?'<button class="btn secondary" data-action="staff-manager">👥 إدارة عمال المتجر تفصيلياً</button><button class="btn" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="registration-fields">📋 تخصيص نموذج تسجيل المستخدمين الجدد (الأهم والخيارات)</button>':''}${has('commissions.manage')?'<button class="btn secondary" data-action="commissions">العمولات والأسعار</button>':''}${has('policies.manage')?'<button class="btn secondary" data-action="policy-editor">الاتفاقيات وشروط المتجر وحذف الحساب</button>':''}${has('registrations.manage')?'<button class="btn secondary" data-action="registrations">لوحة تسجيل العملاء والتجار والمناديب</button>':''}<button class="btn secondary" data-action="store-policies">اتفاقية التسجيل وشروط المتجر</button>${has('commerce.manage')?'<button class="btn secondary" data-action="commerce-settings">العملات واللغة وطرق الدفع</button>':''}${has('payments.review')?'<button class="btn secondary" data-action="payment-reviews">مراجعة الدفع والإيصالات</button>':''}<button class="btn secondary" data-action="install-app">📱 تثبيت التطبيق (آيفون / أندرويد)</button><button class="btn secondary" data-action="language">تغيير اللغة / Language</button><button class="btn secondary" data-action="device-permissions">أذونات الكاميرا والمايك والموقع</button><button class="btn" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="enable-notifications">🔔 تفعيل واختبار إشعارات الجوال (تنبيهات الهاتف)</button>${has('appearance.manage')?'<button class="btn secondary" data-action="interface-design">تصميم الشاشات المتقدم</button>':''}${has('notifications.send')?'<button class="btn secondary" data-action="compose-notice">إرسال إشعارات</button>':''}<button class="btn secondary" data-action="notices">الإشعارات الواردة <span class="notice-count"></span></button><button class="btn secondary" data-action="support">مركز الدعم الفني المباشر</button><button class="btn ghost" data-action="privacy">الخصوصية وحذف الحساب</button><button class="btn secondary" data-action="connect">إعداد اتصال المتجر</button>${demo?'<button class="btn secondary" data-action="switch-role">استعراض واجهة أخرى</button>':''}<button class="btn ghost" data-action="logout">تسجيل الخروج</button>${user.role!=='Admin'?'<button class="btn danger" data-action="delete-account">طلب حذف حسابي</button>':''}<p class="hint">الإصدار 1.8.0 · المتجر المطور (iOS & Android)</p></div>`;}
 
 /* ========================================================
     Dedicated Final Login Screen (شاشة الدخول النهائية )
@@ -626,6 +626,32 @@ function connect(){modal('الاتصال بمتجر التسوق',`<p class="hin
 function privacy(){modal('الخصوصية وحذف الحساب',`<div class="stack hint"><h3>بياناتك في المتجر</h3><p>المتجر يلتزم بأعلى معايير الخصوصية والأمان وحماية بيانات البطاقات والشحنات المشفرة.</p><button class="btn full" data-action="close">فهمت</button></div>`);}
 
 async function action(name,id){
+  if(name==='grant-all-permissions'){
+  localStorage.setItem('ts-permissions-prompted','true');
+  closeModal();
+  if('Notification' in window){
+   Notification.requestPermission().then(perm => {
+    if(perm === 'granted' && typeof triggerMobileNotification === 'function'){
+     triggerMobileNotification('🎉 تم تفعيل إشعارات الجوال', 'ستصلك الآن تنبيهات الطلبات الجديدة والرسائل مباشرة على شاشة هاتفك.');
+    }
+   }).catch(()=>{});
+  }
+  if('geolocation' in navigator){
+   navigator.geolocation.getCurrentPosition(()=>{}, ()=>{}, { timeout: 6000 });
+  }
+  if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+   navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+    .then(stream => { stream.getTracks().forEach(t => t.stop()); })
+    .catch(()=>{});
+  }
+  toast('تم حفظ طلب الأذونات بنجاح!');
+  return;
+ }
+ if(name==='skip-permissions'){
+  localStorage.setItem('ts-permissions-prompted','true');
+  closeModal();
+  return;
+ }
  if(name==='to-register'){renderAuth('register');return;}
  if(name==='to-forgot'){renderAuth('forgot');return;}
  if(name==='to-login'){renderAuth('login');return;}
@@ -794,7 +820,61 @@ document.addEventListener('submit',async e=>{
  }catch(err){if(error){error.textContent=err.message;error.hidden=false;}else toast(err.message);}finally{busy=false;if(b?.isConnected)b.disabled=false;}
 });
 
+
+/* ========================================================
+   Initial Install Permissions Request (طلب الصلاحيات عند التثبيت والفتح لأول مرة)
+   ======================================================== */
+function checkAndPromptInitialPermissions(){
+ if(localStorage.getItem('ts-permissions-prompted')) return;
+ 
+ setTimeout(() => {
+  if(localStorage.getItem('ts-permissions-prompted')) return;
+  modal('تهيئة أذونات التطبيق', `
+  <div class="stack" style="text-align:center">
+   <div class="vip-logo-container" style="width:68px;height:68px;margin:0 auto 10px">
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+    </svg>
+   </div>
+   <h2 style="font-size:19px;color:#ffffff;margin-bottom:6px">أذونات المتجر لتجربة متكاملة</h2>
+   <p class="hint" style="color:#d1fae5;font-size:12.5px;line-height:1.7;margin-bottom:14px">
+    للحصول على التنبيهات الفورية والتتبع المباشر لطلباتك، نرجو تفعيل صلاحيات التطبيق الأساسية بنقرة واحدة:
+   </p>
+   
+   <div style="display:grid;gap:10px;text-align:right">
+    <div style="background:rgba(212,175,55,0.08);border:1px solid rgba(212,175,55,0.25);padding:10px 14px;border-radius:12px">
+     <strong style="color:#fef08a;font-size:12.5px">🔔 إشعارات وتنبيهات الجوال:</strong>
+     <small style="display:block;color:#cbd5e1;font-size:11px;margin-top:3px">لاستلام تنبيهات الطلبات والرسائل في شاشة القفل.</small>
+    </div>
+    <div style="background:rgba(212,175,55,0.08);border:1px solid rgba(212,175,55,0.25);padding:10px 14px;border-radius:12px">
+     <strong style="color:#fef08a;font-size:12.5px">📍 الموقع وخرائط Google:</strong>
+     <small style="display:block;color:#cbd5e1;font-size:11px;margin-top:3px">لتحديد عنوان التوصيل وتتبع مندوب الشحن مباشرة.</small>
+    </div>
+    <div style="background:rgba(212,175,55,0.08);border:1px solid rgba(212,175,55,0.25);padding:10px 14px;border-radius:12px">
+     <strong style="color:#fef08a;font-size:12.5px">📷 الكاميرا والميكروفون:</strong>
+     <small style="display:block;color:#cbd5e1;font-size:11px;margin-top:3px">لإرفاق صور الإيصالات والتسجيلات الصوتية في المحادثة.</small>
+    </div>
+   </div>
+   
+   <button class="btn full" style="margin-top:14px;background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="grant-all-permissions">
+    ✓ تفعيل ومنح الصلاحيات الآن
+   </button>
+   <button class="btn ghost full" data-action="skip-permissions">
+    المتابعة لاحقاً
+   </button>
+  </div>
+  `);
+ }, 1500);
+}
+
+// طلب الصلاحيات فور تثبيت التطبيق كـ PWA على الهاتف
+window.addEventListener('appinstalled', () => {
+ localStorage.removeItem('ts-permissions-prompted');
+ checkAndPromptInitialPermissions();
+});
+
 async function init(){
+ checkAndPromptInitialPermissions();
  if('serviceWorker' in navigator && !isNativeWrapper() && (location.protocol==='https:' || ['localhost','127.0.0.1'].includes(location.hostname))){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
  }

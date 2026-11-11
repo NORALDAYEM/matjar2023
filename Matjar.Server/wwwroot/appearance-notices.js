@@ -1,3 +1,103 @@
+
+/* ========================================================
+   Mobile Push Notifications Engine (محرك إشعارات الجوال المنبثقة)
+   ======================================================== */
+let knownNoticeIds = new Set();
+let isFirstNoticeCheck = true;
+
+// تشغيل نغمة تنبيه لطيفة مع الإشعار
+function playNotificationChime() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
+    gain.gain.setValueAtTime(0.25, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.35);
+  } catch(e) {}
+}
+
+// إرسال الإشعار المنبثق لشاشة الجوال ولوحة الإشعارات العلوية
+async function triggerMobileNotification(title, message, url = './') {
+  playNotificationChime();
+  if ('vibrate' in navigator) {
+    try { navigator.vibrate([250, 100, 250, 100, 250]); } catch(e) {}
+  }
+
+  if (!('Notification' in window)) return;
+
+  if (Notification.permission === 'granted') {
+    showActualNotification(title, message, url);
+  } else if (Notification.permission !== 'denied') {
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') {
+      showActualNotification(title, message, url);
+    }
+  }
+}
+
+function showActualNotification(title, message, url) {
+  // استخدام Service Worker لعرض الإشعار في شريط الجوال وشاشة القفل
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready.then(reg => {
+      if (reg && reg.showNotification) {
+        reg.showNotification(title || 'متجر التسوق', {
+          body: message || 'تنبيه جديد وصل إلى حسابك',
+          icon: './icon-192.png',
+          badge: './apple-touch-icon.png',
+          vibrate: [300, 150, 300],
+          tag: 'matjar-' + Date.now(),
+          renotify: true,
+          requireInteraction: false,
+          data: { url: url || './' }
+        });
+      }
+    }).catch(() => {
+      try {
+        new Notification(title || 'متجر التسوق', {
+          body: message || 'تنبيه جديد وصل إلى حسابك',
+          icon: './icon-192.png'
+        });
+      } catch(e) {}
+    });
+  } else {
+    try {
+      new Notification(title || 'متجر التسوق', {
+        body: message || 'تنبيه جديد وصل إلى حسابك',
+        icon: './icon-192.png'
+      });
+    } catch(e) {}
+  }
+}
+
+// طلب إذن إشعارات الجوال
+async function requestMobileNotificationPermission() {
+  if (!('Notification' in window)) {
+    toast('المتصفح الحالي لا يدعم إشعارات النظام مباشرة');
+    return false;
+  }
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') {
+      triggerMobileNotification('🎉 إشعارات الجوال مفعلة بنجاح', 'ستصلك الآن تنبيهات الطلبات الجديدة والرسائل مباشرة على شاشة هاتفك.');
+      toast('تم تفعيل إشعارات الجوال بنجاح!');
+      return true;
+    } else {
+      toast('تم رفض إذن الإشعارات من إعدادات المتصفح');
+      return false;
+    }
+  } catch(e) {
+    toast('حدث خطأ أثناء طلب إذن الإشعارات');
+    return false;
+  }
+}
+
 const defaultAppearance={storeName:'التسوق',subtitle:'كل ما تحب، أقرب إليك',primary:'#087e66',background:'#f7f7f2',ink:'#18332e',font:'Tahoma',logo:'',announcement:'',announcementActive:false};
 const storeFonts={Tahoma:'Tahoma,Arial,sans-serif',Arial:'Arial,Tahoma,sans-serif',System:'system-ui,Tahoma,sans-serif',Serif:'Georgia,"Times New Roman",serif'};
 let storeAppearance={...defaultAppearance},draftLogo='',imageLoading=false,noticeCache=[],storeBanners=[],storeStaff=[];
@@ -25,7 +125,27 @@ function paintAppearance(){
 let paintQueued=false;new MutationObserver(()=>{if(paintQueued)return;paintQueued=true;setTimeout(()=>{paintQueued=false;paintAppearance();},0);}).observe(document.getElementById('app'),{childList:true,subtree:true});
 async function refreshAppearance(){try{storeAppearance={...defaultAppearance,...await request('/appearance')};paintAppearance();}catch{}}
 async function refreshBanners(){try{storeBanners=await request('/banners');}catch{}}
-async function updateNotices(){if(!user)return;try{noticeCache=await request('/notifications');paintAppearance();}catch{}}
+async function updateNotices(){
+  if(!user)return;
+  try{
+    const fetched = await request('/notifications');
+    if(Array.isArray(fetched)){
+      if(!isFirstNoticeCheck){
+        // فحص الإشعارات الجديدة غير المقروءة لإطلاق إشعار الجوال فوراً
+        for(const n of fetched){
+          if(!n.read && !knownNoticeIds.has(n.id)){
+            triggerMobileNotification(n.title, n.message);
+          }
+        }
+      } else {
+        isFirstNoticeCheck = false;
+      }
+      fetched.forEach(n => knownNoticeIds.add(n.id));
+      noticeCache = fetched;
+      paintAppearance();
+    }
+  }catch{}
+}
 setInterval(()=>{if(!document.hidden&&user){updateNotices();refreshDesigns();refreshAppearance();refreshBanners();}},20000);
 
 function appearanceEditor(){
@@ -163,7 +283,7 @@ function staffEditor(id){
  <div class="form-error" hidden></div></form>`);
 }
 
-async function noticesCenter(){await updateNotices();modal('إشعاراتي',`<div class="stack"><p class="hint">رسائل داخل التطبيق. تتحدث أثناء فتحه؛ لا تصل كتنبيهات للهاتف عند إغلاقه.</p>${noticeCache.map(n=>`<article class="ticket-message ${n.read?'':'notice-unread'}"><h3>${esc(n.title)}</h3><p>${esc(n.message)}</p><small>${new Date(n.at).toLocaleString('ar-SA')}</small>${n.read?'<small> · مقروء</small>':`<button class="btn small secondary" data-action="read-notice" data-id="${esc(n.id)}">تحديد كمقروء</button>`}</article>`).join('')||'<p class="hint">لا توجد إشعارات لك بعد.</p>'}<button class="btn secondary" data-action="notices">تحديث</button></div>`);}
+async function noticesCenter(){await updateNotices();modal('إشعاراتي',`<div class="stack"><p class="hint">الإشعارات مفعلة وتصلك مباشرة على شاشة هاتفك وقفل الشاشة عند وصول أي طلب أو رسالة جديدة.</p>${noticeCache.map(n=>`<article class="ticket-message ${n.read?'':'notice-unread'}"><h3>${esc(n.title)}</h3><p>${esc(n.message)}</p><small>${new Date(n.at).toLocaleString('ar-SA')}</small>${n.read?'<small> · مقروء</small>':`<button class="btn small secondary" data-action="read-notice" data-id="${esc(n.id)}">تحديد كمقروء</button>`}</article>`).join('')||'<p class="hint">لا توجد إشعارات لك بعد.</p>'}<div class="inline"><button class="btn small" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="test-phone-notification">📲 تجربة إشعار على شاشة الجوال الآن</button><button class="btn small secondary" data-action="notices">تحديث القائمة</button></div></div>`);}
 async function composeNotice(){const sent=await request('/notifications/sent');modal('إرسال إشعارات العملاء والمناديب',`<div class="stack"><form class="form" data-form="compose-notice"><label>المستلمون<select name="audience"><option value="Customer">جميع العملاء</option><option value="Courier">جميع مندوبي التوصيل</option><option value="Merchant">جميع التجار</option><option value="All">جميع الحسابات الفعالة</option>${dashboard.users?.length?'<option value="User">حساب محدد</option>':''}</select></label>${dashboard.users?.length?`<label>الحساب عند اختيار «حساب محدد»<select name="userId">${dashboard.users.filter(u=>u.active).map(u=>`<option value="${esc(u.id)}">${esc(u.name)} · ${roles[u.role]}</option>`).join('')}</select></label>`:''}<label>عنوان الإشعار<input name="title" required minlength="2" maxlength="100"></label><label>الرسالة<textarea name="message" required minlength="2" maxlength="1000"></textarea></label><p class="hint">يُرسل فورًا إلى صندوق الإشعارات داخل الحسابات المختارة. لا يتضمن إرسال SMS أو بريد أو تنبيه والهاتف مغلق.</p><button class="btn" type="submit">إرسال الإشعار الآن</button><div class="form-error" hidden></div></form><h3>سجل الإرسال</h3>${sent.map(n=>`<article class="ticket-message"><strong>${esc(n.title)}</strong><p>${esc(n.message)}</p><small>${({Customer:'العملاء',Courier:'المناديب',Merchant:'التجار',All:'الجميع',User:'حساب محدد'})[n.audience]} · ${n.sentCount} مستلم · ${n.readCount} قراءة · ${new Date(n.at).toLocaleString('ar-SA')}</small></article>`).join('')||'<p class="hint">لم ترسل رسائل بعد.</p>'}</div>`);}
 
 async function appearanceAction(name,id){
@@ -179,6 +299,7 @@ async function appearanceAction(name,id){
  if(name==='edit-staff'){staffEditor(id);return true;}
  if(name==='delete-staff'){await request('/staff/'+id,'DELETE');await refresh();await staffManager();toast('تم حذف ملف العامل');return true;}
  if(name==='notices'){await noticesCenter();return true;}
+ if(name==='enable-notifications'||name==='test-phone-notification'){await requestMobileNotificationPermission();return true;}
  if(name==='compose-notice'){await composeNotice();return true;}
  if(name==='read-notice'){await request('/notifications/'+id+'/read','PUT');await noticesCenter();return true;}
  return false;
