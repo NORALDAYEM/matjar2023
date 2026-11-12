@@ -1,0 +1,33 @@
+{
+  "name": "التسوق | كل ما تحب، أقرب إليك",
+  "short_name": "التسوق",
+  "description": "تجربة عربية تجمع العميل والتاجر ومندوب التوصيل وإدارة المتجر على الآيفون والأندرويد.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f7f7f2",
+  "theme_color": "#087e66",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
