@@ -237,7 +237,8 @@ api.MapGet("/dashboard", (Store s, HttpContext c) => s.Read(d => {
                 lastSeen = x.LastSeen,
                 isOnline,
                 sessionCount,
-                permissions = EffectivePermissions(x)
+                x.Overrides,
+                permissions = Permissions.All.Keys.Where(k => Has(x, k)).ToArray()
             };
         }).ToArray() : [],
         staff = Has(u, "users.manage") ? d.Staff.OrderByDescending(x => x.CreatedAt).ToArray() : [],
