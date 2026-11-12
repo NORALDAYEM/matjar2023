@@ -1686,7 +1686,7 @@ async function action(name,id){
   if(id==='banners'){await bannersManager();return;}
   if(id==='appearance'){appearanceEditor();return;}
   if(id==='regfields'){registrationFieldsManager();return;}
-  if(id==='commissions'){if(typeof commissionsModal==='function')commissionsModal();return;}
+  if(id==='commissions'){if(typeof commissionsEditor==='function')await commissionsEditor();return;}
   if(id==='notices'){if(typeof noticesCenter==='function')await noticesCenter();return;}
   if(id==='support'){if(typeof supportCenter==='function')await supportCenter();return;}
   

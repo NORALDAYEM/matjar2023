@@ -281,7 +281,7 @@ async function executeInstantLiveSync() {
 }
 
 // تحديث فوري وتلقائي كل 3 ثوانٍ
-setInterval(executeInstantLiveSync, 3500);
+setInterval(executeInstantLiveSync, 15000);
 
 // تحديث فوري فائق السرعة بمجرد الرجوع أو فتح الشاشة
 document.addEventListener('visibilitychange', () => {

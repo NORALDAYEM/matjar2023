@@ -1,4 +1,4 @@
-const CACHE_NAME = 'altasawuq-shell-v1.9';
+const CACHE_NAME = 'altasawuq-shell-v2.0';
 const SHELL_ASSETS = [
   './',
   './index.html',
