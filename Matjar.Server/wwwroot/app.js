@@ -2487,7 +2487,7 @@ async function action(name,id,el=null){
   return;
  }
  if(await governanceAction(name,id))return;if(await commerceAction(name,id))return;if(await chatAction(name,id))return;
- if(await appearanceAction(name,id,b))return;if(await extendedAction(name,id))return;
+ if(await appearanceAction(name,id,el))return;if(await extendedAction(name,id))return;
  if(name==='edit-profile'){editProfileModal();return;}
  if(name==='banner-click'){if(id){category=id;page='home';render();$('#product-heading')?.scrollIntoView({behavior:'smooth'});}return;}
  if(name==='install-app'){installAppModal();return;}
