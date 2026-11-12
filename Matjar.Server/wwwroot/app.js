@@ -1,4 +1,46 @@
 
+async function adminTechSettingsModal(){
+ let s = { host:'smtp.gmail.com', port:587, user:'', hasPass:false, mapApiKey:'', mapTileUrl:'' };
+ try { if(apiBase) s = await request('/admin/settings'); } catch(e){}
+ modal('مفتاح الخرائط وإعدادات البريد الإلكتروني (SMTP)', `
+ <div class="stack">
+  <form class="form" data-form="save-admin-tech-settings">
+   <div style="background:rgba(212,175,55,0.12);border:1px solid rgba(212,175,55,0.35);padding:12px 14px;border-radius:12px;font-size:12px;color:#fef08a;line-height:1.7">
+    <strong>1. إعدادات إرسال كلمة المرور إلى إيميل المستخدم (Gmail SMTP):</strong><br>
+    لإرسال كلمة السر تلقائياً عند نسيانها إلى إيميل المستخدم، أدخل إيميل المتجر وكلمة مرور التطبيقات (App Password).
+   </div>
+   <div class="row">
+    <label>خادم البريد (SMTP Host)<input name="host" value="${esc(s.host||'smtp.gmail.com')}" dir="ltr" placeholder="smtp.gmail.com"></label>
+    <label>المنفذ (Port)<input name="port" type="number" value="${s.port||587}" dir="ltr"></label>
+   </div>
+   <div class="row">
+    <label>البريد الإلكتروني المرسل (مثل Gmail)<input name="user" type="email" value="${esc(s.user||'')}" dir="ltr" placeholder="noraldayem2012@gmail.com"></label>
+    <label>كلمة مرور التطبيقات (App Password)<input name="pass" type="password" dir="ltr" placeholder="${s.hasPass?'•••••••• (محفوظة - اتركها فارغة للإبقاء)':'أدخل App Password'}"></label>
+   </div>
+
+   <div style="background:rgba(26,115,232,0.15);border:1px solid rgba(26,115,232,0.4);padding:12px 14px;border-radius:12px;font-size:12px;color:#bfdbfe;line-height:1.7;margin-top:6px">
+    <strong>2. مفتاح خرائط جوجل (Google Maps API Key):</strong><br>
+    اختياري لتحسين عرض طبقة خرائط Google المباشرة داخل شاشة التتبع والأجهزة.
+   </div>
+   <label>مفتاح خرائط جوجل (Google Maps API Key)<input name="mapApiKey" value="${esc(s.mapApiKey||'')}" dir="ltr" placeholder="AIzaSy..."></label>
+   <label>رابط خرائط مخصص (اختياري Tile URL)<input name="mapTileUrl" value="${esc(s.mapTileUrl||'')}" dir="ltr" placeholder="https://tile.openstreetmap.org/{z}/{x}/{y}.png"></label>
+
+   <button class="btn full" type="submit">💾 حفظ الإعدادات وتفعيلها فوراً</button>
+   <div class="form-error" hidden></div>
+  </form>
+
+  <form class="form" data-form="test-smtp-email" style="border-top:1px dashed var(--line);padding-top:12px">
+   <label>تجربة إرسال بريد إلكتروني الآن للتأكد
+    <div class="inline" style="gap:8px;flex-wrap:nowrap">
+     <input name="email" type="email" dir="ltr" placeholder="أدخل بريدك لتجربة الإرسال" value="${esc(s.user||'')}">
+     <button class="btn small secondary" type="submit" style="white-space:nowrap">📧 إرسال تجربة</button>
+    </div>
+   </label>
+  </form>
+ </div>`);
+}
+
+
 /* ========================================================
    Strict Connected Username Validator (منع المسافات والرموز في اسم المستخدم)
    ======================================================== */
@@ -44,9 +86,10 @@ document.addEventListener('input', e => {
    ======================================================== */
 let devicesMapInstance = null;
 let devicesMarkers = [];
+let lastDevicesList = [];
 
 async function devicesView(){
- if(user.role !== 'Admin') return empty('هذه الصفحة مخصصة لإدارة المتجر');
+ if(!['Admin','Supervisor'].includes(user.role) && !has('tracking.read') && !has('users.manage')) return empty('هذه الصفحة مخصصة لإدارة المتجر والمشرفين');
  
  let data = { totalInstalls: 5, activeDevices: 4, iosCount: 3, androidCount: 2, desktopCount: 0, devices: [] };
  try {
@@ -56,17 +99,17 @@ async function devicesView(){
    data = {
     totalInstalls: 5, activeDevices: 4, iosCount: 3, androidCount: 2, desktopCount: 0,
     devices: [
-     { id:'dev1', deviceModel:'Apple iPhone 15 Pro', platform:'iOS', browser:'Mobile Safari', city:'الرياض، حي الملقا', latitude:24.7923, longitude:46.6214, userName:'نورة أحمد', isOnline:true, lastActiveAt:new Date().toISOString() },
-     { id:'dev2', deviceModel:'Samsung Galaxy S24 Ultra', platform:'Android', browser:'Chrome Mobile', city:'جدة، حي الروضة', latitude:21.5433, longitude:39.1728, userName:'خالد عبدالله', isOnline:true, lastActiveAt:new Date(Date.now()-600000).toISOString() },
-     { id:'dev3', deviceModel:'Apple iPhone 14', platform:'iOS', browser:'Mobile Safari', city:'الدمام، حي الشاطئ', latitude:26.4207, longitude:50.0888, userName:'محمد فهد', isOnline:false, lastActiveAt:new Date(Date.now()-3600000).toISOString() },
-     { id:'dev4', deviceModel:'Xiaomi 14 Pro', platform:'Android', browser:'Chrome Mobile', city:'مكة المكرمة، حي العزيزية', latitude:21.4225, longitude:39.8262, userName:'سارة القحطاني', isOnline:true, lastActiveAt:new Date().toISOString() },
-     { id:'dev5', deviceModel:'Apple iPhone 13 Pro', platform:'iOS', browser:'Mobile Safari', city:'المدينة المنورة', latitude:24.4672, longitude:39.6111, userName:'سلطان العتيبي', isOnline:false, lastActiveAt:new Date(Date.now()-1800000).toISOString() }
+     { id:'dev1', deviceModel:'Apple iPhone 15 Pro', platform:'iOS', browser:'Mobile Safari', ipAddress:'185.125.190.12', region:'منطقة الرياض', city:'الرياض، حي الملقا', latitude:24.7923, longitude:46.6214, userName:'نورة أحمد', userEmail:'noura@store.local', isOnline:true, lastActiveAt:new Date().toISOString() },
+     { id:'dev2', deviceModel:'Samsung Galaxy S24 Ultra', platform:'Android', browser:'Chrome Mobile', ipAddress:'37.216.142.88', region:'منطقة مكة المكرمة', city:'جدة، حي الروضة', latitude:21.5433, longitude:39.1728, userName:'خالد عبدالله', userEmail:'khaled@store.local', isOnline:true, lastActiveAt:new Date(Date.now()-600000).toISOString() },
+     { id:'dev3', deviceModel:'Apple iPhone 14', platform:'iOS', browser:'Mobile Safari', ipAddress:'176.44.89.105', region:'المنطقة الشرقية', city:'الدمام، حي الشاطئ', latitude:26.4207, longitude:50.0888, userName:'محمد فهد', userEmail:'mohammed@store.local', isOnline:false, lastActiveAt:new Date(Date.now()-3600000).toISOString() },
+     { id:'dev4', deviceModel:'Xiaomi 14 Pro', platform:'Android', browser:'Chrome Mobile', ipAddress:'51.39.210.44', region:'منطقة مكة المكرمة', city:'مكة المكرمة، حي العزيزية', latitude:21.4225, longitude:39.8262, userName:'سارة القحطاني', userEmail:'sara@store.local', isOnline:true, lastActiveAt:new Date().toISOString() },
+     { id:'dev5', deviceModel:'Apple iPhone 13 Pro', platform:'iOS', browser:'Mobile Safari', ipAddress:'46.153.77.19', region:'منطقة المدينة المنورة', city:'المدينة المنورة', latitude:24.4672, longitude:39.6111, userName:'سلطان العتيبي', userEmail:'sultan@store.local', isOnline:false, lastActiveAt:new Date(Date.now()-1800000).toISOString() }
     ]
    };
   }
  } catch(e){}
 
- setTimeout(() => { initDevicesMap(data.devices || []); }, 100);
+ lastDevicesList = data.devices || [];
 
  return `
  <div class="section-head">
@@ -75,10 +118,25 @@ async function devicesView(){
    <p>رصد حي وشامل لعدد من قاموا بتثبيت التطبيق، أنواع هواتفهم، ومواقعهم الجغرافية بدقة على الخريطة</p>
   </div>
   <div class="inline">
-   <button class="btn secondary" data-action="instant-refresh">🔄 تحديث الخريطة والأجهزة</button>
+   <button class="btn secondary" data-action="instant-refresh">🔄 تحديث الخريطة والأجهزة</button>${user.role==='Admin'?`<button class="btn" data-action="admin-tech-settings">🔑 مفتاح الخرائط وإعدادات الإيميل</button>`:``}
   </div>
  </div>
 
+ <div class="panel" style="margin:14px 0 18px;padding:16px;border:1px solid rgba(212,175,55,0.4);display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
+  <div>
+   <strong style="color:#fef08a;font-size:14px">⚙️ آلية تنشيط الحسابات المسجلة الجديدة:</strong>
+   <p class="hint" style="margin:4px 0 0;color:#cbd5e1;font-size:12px">
+    ${governance?.policies?.autoApproveCustomers
+     ? '✅ الوضع الحالي: <b>التفعيل التلقائي المباشر</b> (يدخل المستخدم الجديد للمتجر فوراً دون انتظار).'
+     : '🛡️ الوضع الحالي: <b>تفعيل بموافقة المشرفين والإدارة</b> (يتجمد الحساب الجديد لحين تنشيطه من هنا).'}
+   </p>
+  </div>
+  <div class="inline" style="gap:8px">
+   <button class="btn small ${governance?.policies?.autoApproveCustomers?'':'secondary'}" type="button" data-action="set-auto-approve" data-id="true">✅ تفعيل تلقائي</button>
+   <button class="btn small ${!governance?.policies?.autoApproveCustomers?'':'secondary'}" type="button" data-action="set-auto-approve" data-id="false">🛡️ بموافقة المشرفين</button>
+   ${user.role==='Admin'?`<button class="btn small ghost" type="button" data-action="admin-tech-settings">📧 إعدادات إيميل نسيان كلمة السر</button>`:''}
+  </div>
+ </div>
  <div class="stats" style="grid-template-columns:repeat(4,1fr);margin:16px 0 24px">
   <div class="stat featured">
    <div class="label">إجمالي من حمّل وثبّت التطبيق${icon('truck',18)}</div>
@@ -104,12 +162,15 @@ async function devicesView(){
 
  <!-- خريطة توزيع الأجهزة والعملاء الجغرافية -->
  <div class="panel" style="padding:0;overflow:hidden;border:1px solid rgba(212,175,55,0.3);border-radius:20px;margin-bottom:24px">
-  <div style="background:linear-gradient(135deg, #064e3b 0%, #03251c 100%);padding:14px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(212,175,55,0.25)">
+  <div style="background:linear-gradient(135deg, #064e3b 0%, #03251c 100%);padding:14px 20px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid rgba(212,175,55,0.25)">
    <div style="display:flex;align-items:center;gap:10px">
     <span class="live-pulse" style="width:10px;height:10px"></span>
-    <strong style="color:#ffffff;font-size:14.5px">🗺️ خريطة الرصد الجغرافي المباشر لمواقع العملاء والأجهزة</strong>
+    <strong style="color:#ffffff;font-size:14.5px">🗺️ خريطة التتبع الجغرافي المباشر (الأدمن + هواتف المسجلين)</strong>
    </div>
-   <small style="color:#fef08a">اضغط على أي علامة لمشاهدة نوع الهاتف والموقع</small>
+   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <small id="admin-gps-status" style="color:#fef08a">${window.adminLiveCoords ? `👑 موقع الأدمن: ${window.adminLiveCoords.lat.toFixed(4)}, ${window.adminLiveCoords.lng.toFixed(4)}` : '👑 جاري تحديد موقع الأدمن...'}</small>
+    <button class="btn small secondary" type="button" data-action="refresh-admin-gps">🎯 تحديث موقع الأدمن</button>
+   </div>
   </div>
   <div id="devices-live-map" style="height:380px;width:100%;z-index:1;direction:ltr"></div>
  </div>
@@ -135,15 +196,17 @@ async function devicesView(){
         <h3 style="color:#ffffff;font-size:16px;margin:0">${esc(d.deviceModel)}</h3>
         <span class="badge ${d.isOnline?'Ready':'Cancelled'}" style="font-size:10px">${d.isOnline?'🟢 متصل الآن':'⚪ غير متصل'}</span>
        </div>
-       <p style="color:#cbd5e1;font-size:12px;margin:4px 0 0">
-        المستخدم: <b style="color:#fef08a">${esc(d.userName || 'عميل زائر')}</b> · المتصفح: ${esc(d.browser)}
+       <p style="color:#cbd5e1;font-size:12.5px;margin:4px 0 0">
+        👤 الاسم المسجل: <b style="color:#fef08a">${esc(d.userName || 'زائر غير مسجل')}</b>${d.userEmail ? ` <span style="color:#94a3b8">(${esc(d.userEmail)})</span>` : ''}
        </p>
        <div style="display:flex;gap:12px;font-size:11.5px;color:#94a3b8;margin-top:6px;flex-wrap:wrap">
-        <span>📍 الموقع: <b style="color:#ffffff">${esc(d.city || 'الرياض')}</b></span>
+        <span>📱 نوع الهاتف: <b style="color:#ffffff">${esc(d.deviceModel || 'هاتف ذكي')} (${esc(d.platform || '-')})</b></span>
         <span>·</span>
-        <span>الإحداثيات: <code style="color:#fde047" dir="ltr">${d.latitude?.toFixed(4)}, ${d.longitude?.toFixed(4)}</code></span>
+        <span>🌐 IP الهاتف: <code style="color:#38bdf8;background:#031711;padding:2px 6px;border-radius:6px" dir="ltr">${esc(d.ipAddress || 'غير مسجل')}</code></span>
         <span>·</span>
-        <span>تاريخ التثبيت: ${new Date(d.installedAt||Date.now()).toLocaleDateString('ar-SA')}</span>
+        <span>📍 المنطقة: <b style="color:#ffffff">${esc(d.region || d.city || 'الرياض')}</b></span>
+        <span>·</span>
+        <span>الإحداثيات: <code style="color:#fde047" dir="ltr">${Number(d.latitude||0).toFixed(4)}, ${Number(d.longitude||0).toFixed(4)}</code></span>
        </div>
       </div>
      </div>
@@ -151,14 +214,12 @@ async function devicesView(){
 
     <div class="order-bottom" style="margin-top:14px;padding-top:12px;border-top:1px dashed rgba(212,175,55,0.2)">
      <div class="order-actions" style="gap:8px;width:100%;justify-content:flex-start;flex-wrap:wrap">
-      <!-- زر تحديد الموقع في خريطة المتجر -->
-      <button class="btn small secondary" type="button" onclick="focusDeviceOnMap(${d.latitude}, ${d.longitude}, '${esc(d.deviceModel)}')">
-       📍 تحديد الموقع على الخريطة
+      <button class="btn small secondary" type="button" data-action="focus-device-map" data-lat="${d.latitude}" data-lng="${d.longitude}">
+       📍 تحديد المكان في الخرائط
       </button>
 
-      <!-- زر فتح في تطبيق خرائط Google Play الرسمي -->
-      <button class="btn small" type="button" style="background:#1a73e8;color:#ffffff;font-weight:bold" onclick="openInGooglePlayMaps(${d.latitude}, ${d.longitude})">
-       🚀 فتح في تطبيق خرائط Google Play
+      <button class="btn small" type="button" style="background:#1a73e8;color:#ffffff;font-weight:bold" data-action="open-gmaps" data-lat="${d.latitude}" data-lng="${d.longitude}">
+       🚀 تتبع الهاتف في خرائط قوقل (الأدمن ← الهاتف)
       </button>
      </div>
     </div>
@@ -177,7 +238,7 @@ function initDevicesMap(devices){
  }
 
  devicesMapInstance = L.map('devices-live-map', { zoomControl: true }).setView([24.7136, 46.6753], 6);
- L.tileLayer(config.mapTileUrl || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+ L.tileLayer((typeof getActiveMapTileUrl==='function'?getActiveMapTileUrl():null) || config.mapTileUrl || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 18,
   attribution: '&copy; Google Maps & OpenStreetMap'
  }).addTo(devicesMapInstance);
@@ -198,18 +259,31 @@ function initDevicesMap(devices){
   }).addTo(devicesMapInstance);
 
   m.bindPopup(`
-   <div style="direction:rtl;text-align:right;font-family:Tahoma,sans-serif;font-size:12px;line-height:1.7;min-width:180px">
-    <strong style="color:#031711;font-size:13px">${iconSym} ${esc(d.deviceModel)}</strong><br>
-    <span style="color:#475569">العميل: <b>${esc(d.userName || 'عميل زائر')}</b></span><br>
-    <span style="color:#064e3b">📍 ${esc(d.city || 'الموقع محدد')}</span><br>
-    <button style="margin-top:6px;background:#1a73e8;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;width:100%" onclick="openInGooglePlayMaps(${d.latitude}, ${d.longitude})">
-     فتح الملاحة في Google Maps
+   <div style="direction:rtl;text-align:right;font-family:Tahoma,sans-serif;font-size:12px;line-height:1.7;min-width:200px">
+    <strong style="color:#031711;font-size:13px">👤 ${esc(d.userName || 'زائر غير مسجل')}</strong><br>
+    <span style="color:#334155">${iconSym} الهاتف: <b>${esc(d.deviceModel)}</b></span><br>
+    <span style="color:#0369a1">🌐 IP: <code dir="ltr">${esc(d.ipAddress || 'غير مسجل')}</code></span><br>
+    <span style="color:#064e3b">📍 المنطقة: <b>${esc(d.region || d.city || 'الموقع محدد')}</b></span><br>
+    <button style="margin-top:6px;background:#1a73e8;color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:11px;cursor:pointer;width:100%;font-weight:bold" data-action="open-gmaps" data-lat="${d.latitude}" data-lng="${d.longitude}">
+     🚀 تتبع في خرائط قوقل (الأدمن ← الهاتف)
     </button>
    </div>
   `);
 
   devicesMarkers.push(m);
  });
+
+ const plotAdminMarker = (coords) => {
+  if(!devicesMapInstance || !coords || !coords.lat || !coords.lng) return;
+  if(window.adminMapMarker) { try { devicesMapInstance.removeLayer(window.adminMapMarker); } catch(e){} }
+  window.adminMapMarker = L.circleMarker([coords.lat, coords.lng], {
+   radius: 11, color: '#ffffff', fillColor: '#f59e0b', fillOpacity: 1, weight: 3
+  }).addTo(devicesMapInstance).bindPopup('<div style="direction:rtl;text-align:right;font-family:Tahoma,sans-serif"><b>👑 موقع الأدمن الحالي</b><br>نقطة الانطلاق للتتبع المباشر</div>');
+  const st = document.getElementById('admin-gps-status');
+  if(st) st.textContent = `👑 موقع الأدمن: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`;
+ };
+ if(window.adminLiveCoords) plotAdminMarker(window.adminLiveCoords);
+ if(typeof refreshAdminLiveLocation === 'function') refreshAdminLiveLocation(plotAdminMarker);
 
  if(devicesMarkers.length > 0){
   devicesMapInstance.fitBounds(L.featureGroup(devicesMarkers).getBounds().pad(0.3));
@@ -290,6 +364,7 @@ async function reportDeviceInstallTelemetry(coords = null){
    else { telemetry.city = 'الرياض، السعودية'; telemetry.latitude = 24.7136; telemetry.longitude = 46.6753; }
   }
 
+  telemetry.region = telemetry.city;
   if(apiBase){
    await request('/telemetry/install', 'POST', telemetry);
   }
@@ -316,7 +391,7 @@ function viewProductModal(id){
   ${gallery.length > 1 ? `
   <div style="display:flex;gap:10px;overflow-x:auto;padding:6px 0">
    ${gallery.map((img, idx) => `
-    <div style="width:65px;height:65px;border-radius:12px;overflow:hidden;border:2px solid ${idx===0?'#fef08a':'rgba(212,175,55,0.3)'};cursor:pointer;flex-shrink:0" onclick="document.getElementById('gallery-main-display').src='${esc(img)}'">
+    <div style="width:65px;height:65px;border-radius:12px;overflow:hidden;border:2px solid ${idx===0?'#fef08a':'rgba(212,175,55,0.3)'};cursor:pointer;flex-shrink:0" data-action="gallery-thumb" data-id="${esc(img)}">
      <img src="${esc(img)}" style="width:100%;height:100%;object-fit:cover" alt="زاوية إضافية">
     </div>`).join('')}
   </div>` : ''}
@@ -700,7 +775,7 @@ function render(){
  else if(page==='history')view.innerHTML=courier(true);
  else if(page==='cart')view.innerHTML=cartView();
  else if(page==='staff')view.innerHTML=staffPageView();
- else if(page==='devices'){devicesView().then(html => { view.innerHTML = html; }); return;}
+ else if(page==='devices'){devicesView().then(html => { view.innerHTML = html; setTimeout(() => { initDevicesMap(lastDevicesList); if(devicesMapInstance) devicesMapInstance.invalidateSize(); }, 80); }); return;}
  else if(page==='favorites')view.innerHTML=favoritesView();
  else if(page==='users')view.innerHTML=usersView();
  else if(page==='audit')view.innerHTML=`<div class="section-head"><div><h2>سجل نشاط المتجر</h2><p>تتبع العمليات والمستخدمين والمنتجات والطلبات بدقة</p></div>${pill((dashboard.audit||[]).length+' عملية','clock')}</div><div class="panel">${(dashboard.audit||[]).map(a=>`<div class="audit-item">${esc(a.action)}<small>${esc(a.name)} · ${date(a.at)}</small></div>`).join('')||empty('لا توجد عمليات مسجلة بعد')}</div>`;
@@ -757,7 +832,7 @@ function renderLoginAdsCarousel(){
     <p style="font-size:12.5px;color:#e2e8f0;line-height:1.6;margin-bottom:12px">${esc(ad.subtitle||'')}</p>
    </div>
    <div class="login-ad-dots">
-    ${ads.map((_, i) => `<span class="ad-dot ${i === (currentLoginAdIndex % ads.length) ? 'active' : ''}" onclick="switchLoginAd(${i})"></span>`).join('')}
+    ${ads.map((_, i) => `<span class="ad-dot ${i === (currentLoginAdIndex % ads.length) ? 'active' : ''}" data-action="switch-login-ad" data-id="${i}"></span>`).join('')}
    </div>
   </div>
  </div>`;
@@ -933,7 +1008,7 @@ function cartView(){
 }
 
 function staffPageView(){
- if(user.role!=='Admin')return empty('هذه الصفحة مخصصة لإدارة المتجر');
+ if(!['Admin','Supervisor'].includes(user.role) && !has('users.manage') && !has('registrations.manage'))return empty('هذه الصفحة مخصصة لإدارة المتجر والمشرفين');
  const list=dashboard.staff||[];
  return `<div class="section-head"><div><h1>طاقم وعمال المتجر</h1><p>سجل تفصيلي لحسابات وملفات العاملين، الرواتب، الورديات، والمهام اليومية</p></div><div class="inline"><button class="btn" data-action="new-staff">+ إضافة عامل جديد للمنظومة</button>${pill(list.length+' موظف وعامل','users')}</div></div>
  <div class="order-list">${list.map(s=>`<article class="ticket-card" style="border-right:5px solid ${s.status==='Active'?'var(--green)':s.status==='OnLeave'?'var(--orange)':'var(--red)'};background:white">
@@ -961,7 +1036,7 @@ function staffPageView(){
 }
 
 function usersView(){
- if(user.role!=='Admin')return empty('هذه الصفحة مخصصة لإدارة المتجر');
+ if(!['Admin','Supervisor'].includes(user.role) && !has('users.manage') && !has('registrations.manage'))return empty('هذه الصفحة مخصصة لإدارة المتجر والمشرفين');
  const list = dashboard.users || [];
  const onlineCount = list.filter(u=>u.isOnline).length;
  const frozenCount = list.filter(u=>!u.active).length;
@@ -1013,7 +1088,8 @@ function usersView(){
       </div>
      </div>
      
-     <div class="inline" style="gap:8px">
+     <div class="inline" style="gap:8px;flex-wrap:wrap">
+      ${u.forgotPasswordAt ? `<span class="badge" style="background:rgba(245,158,11,0.22);color:#fbbf24;border:1px solid rgba(245,158,11,0.55)">🔑 نسيان كلمة المرور</span>` : ''}
       <span class="badge ${u.active?'Ready':'Cancelled'}">${u.active?'نشط':'مجمد'}</span>
      </div>
     </div>
@@ -1080,7 +1156,7 @@ function editProfileModal(){
  <div class="form-error" hidden></div></form>`);
 }
 
-function accountView(){return `<div class="section-head"><div><h1>حسابك في المتجر</h1><p>تفاصيل الحساب، وإدارة المظهر، والإعلانات، وطاقم العمل</p></div></div><div class="panel stack" style="max-width:650px"><div class="inline"><span class="avatar" style="border:2px solid var(--vip-gold)">${esc(user.name[0])}</span><div><h2>${esc(user.name)}</h2><p class="hint" style="color:var(--vip-emerald);font-weight:bold">${roles[user.role]||user.role} · ${esc(user.email)}</p></div></div><button class="btn secondary" data-action="edit-profile">✏️ تعديل اسم المستخدم وكلمة المرور</button>${has('appearance.manage')?'<button class="btn" style="background:var(--vip-gold-gradient);color:#081c13;font-weight:bold" data-action="appearance">🎨 شاشة تعديل شكل المتجر والأيقونة والاسم</button><button class="btn secondary" data-action="banners-manager">📢 إدارة الإعلانات وبانرات العروض</button>':''}${has('users.manage')?'<button class="btn secondary" data-action="staff-manager">👥 إدارة عمال المتجر تفصيلياً</button><button class="btn" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="registration-fields">📋 تخصيص نموذج تسجيل المستخدمين الجدد (الأهم والخيارات)</button>':''}${has('commissions.manage')?'<button class="btn secondary" data-action="commissions">العمولات والأسعار</button>':''}${has('policies.manage')?'<button class="btn secondary" data-action="policy-editor">الاتفاقيات وشروط المتجر وحذف الحساب</button>':''}${has('registrations.manage')?'<button class="btn secondary" data-action="registrations">لوحة تسجيل العملاء والتجار والمناديب</button>':''}<button class="btn secondary" data-action="store-policies">اتفاقية التسجيل وشروط المتجر</button>${has('commerce.manage')?'<button class="btn secondary" data-action="commerce-settings">العملات واللغة وطرق الدفع</button>':''}${has('payments.review')?'<button class="btn secondary" data-action="payment-reviews">مراجعة الدفع والإيصالات</button>':''}<button class="btn secondary" data-action="install-app">📱 تثبيت التطبيق (آيفون / أندرويد)</button><button class="btn secondary" data-action="language">تغيير اللغة / Language</button><button class="btn secondary" data-action="device-permissions">أذونات الكاميرا والمايك والموقع</button><button class="btn" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="notification-style">🔔 تخصيص نغمات وشكل إشعارات التطبيق</button><button class="btn secondary" data-action="enable-notifications">📲 اختبار إشعار فوري على شاشة الجوال</button>${has('appearance.manage')?'<button class="btn secondary" data-action="interface-design">تصميم الشاشات المتقدم</button>':''}${has('notifications.send')?'<button class="btn secondary" data-action="compose-notice">إرسال إشعارات</button>':''}<button class="btn secondary" data-action="notices">الإشعارات الواردة <span class="notice-count"></span></button><button class="btn secondary" data-action="support">مركز الدعم الفني المباشر</button><button class="btn ghost" data-action="privacy">الخصوصية وحذف الحساب</button><button class="btn secondary" data-action="connect">إعداد اتصال المتجر</button>${demo?'<button class="btn secondary" data-action="switch-role">استعراض واجهة أخرى</button>':''}<button class="btn ghost" data-action="logout">تسجيل الخروج</button>${user.role!=='Admin'?'<button class="btn danger" data-action="delete-account">طلب حذف حسابي</button>':''}<p class="hint">الإصدار 1.8.0 · المتجر المطور (iOS & Android)</p></div>`;}
+function accountView(){return `<div class="section-head"><div><h1>حسابك في المتجر</h1><p>تفاصيل الحساب، وإدارة المظهر، والإعلانات، وطاقم العمل</p></div></div><div class="panel stack" style="max-width:650px"><div class="inline"><span class="avatar" style="border:2px solid var(--vip-gold)">${esc(user.name[0])}</span><div><h2>${esc(user.name)}</h2><p class="hint" style="color:var(--vip-emerald);font-weight:bold">${roles[user.role]||user.role} · ${esc(user.email)}</p></div></div><button class="btn secondary" data-action="edit-profile">✏️ تعديل اسم المستخدم وكلمة المرور</button>${has('appearance.manage')?'<button class="btn" style="background:var(--vip-gold-gradient);color:#081c13;font-weight:bold" data-action="appearance">🎨 شاشة تعديل شكل المتجر والأيقونة والاسم</button><button class="btn secondary" data-action="banners-manager">📢 إدارة الإعلانات وبانرات العروض</button>':''}${has('users.manage')?'<button class="btn secondary" data-action="staff-manager">👥 إدارة عمال المتجر تفصيلياً</button><button class="btn" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="registration-fields">📋 تخصيص نموذج تسجيل المستخدمين الجدد (الأهم والخيارات)</button>':''}${has('commissions.manage')?'<button class="btn secondary" data-action="commissions">العمولات والأسعار</button>':''}${has('policies.manage')?'<button class="btn secondary" data-action="policy-editor">الاتفاقيات وشروط المتجر وحذف الحساب</button>':''}${has('registrations.manage')?'<button class="btn secondary" data-action="registrations">لوحة تسجيل العملاء والتجار والمناديب</button>':''}<button class="btn secondary" data-action="store-policies">اتفاقية التسجيل وشروط المتجر</button>${has('commerce.manage')?'<button class="btn secondary" data-action="commerce-settings">العملات واللغة وطرق الدفع</button>':''}${has('payments.review')?'<button class="btn secondary" data-action="payment-reviews">مراجعة الدفع والإيصالات</button>':''}<button class="btn secondary" data-action="install-app">📱 تثبيت التطبيق (آيفون / أندرويد)</button><button class="btn secondary" data-action="language">تغيير اللغة / Language</button><button class="btn secondary" data-action="device-permissions">أذونات الكاميرا والمايك والموقع</button><button class="btn" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="notification-style">🔔 تخصيص نغمات وشكل إشعارات التطبيق</button><button class="btn secondary" data-action="enable-notifications">📲 اختبار إشعار فوري على شاشة الجوال</button>${has('appearance.manage')?'<button class="btn secondary" data-action="interface-design">تصميم الشاشات المتقدم</button>':''}${has('notifications.send')?'<button class="btn secondary" data-action="compose-notice">إرسال إشعارات</button>':''}<button class="btn secondary" data-action="notices">الإشعارات الواردة <span class="notice-count"></span></button><button class="btn secondary" data-action="support">مركز الدعم الفني المباشر</button><button class="btn ghost" data-action="privacy">الخصوصية وحذف الحساب</button>${user.role==='Admin'?`<button class="btn" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="admin-tech-settings">🔑 مفتاح الخرائط وإعدادات إرسال الإيميلات (SMTP)</button>`:``}<button class="btn secondary" data-action="connect">إعداد اتصال المتجر</button>${demo?'<button class="btn secondary" data-action="switch-role">استعراض واجهة أخرى</button>':''}<button class="btn ghost" data-action="logout">تسجيل الخروج</button>${user.role!=='Admin'?'<button class="btn danger" data-action="delete-account">طلب حذف حسابي</button>':''}<p class="hint">الإصدار 1.8.0 · المتجر المطور (iOS & Android)</p></div>`;}
 
 /* ========================================================
     Dedicated Final Login Screen (شاشة الدخول النهائية )
@@ -1337,14 +1413,14 @@ function renderAuth(tab='login'){
 
     ${isForgot ? `
     <div class="vip-input-group">
-     <label>اسم المستخدم (المتصل)</label>
+     <label>البريد الإلكتروني أو اسم المستخدم</label>
      <div class="input-wrapper">
       <span class="input-icon">
-       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
       </span>
-      <input class="vip-input" name="emailOrUsername" data-username-field="true" type="text" maxlength="50" required autocomplete="username" dir="auto" placeholder="أدخل اسم المستخدم لإرسال كلمة السر لإيميله">
+      <input class="vip-input" name="emailOrUsername" type="text" maxlength="200" required autocomplete="email" dir="auto" placeholder="أدخل البريد الإلكتروني المسجل أو اسم المستخدم">
      </div>
-     <small style="display:block;color:#fef08a;font-size:11px;margin-top:6px">سيتم إرسال كلمة المرور فوراً إلى البريد الإلكتروني المسجل لاسم المستخدم هذا.</small>
+     <small style="display:block;color:#fef08a;font-size:11px;margin-top:6px">سيتم إرسال كلمة المرور الجديدة فوراً إلى بريدك الإلكتروني المسجل.</small>
     </div>
     <button class="vip-btn-login" type="submit">
      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m14 6-6 6 6 6M8 12h13"/></svg>
@@ -1455,7 +1531,7 @@ function newUser(){
 function connect(){modal('الاتصال بمتجر التسوق',`<p class="hint">تُضبط هذه الخطوة بواسطة إدارة المتجر. يتطلب التشغيل الفعلي رابط خادم المتجر الآمن.</p><div class="spacer"></div><form class="form" data-form="connect"><label>رابط المتجر<input name="url" type="url" dir="ltr" placeholder="https://store.example.com" value="${esc(apiBase)}" required></label><button class="btn full">اتصال</button><div class="form-error" hidden></div></form>`);}
 function privacy(){modal('الخصوصية وحذف الحساب',`<div class="stack hint"><h3>بياناتك في المتجر</h3><p>المتجر يلتزم بأعلى معايير الخصوصية والأمان وحماية بيانات البطاقات والشحنات المشفرة.</p><button class="btn full" data-action="close">فهمت</button></div>`);}
 
-async function action(name,id){
+async function action(name,id,el=null){
   if(name==='grant-all-permissions'){
   localStorage.setItem('ts-permissions-prompted','true');
   closeModal();
@@ -1645,6 +1721,55 @@ async function action(name,id){
   toast('تم توليد واستعادة الكتالوج الشامل (8 مجموعات و52 صنفاً بالأسعار) بنجاح!');
   return;
  }
+  if(name==='open-gmaps'){
+  const lat = el?.dataset?.lat;
+  const lng = el?.dataset?.lng;
+  openInGooglePlayMaps(lat, lng);
+  return;
+ }
+ if(name==='refresh-admin-gps'){
+  if(typeof refreshAdminLiveLocation === 'function'){
+   refreshAdminLiveLocation(coords => {
+    toast('تم تحديث موقع الأدمن المباشر بنجاح');
+    if(devicesMapInstance && coords){
+     initDevicesMap(lastDevicesList);
+     devicesMapInstance.setView([coords.lat, coords.lng], 12);
+    }
+   });
+  }
+  return;
+ }
+ if(name==='focus-device-map'){
+  const lat = parseFloat(el?.dataset?.lat);
+  const lng = parseFloat(el?.dataset?.lng);
+  if(lat && lng) focusDeviceOnMap(lat, lng);
+  return;
+ }
+ if(name==='gallery-thumb'){
+  const mainImg = document.getElementById('gallery-main-display');
+  if(mainImg && id) mainImg.src = id;
+  return;
+ }
+ if(name==='switch-login-ad'){
+  switchLoginAd(Number(id)||0);
+  return;
+ }
+ if(name==='admin-tech-settings'){
+  await adminTechSettingsModal();
+  return;
+ }
+ if(name==='set-auto-approve'){
+  const autoApprove = id === 'true';
+  if(!apiBase){
+   governance.policies.autoApproveCustomers = autoApprove;
+  } else {
+   await request('/policies/auto-approve', 'POST', { autoApprove });
+   await refreshGovernance();
+  }
+  render();
+  toast(autoApprove ? 'تم تفعيل القبول التلقائي للحسابات الجديدة' : 'تم تفعيل مراجعة وموافقة المشرفين للحسابات الجديدة');
+  return;
+ }
  if(name==='to-register'){renderAuth('register');return;}
  if(name==='to-forgot'){renderAuth('forgot');return;}
  if(name==='to-login'){renderAuth('login');return;}
@@ -1728,7 +1853,7 @@ document.addEventListener('click',async e=>{
  try{
   busy=true;
   if(b.tagName==='BUTTON')b.disabled=true;
-  await action(act,id);
+  await action(act,id,b);
  }catch(err){
   toast(err.message);
  }finally{
@@ -1822,6 +1947,22 @@ document.addEventListener('submit',async e=>{
    toast('تم تحديث اسم المجموعة وجميع أصنافها بنجاح');
    return;
   }
+    if(kind==='save-admin-tech-settings'){
+   await request('/admin/settings', 'PUT', {
+    host: f.host, port: Number(f.port)||587, user: f.user, pass: f.pass,
+    mapApiKey: f.mapApiKey, mapTileUrl: f.mapTileUrl
+   });
+   config.mapApiKey = f.mapApiKey || '';
+   config.mapTileUrl = f.mapTileUrl || '';
+   closeModal();
+   toast('تم حفظ مفتاح الخرائط وإعدادات البريد الإلكتروني بنجاح!');
+   return;
+  }
+  if(kind==='test-smtp-email'){
+   const res = await request('/admin/settings/test-email', 'POST', { emailOrUsername: f.email });
+   toast(res.message || 'تم إرسال رسالة الاختبار بنجاح!');
+   return;
+  }
   if(kind==='register'){
    f.name = validateConnectedUsername(f.name);
    if(!apiBase){
@@ -1841,10 +1982,18 @@ document.addEventListener('submit',async e=>{
     });
     saveDemoData(d);
    } else {
-    await request('/auth/register','POST',f);
+    const res = await request('/auth/register','POST',f);
+    if(res && res.token && res.user){
+     token = res.token; user = res.user;
+     sessionStorage.setItem('ts-token', token);
+     page = 'home'; setupNeeded = false;
+     await refresh();
+     toast('تم إنشاء حسابك وتفعيله تلقائياً بنجاح!');
+     return;
+    }
    }
    renderAuth('login');
-   modal('تم إنشاء الحساب بنجاح',`<div class="stack"><div class="ticket-card" style="background:rgba(212,175,55,0.15);border:1px solid rgba(212,175,55,0.4)"><strong>حسابك مجمد حالياً وبانتظار التنشيط</strong><p class="hint">تم تسجيل حسابك بنجاح وهو حالياً قيد المراجعة. تم إرسال إشعار تنبيه إلى إدارة المتجر لتنشيط الحساب، وستتمكن من الدخول فور اعتماده.</p></div><button class="btn full" data-action="close">فهمت</button></div>`);
+   modal('تم إنشاء الحساب بنجاح',`<div class="stack"><div class="ticket-card" style="background:rgba(212,175,55,0.15);border:1px solid rgba(212,175,55,0.4)"><strong>حسابك مجمد حالياً وبانتظار التنشيط</strong><p class="hint">تم تسجيل حسابك بنجاح وهو حالياً قيد المراجعة. تم إرسال إشعار تنبيه إلى الإدارة والمشرفين لتنشيط الحساب، وستتمكن من الدخول فور اعتماده.</p></div><button class="btn full" data-action="close">فهمت</button></div>`);
    return;
   }
   if(kind==='forgot-password'){
@@ -1859,6 +2008,7 @@ document.addEventListener('submit',async e=>{
     const tempPass = 'Pass@' + Math.floor(100000 + Math.random() * 900000);
     u.password = tempPass;
     u.tempPassword = tempPass;
+    u.forgotPasswordAt = new Date().toISOString();
     sentEmail = u.email;
     if(!d.notices) d.notices=[];
     d.notices.unshift({
@@ -1997,7 +2147,7 @@ async function init(){
   }).catch(()=>{});
 
  }
- try{config=await(await fetch('config.json')).json();apiBase=apiBase||config.apiBaseUrl||(!isNativeWrapper()?location.origin:'');
+ try{config=await(await fetch('config.json')).json();try{const mc=await fetch((config.apiBaseUrl||(!isNativeWrapper()?location.origin:''))+'/api/maps-config');if(mc.ok){const mData=await mc.json();if(mData.mapApiKey)config.mapApiKey=mData.mapApiKey;if(mData.mapTileUrl)config.mapTileUrl=mData.mapTileUrl;}}catch(e){}apiBase=apiBase||config.apiBaseUrl||(!isNativeWrapper()?location.origin:'');
   await refreshGovernance();await refreshCommerce();await refreshDesigns();await refreshAppearance();await refreshBanners();
   if(new URLSearchParams(location.search).get('demo')==='1'){demo=true;sessionStorage.setItem('ts-demo','true');}
   if(demo){const id=sessionStorage.getItem('ts-demo-user');const u=demoData().users.find(u=>u.id===id&&u.active);if(u){user=demoUser(u);await refresh();}else renderAuth();}

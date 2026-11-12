@@ -16,29 +16,41 @@ function calcDistanceKm(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-// فتح الملاحة التوجيهية مباشرة في تطبيق خرائط Google Play / Google Maps المثبت على الجوال
-function openInGooglePlayMaps(lat, lng, label = 'موقع تسليم الطلب') {
-  const isAndroid = /Android/i.test(navigator.userAgent);
-  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-  
-  if (isAndroid) {
-    // 1. محاولة فتح تطبيق خرائط Google Play الرسمي مباشرة للملاحة خطوة بخطوة
-    const navGeo = `google.navigation:q=${lat},${lng}&mode=d`;
-    window.location.href = navUri = navGeo;
-    setTimeout(() => {
-      // 2. إذا لم يفتح، توجيه إلى رابط خرائط Google التوجيهي
-      window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, '_blank');
-    }, 600);
-  } else if (isIOS) {
-    // فتح تطبيق Google Maps على الآيفون
-    window.location.href = `comgooglemaps://?daddr=${lat},${lng}&directionsmode=driving`;
-    setTimeout(() => {
-      window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, '_blank');
-    }, 600);
-  } else {
-    // متصفح الكمبيوتر
-    window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, '_blank');
+// تخزين وتحديث موقع الأدمن الحالي لتتبع الهواتف على خرائط قوقل
+window.adminLiveCoords = window.adminLiveCoords || null;
+function refreshAdminLiveLocation(onUpdate) {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      window.adminLiveCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude, updatedAt: Date.now() };
+      if (typeof onUpdate === 'function') onUpdate(window.adminLiveCoords);
+    },
+    () => {},
+    { enableHighAccuracy: true, timeout: 5000, maximumAge: 30000 }
+  );
+}
+
+// فتح خرائط قوقل مباشرة مع تحديد موقع الأدمن (نقطة البداية) وموقع الهاتف (نقطة الوصول) للتتبع المباشر
+function openInGooglePlayMaps(lat, lng, adminLat, adminLng) {
+  if (!lat || !lng) {
+    toast('لا توجد إحداثيات صالحة لهذا الهاتف');
+    return;
   }
+  const aLat = adminLat || (window.adminLiveCoords && window.adminLiveCoords.lat);
+  const aLng = adminLng || (window.adminLiveCoords && window.adminLiveCoords.lng);
+  const originPart = (aLat && aLng) ? `&origin=${encodeURIComponent(aLat)},${encodeURIComponent(aLng)}` : '';
+  const url = `https://www.google.com/maps/dir/?api=1${originPart}&destination=${encodeURIComponent(lat)},${encodeURIComponent(lng)}&travelmode=driving`;
+  const w = window.open(url, '_blank', 'noopener');
+  if (!w) {
+    window.location.href = url;
+  }
+  refreshAdminLiveLocation();
+}
+
+function getActiveMapTileUrl() {
+  if (config?.mapTileUrl) return config.mapTileUrl;
+  if (config?.mapApiKey) return `https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=${encodeURIComponent(config.mapApiKey)}`;
+  return 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 }
 
 let checkoutDestination=null, mapView=null, mapTimer=null, sharingWatch=null, sharingOrder=null, sharingBusy=false, lastSent=0;
@@ -53,7 +65,7 @@ function geoOnce(){return new Promise((resolve,reject)=>{if(!navigator.geolocati
 function startMap(center){
  disposeMap();
  mapView=L.map('delivery-map',{zoomAnimation:false,fadeAnimation:false,markerZoomAnimation:false}).setView(center||[24.7136,46.6753],13);
- L.tileLayer(config.mapTileUrl||'https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; Google Maps & OpenStreetMap'}).addTo(mapView);
+ L.tileLayer(getActiveMapTileUrl(),{maxZoom:19,attribution:'&copy; Google Maps & OpenStreetMap'}).addTo(mapView);
  setTimeout(()=>mapView?.invalidateSize(),100);
  return mapView;
 }
@@ -158,7 +170,7 @@ async function tracking(id){
       </div>`;
     }
     buttonsHtml += etaHtml;
-    buttonsHtml += `<button type="button" class="btn" style="background:#1a73e8;color:#ffffff;font-weight:bold;gap:8px" onclick="openInGooglePlayMaps(${dest.latitude},${dest.longitude})">
+    buttonsHtml += `<button type="button" class="btn" style="background:#1a73e8;color:#ffffff;font-weight:bold;gap:8px" data-action="open-gmaps" data-lat="${dest.latitude}" data-lng="${dest.longitude}">
      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
      <span>🚀 فتح الملاحة في تطبيق خرائط Google Play</span>
     </button>
