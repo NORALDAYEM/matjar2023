@@ -452,7 +452,7 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const money = (v,currency=commerce.currency) => formatMoney(v,currency);
 const roles = {Customer:'عميل معتمد', Merchant:'تاجر / شريك تجاري', Courier:'مندوب توصيل', Supervisor:'مشرف عام', Support:'دعم فني', Admin:'الإدارة العليا'};
 const statuses = {Preparing:'قيد التجهيز الفاخر',Ready:'جاهز للاستلام',Assigned:'تم إسناد مندوب التوصيل',OnWay:'في الطريق إليك الآن',Delivered:'تم التسليم بنجاح',Cancelled:'ملغي'};
-const rights = {'commissions.manage':'إدارة العمولات وكشفها','policies.manage':'إدارة الاتفاقيات وشروط المتجر','registrations.manage':'مراجعة تسجيل العملاء والتجار والمناديب','commerce.manage':'إدارة العملات واللغة وطرق الدفع','payments.review':'مراجعة إيصالات واعتماد الدفع','chat.read':'قراءة الدردشة','chat.delivery':'دردشة العميل والمندوب','chat.support':'دردشة الدعم','chat.text':'إرسال نص','chat.image':'إرسال صور','chat.audio':'تسجيل وإرسال صوت','chat.camera':'التصوير داخل الدردشة','appearance.manage':'تعديل ألوان وصورة وخط المتجر','notifications.send':'إرسال إشعارات للمستخدمين','support.manage':'إدارة تذاكر الدعم','tracking.read':'عرض مواقع الطلبات','orders.create':'إنشاء الطلبات','orders.cancel':'إلغاء الطلب قبل التوصيل','orders.prepare':'تجهيز طلبات المتجر','orders.manage':'إدارة جميع الطلبات','products.write':'إضافة وتعديل المنتجات','delivery.assign':'إسناد مندوب التوصيل','delivery.update':'استلام وتسليم الشحنات','users.manage':'إدارة المستخدمين والصلاحيات','audit.read':'عرض سجل النشاط'};
+const rights = {'commissions.manage':'إدارة العمولات وكشفها','policies.manage':'إدارة الاتفاقيات وشروط المتجر','registrations.manage':'مراجعة تسجيل العملاء والتجار والمناديب','commerce.manage':'إدارة العملات واللغة وطرق الدفع','payments.review':'مراجعة إيصالات واعتماد الدفع','chat.read':'قراءة الدردشة','chat.delivery':'دردشة العميل والمندوب','chat.support':'دردشة الدعم','chat.text':'إرسال نص','chat.image':'إرسال صور','chat.audio':'تسجيل وإرسال صوت','chat.camera':'التصوير داخل الدردشة','appearance.manage':'تعديل ألوان وصورة وخط المتجر','notifications.send':'إرسال إشعارات للمستخدمين','support.manage':'إدارة تذاكر الدعم','tracking.read':'عرض مواقع الطلبات','orders.create':'إنشاء الطلبات','orders.cancel':'إلغاء الطلب قبل التوصيل','orders.prepare':'تجهيز طلبات المتجر','orders.manage':'إدارة جميع الطلبات','products.write':'إضافة وتعديل المنتجات','delivery.assign':'إسناد مندوب التوصيل','delivery.update':'استلام وتسليم الشحنات','users.manage':'إدارة المستخدمين والصلاحيات','audit.read':'عرض سجل النشاط','account.options':'إظهار خيارات حسابي المتقدمة وتخصيص النغمات (بموافقة الإدارة)'};
 const defaultRights = {
  Support:[...chatRightKeys.filter(p=>p!=='chat.delivery'),'support.manage','orders.manage','tracking.read'],
  Customer:[...chatRightKeys,'orders.create','orders.cancel'],
@@ -688,7 +688,6 @@ function navs(){
   ['cart','cart','حقيبة التسوق'],
   ['orders','box','طلبياتي'],
   ['support','headset','الدعم والمحادثة'],
-  ['notices','bell','الإشعارات'],
   ['account','user','حسابي']
  ];
  if(user.role==='Merchant')return [
@@ -713,32 +712,25 @@ function navs(){
   ['account','user','حسابي']
  ];
  if(user.role==='Supervisor')return [
-  ['home','grid','لوحة المشرف'],
-  ['orders','box','إدارة الطلبات'],
-  ['products','bag','المنتجات'],
-  ['banners','megaphone','الإعلانات'],
-  ['appearance','palette','مظهر المتجر'],
-  ['support','headset','مركز الدعم'],
-  ['notices','bell','الإشعارات'],
-  ['audit','clock','سجل النشاط'],
-  ['account','user','حسابي']
- ];
- // Admin full control bar
- return [
-  ['home','grid','لوحة التحكم'],
+  ['home','grid','الرئيسية'],
   ['orders','box','الطلبات'],
   ['products','bag','المنتجات'],
-  ['banners','megaphone','الإعلانات'],
-  ['appearance','palette','مظهر المتجر'],
-  ['devices','smartphone','الأجهزة والخريطة'],
-  ['users','shield','المستخدمين'],
-  ['regfields','clipboard','نموذج التسجيل'],
-  ['staff','users','طاقم العمل'],
+  ['couriers','truck','المناديب'],
+  ['users','shield','الحسابات والطاقم'],
+  ['devices','smartphone','الخرائط والأجهزة'],
   ['support','headset','الدعم الفني'],
-  ['commissions','coins','العمولات'],
-  ['notices','bell','الإشعارات'],
-  ['audit','clock','سجل النشاط'],
-  ['account','user','حسابي']
+  ['account','user','مركز الإدارة وحسابي']
+ ];
+ // Admin streamlined navigation bar (grouped cleanly)
+ return [
+  ['home','grid','الرئيسية'],
+  ['orders','box','الطلبات'],
+  ['products','bag','المنتجات'],
+  ['couriers','truck','المناديب'],
+  ['users','shield','المستخدمين والطاقم'],
+  ['devices','smartphone','الخرائط والأجهزة'],
+  ['support','headset','الدعم الفني'],
+  ['account','user','مركز الإدارة وحسابي']
  ];
 }
 
@@ -788,6 +780,7 @@ function render(){
  else if(page==='staff')view.innerHTML=staffPageView();
  else if(page==='devices'){devicesView().then(html => { view.innerHTML = html; setTimeout(() => { initDevicesMap(lastDevicesList); if(devicesMapInstance) devicesMapInstance.invalidateSize(); }, 80); }); return;}
  else if(page==='favorites')view.innerHTML=favoritesView();
+ else if(page==='couriers')view.innerHTML=couriersManageView();
  else if(page==='users')view.innerHTML=usersView();
  else if(page==='audit')view.innerHTML=`<div class="section-head"><div><h2>سجل نشاط المتجر</h2><p>تتبع العمليات والمستخدمين والمنتجات والطلبات بدقة</p></div>${pill((dashboard.audit||[]).length+' عملية','clock')}</div><div class="panel">${(dashboard.audit||[]).map(a=>`<div class="audit-item">${esc(a.action)}<small>${esc(a.name)} · ${date(a.at)}</small></div>`).join('')||empty('لا توجد عمليات مسجلة بعد')}</div>`;
  else view.innerHTML=accountView();
@@ -928,9 +921,161 @@ function shop(){
 function stat(title,value,note,symbol,featured=false){return `<div class="stat ${featured?'featured':''}"><div class="label">${title}${icon(symbol,20)}</div><strong>${value}</strong><small>${note}</small></div>`;}
 function overview(){const os=dashboard.orders,active=os.filter(o=>!['Delivered','Cancelled'].includes(o.status)),complete=os.filter(o=>o.status==='Delivered'),sales=complete.reduce((n,o)=>n+o.total,0);return `<div class="section-head"><div><h1>${user.role==='Admin'?'إدارة المتجر والعمليات':user.role==='Supervisor'?'لوحة الإشراف العام ومتابعة العمليات':'مساحة الشريك التجاري الفاخرة'}</h1><p>تحكم فوري في المنتجات والمبيعات والطلبيات وإعلانات المتجر وطاقم العمل.</p></div><div class="inline"><button class="btn secondary" data-action="appearance">🎨 مظهر المتجر واللوجو</button><button class="btn secondary" data-action="banners-manager">📢 إدارة الإعلانات</button><button class="btn" data-action="edit-product">${icon('plus',17)}إضافة منتج فاخر</button></div></div><div class="stats">${stat('الطلبات المكتملة',complete.length,'طلبيات سُلمت للعملاء بنجاح','check',true)}${stat('الطلبات الجارية',active.length,'قيد التجهيز والتوصيل السريع','box')}${stat('إجمالي المبيعات المكتملة',salesByCurrency(complete),user.role==='Admin'?'إجمالي صافي المبيعات':'قيمة بنود متجرك','chart')}${stat('طاقم وعمال المتجر',dashboard.staff?.length||0,'موظفون مسجلون في المنظومة','users')}</div><div class="dashboard-grid"><div><div class="section-head"><h2>أحدث الطلبيات المعتمدة</h2><button class="btn small ghost" data-action="navigate" data-id="orders">عرض الكل</button></div><div class="order-list">${os.slice(0,3).map(orderCard).join('')||empty('طلباتك الجديدة ستظهر هنا')}</div></div><div class="panel"><h3>حالة الطلبيات والتشغيل</h3><div class="chart">${['Preparing','Ready','Assigned','OnWay','Delivered'].map(s=>{const count=os.filter(o=>o.status===s).length;return `<div class="bar" style="height:${Math.max(8,count/Math.max(os.length,1)*100)}%" title="${statuses[s]}: ${count}"><span>${statuses[s]}</span></div>`;}).join('')}</div><p class="report-note">لوحة قياس فورية للطلبات المعتمدة. تُحتسب قيمة الطلبيات المسلّمة فقط.</p><div class="spacer"></div>${pill('منظومة تشغيل آمنة ومعتمدة','shield')}</div></div>`;}
 function timeline(o){const steps=['Preparing','Ready','Assigned','OnWay','Delivered'];const index=steps.indexOf(o.status);return `<div class="timeline">${steps.map((s,i)=>`<span class="step ${i<=index?'done':''}">${statuses[s]}</span>`).join('')}</div>`;}
-function orderCard(o){const prep=has('orders.prepare')&&o.status==='Preparing'&&!o.readyMerchants?.includes(user.id);return `<article class="order"><div class="order-top"><div><div class="order-code">${esc(o.number)}</div><small style="font-size:10px">${date(o.createdAt)}</small></div><span class="badge ${esc(o.status)}">${statuses[o.status]}</span></div><div class="order-items">${o.lines.map(l=>`${esc(l.name)} <b>× ${l.qty}</b>`).join(' · ')}</div>${user.role==='Customer'?timeline(o):`<div class="order-meta">${esc(o.customerName)}${user.role!=='Merchant'?'<br>'+esc(o.address)+'<br>'+esc(o.phone):''}</div>`}${commissionOrderLine(o)}${o.pin&&user.role==='Customer'&&!['Delivered','Cancelled'].includes(o.status)?`<div class="pin">رمز تأكيد الاستلام السري: <strong>${esc(o.pin)}</strong></div><p class="hint">سلّم هذا الرمز لمندوب التوصيل عند استلام طلبيتك وفحصها فقط.</p>`:''}<div class="order-bottom">${amount(o.total,o.currency||'SAR')}<div class="order-actions">${paymentOrderButton(o)}${o.courierId&&has('chat.read')&&has('chat.delivery')&&['Customer','Courier','Admin'].includes(user.role)?`<button class="btn small secondary" style="background:#075e54;color:white" data-action="order-chat" data-id="${esc(o.id)}">💬 دردشة WhatsApp مع المندوب</button>`:''}${user.role!=='Merchant'?`<button class="btn small secondary" data-action="track-order" data-id="${esc(o.id)}">📍 تتبع Google Maps</button>`:''}${prep?`<button class="btn small" data-action="order-ready" data-id="${esc(o.id)}">تم التجهيز ${icon('check',14)}</button>`:''}${has('delivery.assign')&&['Ready','Assigned'].includes(o.status)?`<button class="btn small" data-action="assign" data-id="${esc(o.id)}">إسناد مندوب</button>`:''}${has('delivery.update')&&o.status==='Assigned'?`<button class="btn small" data-action="order-pickup" data-id="${esc(o.id)}">استلام الشحنة</button>`:''}${has('delivery.update')&&o.status==='OnWay'?`<button class="btn small" data-action="deliver" data-id="${esc(o.id)}">تأكيد التسليم</button>`:''}${(has('orders.cancel')||has('orders.manage'))&&['Preparing','Ready'].includes(o.status)?`<button class="btn small danger" data-action="cancel-order" data-id="${esc(o.id)}">إلغاء الطلب</button>`:''}</div></div></article>`;}
-function ordersView(){return `<div class="section-head"><div><h1>${user.role==='Customer'?'طلبياتك، خطوة بخطوة.':'إدارة الطلبيات والشحنات'}</h1><p>متابعة وتحديث حالة الشحنات لحظة بلحظة</p></div>${pill(dashboard.orders.length+' طلب','box')}</div><div class="order-list">${dashboard.orders.map(orderCard).join('')||empty('لا توجد طلبات بعد','ابدأ التسوق لتجرب طلبك الأول')}</div>`;}
-function courier(history){const os=dashboard.orders.filter(o=>history?['Delivered','Cancelled'].includes(o.status):!['Delivered','Cancelled'].includes(o.status));return `<div class="section-head"><div><h1>${history?'سجل التوصيل والشحنات':'مهام التوصيل المباشرة'}</h1><p>${history?'جميع المهمات التي تم تسليمها بنجاح':'المهمات المسندة إليك الآن. استلم الشحنة، ابدأ الملاحة، وأكّد التسليم.'}</p></div>${pill('مندوب التوصيل السريع','truck')}</div><div class="stats">${stat('شحنات جارية',dashboard.orders.filter(o=>!['Delivered','Cancelled'].includes(o.status)).length,'بانتظار وصولك للعميل','truck',true)}${stat('شحنات مسلّمة',dashboard.orders.filter(o=>o.status==='Delivered').length,'تم تسليمها للعملاء','check')}</div><div class="order-list">${os.map(orderCard).join('')||empty('لا توجد مهام حالياً','ستظهر هنا الشحنات فور إسنادها لك من الإدارة','truck')}</div>`;}
+function getOrderComplaintInfo(o){
+ if(o.hasComplaint) return { has:true, ticketId:o.complaintTicketId, ticketNumber:o.complaintTicketNumber, subject:o.complaintSubject, status:o.complaintStatus };
+ if(!apiBase){
+  const d = demoData();
+  const t = (d.tickets||[]).find(x => x.orderId === o.id);
+  if(t) return { has:true, ticketId:t.id, ticketNumber:t.ticketNumber||('SUP-'+String(t.id).slice(0,4)), subject:t.subject, status:t.status };
+ }
+ return { has:false };
+}
+
+function orderCard(o){
+ const prep=has('orders.prepare')&&o.status==='Preparing'&&!o.readyMerchants?.includes(user.id);
+ const cmp = getOrderComplaintInfo(o);
+ const penaltyAmt = dashboard?.courierCancelPenaltyAmount ?? 25;
+ return `<article class="order" style="${cmp.has?'border-color:rgba(239,68,68,0.65);box-shadow:0 0 0 1px rgba(239,68,68,0.25)':''}">
+  <div class="order-top">
+   <div>
+    <div class="order-code">${esc(o.number)}</div>
+    <small style="font-size:10px">${date(o.createdAt)}</small>
+   </div>
+   <div class="inline" style="gap:6px;flex-wrap:wrap">
+    ${cmp.has ? `<span class="badge wa-escalated-badge" style="font-size:11px">⚠️ يوجد بلاغ/شكوى على الطلب (${esc(cmp.ticketNumber||'')})</span>` : ''}
+    <span class="badge ${esc(o.status)}">${statuses[o.status]}</span>
+   </div>
+  </div>
+  ${cmp.has ? `
+  <div style="background:rgba(220,38,38,0.14);border:1px dashed rgba(248,113,113,0.55);padding:10px 12px;border-radius:12px;margin:10px 0;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px">
+   <div>
+    <strong style="color:#fca5a5">⚠️ تفاصيل الشكوى / الخلل المسجل على الطلبية:</strong>
+    <span style="color:#fff;margin-right:6px">${esc(cmp.subject)}</span>
+   </div>
+   <button class="btn small" type="button" style="background:#dc2626;color:#fff" data-action="open-order-complaint-chat" data-id="${esc(cmp.ticketId||'')}" data-order-id="${esc(o.id)}">💬 عرض محادثة الشكوى</button>
+  </div>` : ''}
+  <div class="order-items">${o.lines.map(l=>`${esc(l.name)} <b>× ${l.qty}</b>`).join(' · ')}</div>
+  ${user.role==='Customer'?timeline(o):`<div class="order-meta">${esc(o.customerName)}${user.role!=='Merchant'?'<br>'+esc(o.address)+'<br>'+esc(o.phone):''}</div>`}
+  ${commissionOrderLine(o)}
+  ${o.pin&&user.role==='Customer'&&!['Delivered','Cancelled'].includes(o.status)?`<div class="pin">رمز تأكيد الاستلام السري: <strong>${esc(o.pin)}</strong></div><p class="hint">سلّم هذا الرمز لمندوب التوصيل عند استلام طلبيتك وفحصها فقط.</p>`:``}
+  <div class="order-bottom">
+   ${amount(o.total,o.currency||'SAR')}
+   <div class="order-actions">
+    ${paymentOrderButton(o)}
+    ${o.courierId&&has('chat.read')&&has('chat.delivery')&&['Customer','Courier','Admin'].includes(user.role)?`<button class="btn small secondary" style="background:#075e54;color:white" data-action="order-chat" data-id="${esc(o.id)}">💬 دردشة WhatsApp مع المندوب</button>`:``}
+    ${user.role!=='Merchant'?`<button class="btn small secondary" data-action="track-order" data-id="${esc(o.id)}">📍 تتبع Google Maps</button>`:``}
+    ${user.role==='Customer' ? `<button class="btn small danger" type="button" data-action="report-order-issue" data-id="${esc(o.id)}" data-number="${esc(o.number)}">⚠️ إبلاغ عن خلل / شكوى في الطلبية</button>` : ''}
+    ${user.role==='Courier' ? `<button class="btn small secondary" type="button" style="border-color:#f59e0b;color:#fde047" data-action="report-order-issue" data-id="${esc(o.id)}" data-number="${esc(o.number)}">⚠️ طلب شكوى على الطلبية</button>` : ''}
+    ${user.role==='Courier' && ['Assigned','OnWay'].includes(o.status) ? `<button class="btn small danger" type="button" data-action="courier-cancel-order" data-id="${esc(o.id)}" data-number="${esc(o.number)}">❌ إلغاء التوصيل (غرامة خصم ${money(penaltyAmt)})</button>` : ''}
+    ${prep?`<button class="btn small" data-action="order-ready" data-id="${esc(o.id)}">تم التجهيز ${icon('check',14)}</button>`:``}
+    ${has('delivery.assign')&&['Ready','Assigned'].includes(o.status)?`<button class="btn small" data-action="assign" data-id="${esc(o.id)}">إسناد مندوب</button>`:``}
+    ${has('delivery.update')&&o.status==='Assigned'?`<button class="btn small" data-action="order-pickup" data-id="${esc(o.id)}">استلام الشحنة</button>`:``}
+    ${has('delivery.update')&&o.status==='OnWay'?`<button class="btn small" data-action="deliver" data-id="${esc(o.id)}">تأكيد التسليم</button>`:``}
+    ${(has('orders.cancel')||has('orders.manage'))&&['Preparing','Ready'].includes(o.status)?`<button class="btn small danger" data-action="cancel-order" data-id="${esc(o.id)}">إلغاء الطلب</button>`:``}
+   </div>
+  </div>
+ </article>`;
+}
+function ordersView(){return `<div class="section-head"><div><h1>${user.role==='Customer'?'طلبياتك، خطوة بخطوة.':'إدارة الطلبيات والشحنات'}</h1><p>${user.role==='Customer'?'متابعة الشحنات لحظة بلحظة، مع إمكانية الإبلاغ الفوري في حال وجود أي خلل أو شكوى في الطلبية':'متابعة وتحديث حالة الشحنات لحظة بلحظة'}</p></div>${pill(dashboard.orders.length+' طلب','box')}</div><div class="order-list">${dashboard.orders.map(orderCard).join('')||empty('لا توجد طلبات بعد','ابدأ التسوق لتجرب طلبك الأول')}</div>`;}
+function courier(history){
+ const os=dashboard.orders.filter(o=>history?['Delivered','Cancelled'].includes(o.status):!['Delivered','Cancelled'].includes(o.status));
+ const myPen = dashboard?.myPenaltyBalance ?? user?.penaltyBalance ?? 0;
+ const penaltySetting = dashboard?.courierCancelPenaltyAmount ?? 25;
+ return `<div class="section-head"><div><h1>${history?'سجل التوصيل والشحنات':'مهام التوصيل المباشرة'}</h1><p>${history?'جميع المهمات التي تم تسليمها بنجاح':'المهمات المسندة إليك الآن. تنبيه: إلغاء أي طلب مسند إليك يترتب عليه غرامة خصم ('+money(penaltySetting)+' '+currencyLabel(commerce.currency)+').'}</p></div>${pill('مندوب التوصيل السريع','truck')}</div>
+ <div class="stats" style="grid-template-columns:repeat(3,1fr)">
+  ${stat('شحنات جارية',dashboard.orders.filter(o=>!['Delivered','Cancelled'].includes(o.status)).length,'بانتظار وصولك للعميل','truck',true)}
+  ${stat('شحنات مسلّمة',dashboard.orders.filter(o=>o.status==='Delivered').length,'تم تسليمها للعملاء','check')}
+  ${stat('إجمالي غرامات الإلغاء',money(myPen)+' '+currencyLabel(commerce.currency),'خصم مقابل إلغاء الطلبات المسندة','coins')}
+ </div>
+ <div class="order-list">${os.map(orderCard).join('')||empty('لا توجد مهام حالياً','ستظهر هنا الشحنات فور إسنادها لك من الإدارة','truck')}</div>`;
+}
+
+function couriersManageView(){
+ if(!['Admin','Supervisor'].includes(user.role) && !has('users.manage') && !has('delivery.assign')) return empty('هذه الصفحة مخصصة لإدارة المتجر والمشرفين');
+ const couriers = (dashboard?.users || []).filter(u => u.role === 'Courier');
+ const penaltySetting = dashboard?.courierCancelPenaltyAmount ?? 25;
+ const penaltiesLog = dashboard?.courierPenalties || [];
+ const allOrders = dashboard?.orders || [];
+ return `
+ <div class="section-head">
+  <div>
+   <h1>🚚 إدارة مناديب التوصيل وغرامات الإلغاء</h1>
+   <p>تحديد قيمة غرامة الخصم عند إلغاء المندوب لأي طلب، ومتابعة أداء المناديب وشكاوى الطلبيات</p>
+  </div>
+  <div class="inline" style="gap:8px">
+   <button class="btn" type="button" data-action="new-courier-modal">+ إضافة مندوب توصيل جديد</button>
+  </div>
+ </div>
+
+ <div class="panel" style="margin:14px 0 22px;padding:18px;border:1px solid rgba(212,175,55,0.45);display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
+  <div>
+   <strong style="color:#fef08a;font-size:15px">⚖️ إعداد غرامة خصم إلغاء الطلب للمندوب:</strong>
+   <p class="hint" style="margin:4px 0 0;color:#cbd5e1;font-size:12.5px">
+    عند قيام أي مندوب بإلغاء (كنسلة) طلب مسند إليه، تنزل عليه تلقائياً غرامة خصم بقيمة <b style="color:#f87171">${money(penaltySetting)} ${currencyLabel(commerce.currency)}</b> ويعود الطلب جاهزاً للإسناد.
+   </p>
+  </div>
+  <form class="inline" data-form="save-courier-penalty" style="gap:8px;align-items:center">
+   <label style="margin:0;font-size:12px;color:#fef08a">قيمة الغرامة (${currencyLabel(commerce.currency)}):</label>
+   <input name="penaltyAmount" type="number" step="0.5" min="0" max="100000" value="${penaltySetting}" required style="width:120px;padding:8px 10px;border-radius:10px;border:1px solid rgba(212,175,55,0.4);background:#031711;color:#fff;font-weight:bold" dir="ltr">
+   <button class="btn small" type="submit">💾 حفظ قيمة الغرامة</button>
+  </form>
+ </div>
+
+ <div class="section-head">
+  <h2>قائمة مناديب التوصيل المسجلين (${couriers.length})</h2>
+ </div>
+ <div class="order-list" style="margin-bottom:24px">
+  ${couriers.map(c => {
+   const activeCnt = allOrders.filter(o => o.courierId === c.id && !['Delivered','Cancelled'].includes(o.status)).length;
+   const doneCnt = allOrders.filter(o => o.courierId === c.id && o.status === 'Delivered').length;
+   const penBal = c.penaltyBalance || 0;
+   const cancelCnt = c.cancelledDeliveriesCount || 0;
+   return `
+   <article class="order" style="padding:18px">
+    <div class="order-top">
+     <div>
+      <strong style="font-size:16px;color:#fff">🚚 ${esc(c.name)}</strong>
+      <div style="font-size:12px;color:#94a3b8;margin-top:4px">${esc(c.email)} · ${c.isOnline?'🟢 متصل الآن':'⚪ غير متصل'}</div>
+     </div>
+     <div class="inline" style="gap:8px">
+      ${penBal > 0 ? `<span class="badge Cancelled">إجمالي الغرامات: ${money(penBal)} ${currencyLabel(commerce.currency)}</span>` : `<span class="badge Ready">سجل خالٍ من الغرامات</span>`}
+      <span class="badge ${c.active?'Ready':'Cancelled'}">${c.active?'نشط':'مجمد'}</span>
+     </div>
+    </div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin:12px 0;font-size:12.5px;color:#cbd5e1">
+     <span>📦 شحنات جارية: <b style="color:#fef08a">${activeCnt}</b></span>
+     <span>✅ شحنات مسلّمة: <b style="color:#22c55e">${doneCnt}</b></span>
+     <span>❌ طلبات ألغاها المندوب: <b style="color:#f87171">${cancelCnt}</b></span>
+     <span>💸 رصيد غرامات الخصم: <b style="color:#f87171">${money(penBal)} ${currencyLabel(commerce.currency)}</b></span>
+    </div>
+    <div class="order-bottom" style="padding-top:10px;border-top:1px dashed rgba(212,175,55,0.2)">
+     <div class="order-actions" style="gap:8px">
+      ${penBal > 0 ? `<button class="btn small secondary" type="button" data-action="clear-courier-penalty" data-id="${esc(c.id)}">🧹 تصفير الغرامات</button>` : ''}
+      <button class="btn small ${(c.permissions||[]).includes('account.options')?'':'secondary'}" type="button" data-action="toggle-account-options" data-id="${esc(c.id)}">
+       ${(c.permissions||[]).includes('account.options') ? '✅ خيارات حسابي والنغمات: مسموحة' : '🔒 خيارات حسابي والنغمات: مخفية (اضغط للسماح)'}
+      </button>
+      <button class="btn small ${c.active?'danger':''}" type="button" data-action="toggle-user-freeze" data-id="${esc(c.id)}">${c.active?'❄️ تجميد المندوب':'✅ تنشيط المندوب'}</button>
+     </div>
+    </div>
+   </article>`;
+  }).join('') || empty('لا يوجد مناديب مسجلون حالياً')}
+ </div>
+
+ <div class="section-head">
+  <h2>سجل غرامات إلغاء الطلبات للمناديب (${penaltiesLog.length})</h2>
+ </div>
+ <div class="panel">
+  ${penaltiesLog.map(p => `
+   <div class="audit-item" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <div>
+     <strong style="color:#fca5a5">خصم ${money(p.amount)} ${currencyLabel(commerce.currency)} على المندوب: ${esc(p.courierName)}</strong>
+     <div style="font-size:12px;color:#cbd5e1">بسبب إلغاء الطلب رقم <b>${esc(p.orderNumber)}</b> — ${esc(p.reason)}</div>
+    </div>
+    <small>${date(p.at)}</small>
+   </div>
+  `).join('') || '<p class="hint" style="text-align:center;padding:12px">لا توجد غرامات مسجلة حتى الآن</p>'}
+ </div>`;
+}
 let adminSelectedCat = 'الكل';
 
 function productManagement(){
@@ -1015,14 +1160,14 @@ function cartView(){
  return `<div class="section-head"><div><h1>حقيبة المشتريات</h1><p>${cartCount()} قطع فاخرة في انتظارك</p></div>${pill('دفع وتسليم آمن','shield')}</div>${!lines.length?empty('حقيبة التسوق فارغة حالياً','اكتشف مجموعتنا الحصرية وأضف اختياراتك المفضلة','cart'):`<div class="cart-layout"><div class="panel">${lines.map(({p,qty})=>{
   const realImg = p.image || defaultRealImages[p.icon] || '';
   return `<div class="cart-item"><div class="mini-art">${realImg ? `<img src="${esc(realImg)}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">` : art(p.icon)}</div><div style="flex:1"><h3>${esc(p.name)}</h3>${amount(p.price)}<div class="spacer"></div><div class="qty"><button data-action="qty-minus" data-id="${esc(p.id)}" aria-label="تقليل الكمية">−</button><span>${qty}</span><button data-action="add" data-id="${esc(p.id)}" aria-label="زيادة الكمية">+</button></div></div><button class="icon-btn" data-action="remove-cart" data-id="${esc(p.id)}" aria-label="إزالة المنتج">${icon('close',15)}</button></div>`;
- }).join('')}</div><div class="panel"><h2>ملخص الطلب الفاخر</h2><div class="spacer"></div><div class="bill-line"><span>مجموع المنتجات</span><b>${money(subtotal)} ${currencyLabel(commerce.currency)}</b></div><div class="bill-line"><span>رسوم التوصيل السريع</span><b>${money(commerce.deliveryFee)} ${currencyLabel(commerce.currency)}</b></div>${commissionCartLine(subtotal)}<div class="bill-line total"><span>الإجمالي النهائي</span><span style="color:var(--vip-emerald)">${money(subtotal+commerce.deliveryFee+customerFee(subtotal))} ${currencyLabel(commerce.currency)}</span></div><div class="spacer"></div><form class="form" data-form="checkout"><label>عنوان التوصيل الدقيق<textarea name="address" minlength="8" maxlength="500" required placeholder="المدينة، الحي، اسم الشارع، رقم المبنى"></textarea></label><div class="panel" style="padding:12px;background:#f8fafd"><button type="button" class="btn secondary full" data-action="checkout-map">📍 تحديد موقع التسليم بدقة على Google Maps</button><small id="destination-label" style="display:block;margin-top:6px;text-align:center">${checkoutDestination?'تم حفظ نقطة التسليم بنجاح':'اختياري: اضغط لتحديد باب المبنى عبر الخريطة'}</small></div><label>رقم التواصل مع العميل<input name="phone" type="tel" minlength="8" maxlength="20" required placeholder="05xxxxxxxx" dir="ltr"></label>${checkoutPaymentFields()}<button class="btn full" style="background:var(--vip-gold-gradient);color:#0a1a12;font-weight:bold" type="submit">تأكيد الطلب الفاخر ${icon('arrow',17)}</button><div class="form-error" hidden></div></form></div></div>`}`;
+ }).join('')}</div><div class="panel"><h2>ملخص الطلب الفاخر</h2><div class="spacer"></div><div class="bill-line"><span>مجموع المنتجات</span><b>${money(subtotal)} ${currencyLabel(commerce.currency)}</b></div><div class="bill-line"><span>رسوم التوصيل السريع</span><b>${money(commerce.deliveryFee)} ${currencyLabel(commerce.currency)}</b></div>${commissionCartLine(subtotal)}<div class="bill-line total"><span>الإجمالي النهائي</span><span style="color:var(--vip-emerald)">${money(subtotal+commerce.deliveryFee+customerFee(subtotal))} ${currencyLabel(commerce.currency)}</span></div><div class="spacer"></div><form class="form" data-form="checkout"><label>عنوان التوصيل الدقيق<textarea name="address" minlength="8" maxlength="500" required placeholder="المدينة، الحي، اسم الشارع، رقم المبنى"></textarea></label><div class="panel" style="padding:12px;background:rgba(6,48,36,0.7);border:1px solid rgba(212,175,55,0.3)"><button type="button" class="btn secondary full" data-action="checkout-map">📍 تحديد موقع التسليم بدقة على Google Maps</button><small id="destination-label" style="display:block;margin-top:6px;text-align:center">${checkoutDestination?'تم حفظ نقطة التسليم بنجاح':'اختياري: اضغط لتحديد باب المبنى عبر الخريطة'}</small></div><label>رقم التواصل مع العميل<input name="phone" type="tel" minlength="8" maxlength="20" required placeholder="05xxxxxxxx" dir="ltr"></label>${checkoutPaymentFields()}<button class="btn full" style="background:var(--vip-gold-gradient);color:#0a1a12;font-weight:bold" type="submit">تأكيد الطلب الفاخر ${icon('arrow',17)}</button><div class="form-error" hidden></div></form></div></div>`}`;
 }
 
 function staffPageView(){
  if(!['Admin','Supervisor'].includes(user.role) && !has('users.manage') && !has('registrations.manage'))return empty('هذه الصفحة مخصصة لإدارة المتجر والمشرفين');
  const list=dashboard.staff||[];
  return `<div class="section-head"><div><h1>طاقم وعمال المتجر</h1><p>سجل تفصيلي لحسابات وملفات العاملين، الرواتب، الورديات، والمهام اليومية</p></div><div class="inline"><button class="btn" data-action="new-staff">+ إضافة عامل جديد للمنظومة</button>${pill(list.length+' موظف وعامل','users')}</div></div>
- <div class="order-list">${list.map(s=>`<article class="ticket-card" style="border-right:5px solid ${s.status==='Active'?'var(--green)':s.status==='OnLeave'?'var(--orange)':'var(--red)'};background:white">
+ <div class="order-list">${list.map(s=>`<article class="ticket-card" style="border-right:5px solid ${s.status==='Active'?'var(--green)':s.status==='OnLeave'?'var(--orange)':'var(--red)'}">
   <div style="display:flex;justify-content:space-between;align-items:flex-start">
    <div>
     <h3 style="font-size:16px">${esc(s.fullName)}</h3>
@@ -1057,9 +1202,22 @@ function usersView(){
    <h1>إدارة المستخدمين والحسابات المتصلة والصلاحيات</h1>
    <p>تحكم دقيق وشامل: مراقبة المتصلين، تعديل وتوليد كلمات المرور، تجميد وتنشيط الحسابات، وضبط الصلاحيات</p>
   </div>
-  <div class="inline">
-   <button class="btn secondary" data-action="registration-fields">📋 تخصيص نموذج التسجيل</button>
-   <button class="btn" data-action="new-user">${icon('plus',17)}إضافة مستخدم جديد</button>
+  <div class="inline" style="gap:8px;flex-wrap:wrap">
+   <button class="btn" data-action="new-user">${icon('plus',17)}إضافة مستخدم</button>
+   <button class="btn secondary" data-action="navigate" data-id="staff">👥 طاقم وعمال المتجر</button>
+   <button class="btn secondary" data-action="registration-fields">📋 نموذج التسجيل</button>
+   <button class="btn secondary" data-action="navigate" data-id="couriers">🚚 إدارة المناديب</button>
+  </div>
+ </div>
+
+ <div class="panel" style="margin:12px 0 18px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+  <div>
+   <strong style="color:#fef08a;font-size:13.5px">⚙️ آلية تنشيط الحسابات المسجلة الجديدة:</strong>
+   <span style="color:#cbd5e1;font-size:12px;margin-right:8px">${governance?.policies?.autoApproveCustomers ? '✅ تفعيل تلقائي فوري' : '🛡️ بموافقة المشرفين والإدارة'}</span>
+  </div>
+  <div class="inline" style="gap:8px">
+   <button class="btn small ${governance?.policies?.autoApproveCustomers?'':'secondary'}" type="button" data-action="set-auto-approve" data-id="true">✅ تفعيل تلقائي</button>
+   <button class="btn small ${!governance?.policies?.autoApproveCustomers?'':'secondary'}" type="button" data-action="set-auto-approve" data-id="false">🛡️ بموافقة المشرفين</button>
   </div>
  </div>
 
@@ -1138,6 +1296,11 @@ function usersView(){
        🚪 إنهاء الجلسات النشطة
       </button>` : ''}
 
+      ${['Customer','Courier'].includes(u.role) ? `
+      <button class="btn small ${(u.permissions||[]).includes('account.options')?'':'secondary'}" type="button" data-action="toggle-account-options" data-id="${esc(u.id)}">
+       ${(u.permissions||[]).includes('account.options') ? '✅ خيارات حسابي والنغمات: مسموحة' : '🔒 خيارات حسابي والنغمات: مخفية (اضغط للسماح)'}
+      </button>` : ''}
+
       <!-- زر الصلاحيات الدقيقة -->
       <button class="btn small ghost" type="button" data-action="permissions" data-id="${esc(u.id)}" ${isSelf?'disabled':''}>
        🛡️ الصلاحيات الدقيقة
@@ -1167,7 +1330,93 @@ function editProfileModal(){
  <div class="form-error" hidden></div></form>`);
 }
 
-function accountView(){return `<div class="section-head"><div><h1>حسابك في المتجر</h1><p>تفاصيل الحساب، وإدارة المظهر، والإعلانات، وطاقم العمل</p></div></div><div class="panel stack" style="max-width:650px"><div class="inline"><span class="avatar" style="border:2px solid var(--vip-gold)">${esc(user.name[0])}</span><div><h2>${esc(user.name)}</h2><p class="hint" style="color:var(--vip-emerald);font-weight:bold">${roles[user.role]||user.role} · ${esc(user.email)}</p></div></div><button class="btn secondary" data-action="edit-profile">✏️ تعديل اسم المستخدم وكلمة المرور</button>${has('appearance.manage')?'<button class="btn" style="background:var(--vip-gold-gradient);color:#081c13;font-weight:bold" data-action="appearance">🎨 شاشة تعديل شكل المتجر والأيقونة والاسم</button><button class="btn secondary" data-action="banners-manager">📢 إدارة الإعلانات وبانرات العروض</button>':''}${has('users.manage')?'<button class="btn secondary" data-action="staff-manager">👥 إدارة عمال المتجر تفصيلياً</button><button class="btn" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="registration-fields">📋 تخصيص نموذج تسجيل المستخدمين الجدد (الأهم والخيارات)</button>':''}${has('commissions.manage')?'<button class="btn secondary" data-action="commissions">العمولات والأسعار</button>':''}${has('policies.manage')?'<button class="btn secondary" data-action="policy-editor">الاتفاقيات وشروط المتجر وحذف الحساب</button>':''}${has('registrations.manage')?'<button class="btn secondary" data-action="registrations">لوحة تسجيل العملاء والتجار والمناديب</button>':''}<button class="btn secondary" data-action="store-policies">اتفاقية التسجيل وشروط المتجر</button>${has('commerce.manage')?'<button class="btn secondary" data-action="commerce-settings">العملات واللغة وطرق الدفع</button>':''}${has('payments.review')?'<button class="btn secondary" data-action="payment-reviews">مراجعة الدفع والإيصالات</button>':''}<button class="btn secondary" data-action="install-app">📱 تثبيت التطبيق (آيفون / أندرويد)</button><button class="btn secondary" data-action="language">تغيير اللغة / Language</button><button class="btn secondary" data-action="device-permissions">أذونات الكاميرا والمايك والموقع</button><button class="btn" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="notification-style">🔔 تخصيص نغمات وشكل إشعارات التطبيق</button><button class="btn secondary" data-action="enable-notifications">📲 اختبار إشعار فوري على شاشة الجوال</button>${has('appearance.manage')?'<button class="btn secondary" data-action="interface-design">تصميم الشاشات المتقدم</button>':''}${has('notifications.send')?'<button class="btn secondary" data-action="compose-notice">إرسال إشعارات</button>':''}<button class="btn secondary" data-action="notices">الإشعارات الواردة <span class="notice-count"></span></button><button class="btn secondary" data-action="support">مركز الدعم الفني المباشر</button><button class="btn ghost" data-action="privacy">الخصوصية وحذف الحساب</button>${user.role==='Admin'?`<button class="btn" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="admin-tech-settings">🔑 مفتاح الخرائط وإعدادات إرسال الإيميلات (SMTP)</button>`:``}<button class="btn secondary" data-action="connect">إعداد اتصال المتجر</button>${demo?'<button class="btn secondary" data-action="switch-role">استعراض واجهة أخرى</button>':''}<button class="btn ghost" data-action="logout">تسجيل الخروج</button>${user.role!=='Admin'?'<button class="btn danger" data-action="delete-account">طلب حذف حسابي</button>':''}<p class="hint">الإصدار 1.8.0 · المتجر المطور (iOS & Android)</p></div>`;}
+function accountView(){
+ const isAdmin = user.role === 'Admin';
+ const isRestrictedRole = ['Customer', 'Courier'].includes(user.role);
+ const showApprovedOptions = !isRestrictedRole || has('account.options') || isAdmin;
+ const hasAnyAdminTools = isAdmin || has('appearance.manage') || has('users.manage') || has('commissions.manage') || has('policies.manage') || has('registrations.manage') || has('commerce.manage') || has('payments.review') || has('notifications.send') || has('audit.read');
+
+ return `
+ <div class="section-head">
+  <div>
+   <h1>${hasAnyAdminTools ? 'مركز الإدارة الموحد وحسابي' : 'حسابك في المتجر'}</h1>
+   <p>${hasAnyAdminTools ? 'تم تجميع الصلاحيات والإعدادات المتشابهة في بطاقات منظمة لسهولة الوصول والتنقل السريع' : 'تفاصيل حسابك الشخصي وإعدادات الدخول والدعم المباشر'}</p>
+  </div>
+ </div>
+
+ <div class="panel" style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
+  <div class="inline">
+   <span class="avatar" style="width:52px;height:52px;border:2px solid var(--vip-gold);font-size:20px">${esc(user.name[0])}</span>
+   <div>
+    <h2 style="margin:0">${esc(user.name)}</h2>
+    <p class="hint" style="color:#fef08a;font-weight:bold;margin:4px 0 0">${roles[user.role]||user.role} · ${esc(user.email)}</p>
+   </div>
+  </div>
+  <div class="inline" style="gap:8px;flex-wrap:wrap">
+   <button class="btn small secondary" data-action="edit-profile">✏️ تعديل الحساب وكلمة المرور</button>
+   <button class="btn small secondary" data-action="support">💬 الدعم الفني المباشر</button>
+   <button class="btn small ghost" data-action="logout">🚪 تسجيل الخروج</button>
+  </div>
+ </div>
+
+ <div class="hub-grid">
+  ${(has('appearance.manage') || has('notifications.send')) ? `
+  <div class="hub-card">
+   <h3>🎨 الهوية والمظهر والإعلانات والتنبيهات</h3>
+   ${has('appearance.manage') ? `
+    <button class="btn small" data-action="appearance">🎨 شكل المتجر والأيقونة والاسم</button>
+    <button class="btn small secondary" data-action="banners-manager">📢 إدارة الإعلانات وبانرات العروض</button>
+    <button class="btn small secondary" data-action="interface-design">🖼️ تصميم الشاشات المتقدم</button>
+   ` : ''}
+   ${has('notifications.send') ? `<button class="btn small secondary" data-action="compose-notice">📨 إرسال إشعارات للمستخدمين</button>` : ''}
+  </div>` : ''}
+
+  ${(has('users.manage') || has('registrations.manage') || has('audit.read')) ? `
+  <div class="hub-card">
+   <h3>👥 الحسابات وطاقم العمل والنشاط</h3>
+   <button class="btn small" data-action="navigate" data-id="users">🛡️ إدارة المستخدمين والصلاحيات</button>
+   <button class="btn small secondary" data-action="navigate" data-id="couriers">🚚 إدارة مناديب التوصيل والغرامات</button>
+   ${has('users.manage') ? `
+    <button class="btn small secondary" data-action="staff-manager">👷 إدارة عمال وطاقم المتجر</button>
+    <button class="btn small secondary" data-action="registration-fields">📋 تخصيص حقول نموذج التسجيل</button>
+   ` : ''}
+   ${has('registrations.manage') ? `<button class="btn small secondary" data-action="registrations">✅ مراجعة طلبات التسجيل</button>` : ''}
+   ${has('audit.read') ? `<button class="btn small ghost" data-action="navigate" data-id="audit">🕒 سجل نشاط المتجر</button>` : ''}
+  </div>` : ''}
+
+  ${(has('commissions.manage') || has('commerce.manage') || has('payments.review') || has('policies.manage')) ? `
+  <div class="hub-card">
+   <h3>💰 المالية والعمولات والسياسات</h3>
+   ${has('commissions.manage') ? `<button class="btn small" data-action="commissions">💎 العمولات والأسعار</button>` : ''}
+   ${has('commerce.manage') ? `<button class="btn small secondary" data-action="commerce-settings">💳 العملات واللغة وطرق الدفع</button>` : ''}
+   ${has('payments.review') ? `<button class="btn small secondary" data-action="payment-reviews">🧾 مراجعة الدفع والإيصالات</button>` : ''}
+   ${has('policies.manage') ? `<button class="btn small secondary" data-action="policy-editor">📜 تحرير اتفاقيات وشروط المتجر</button>` : ''}
+  </div>` : ''}
+
+  ${showApprovedOptions ? `
+  <div class="hub-card">
+   <h3>🔔 إعدادات التطبيق والنغمات والخصوصية</h3>
+   <button class="btn small" data-action="notification-style">🎵 تخصيص نغمات وشكل الإشعارات</button>
+   <button class="btn small secondary" data-action="enable-notifications">📲 اختبار إشعار فوري على الجوال</button>
+   <button class="btn small secondary" data-action="install-app">📱 تثبيت التطبيق (آيفون / أندرويد)</button>
+   <button class="btn small secondary" data-action="language">🌐 تغيير اللغة / Language</button>
+   <button class="btn small secondary" data-action="device-permissions">🎙️ أذونات الكاميرا والمايك والموقع</button>
+   <button class="btn small secondary" data-action="store-policies">📄 عرض اتفاقية وشروط المتجر</button>
+   ${user.role !== 'Customer' ? `<button class="btn small secondary" data-action="notices">🔔 الإشعارات الواردة <span class="notice-count"></span></button>` : ''}
+   <button class="btn small ghost" data-action="privacy">🛡️ الخصوصية وحذف الحساب</button>
+   ${!isAdmin ? `<button class="btn small danger" data-action="delete-account">🗑️ طلب حذف حسابي</button>` : ''}
+  </div>` : ''}
+
+  ${isAdmin ? `
+  <div class="hub-card" style="border-color:rgba(250,204,21,0.65)">
+   <h3>🔒 الإعدادات التقنية والربط السري (للإدارة فقط)</h3>
+   <button class="btn small" data-action="admin-tech-settings">🔑 مفتاح الخرائط وإعدادات الإيميلات (SMTP)</button>
+   <button class="btn small secondary" data-action="connect">🌐 إعداد اتصال المتجر والربط بالسيرفر</button>
+   <button class="btn small secondary" data-action="navigate" data-id="devices">🗺️ خريطة تتبع الأجهزة والمثبتين</button>
+  </div>` : ''}
+ </div>
+ <p class="hint" style="margin-top:16px">الإصدار 2.8.0 · المتجر المطور (iOS & Android)</p>`;
+}
 
 /* ========================================================
     Dedicated Final Login Screen (شاشة الدخول النهائية )
@@ -1503,7 +1752,46 @@ function productEditor(id){
   }catch(err){toast(err.message);}
  };
 }
-function permissionEditor(id){const u=dashboard.users.find(u=>u.id===id);if(!u||id===user.id)return;modal('صلاحيات '+u.name,`<form class="form" data-form="permissions" data-id="${esc(id)}"><div class="row"><label>نوع الحساب<select name="role">${Object.keys(roles).map(r=>`<option value="${r}" ${r===u.role?'selected':''}>${roles[r]}</option>`).join('')}</select></label><label class="check"><input name="active" type="checkbox" ${u.active?'checked':''}>الحساب فعال</label></div><p class="hint">موروث: يتبع الدور. السماح والمنع استثناءان خاصان بهذا المستخدم. المدير يمتلك كامل الصلاحيات.</p><div class="modal-scroll">${Object.entries(rights).map(([key,title])=>`<div class="permission-row"><span>${title}</span><select aria-label="${title}" name="perm:${key}"><option value="inherit" ${!(key in u.overrides)?'selected':''}>موروث من الدور</option><option value="allow" ${u.overrides[key]===true?'selected':''}>سماح</option><option value="deny" ${u.overrides[key]===false?'selected':''}>منع</option></select></div>`).join('')}</div><button class="btn full">حفظ الصلاحيات</button><div class="form-error" hidden></div></form>`);}
+function permissionEditor(id){
+ const u=dashboard.users.find(u=>u.id===id);if(!u||id===user.id)return;
+ const groups = [
+  { title: '📦 صلاحيات الطلبات والتوصيل والتتبع', keys: ['orders.create','orders.cancel','orders.prepare','orders.manage','delivery.assign','delivery.update','tracking.read'] },
+  { title: '💬 صلاحيات الدردشة والدعم الفني والوسائط', keys: ['chat.read','chat.support','chat.delivery','chat.text','chat.image','chat.audio','chat.camera','support.manage'] },
+  { title: '🛍️ صلاحيات المنتجات والمظهر والإشعارات', keys: ['products.write','appearance.manage','notifications.send'] },
+  { title: '💰 صلاحيات المالية والعمولات والمدفوعات', keys: ['commissions.manage','commerce.manage','payments.review'] },
+  { title: '🛡️ صلاحيات الحسابات والسياسات وخيارات حسابي', keys: ['users.manage','registrations.manage','policies.manage','audit.read','account.options'] }
+ ];
+ modal('صلاحيات المجموعات الموحدة: '+u.name,`<form class="form" data-form="permissions" data-id="${esc(id)}">
+  <div class="row">
+   <label>نوع الحساب (الدور الأساسي)<select name="role">${Object.keys(roles).map(r=>`<option value="${r}" ${r===u.role?'selected':''}>${roles[r]}</option>`).join('')}</select></label>
+   <label class="check"><input name="active" type="checkbox" ${u.active?'checked':''}>الحساب نشط وفعال</label>
+  </div>
+  <p class="hint">تم تجميع الصلاحيات المتشابهة في 5 مجموعات منظمة لتسهيل التحكم دون حذف أي صلاحية.</p>
+  <div class="modal-scroll" style="max-height:52vh;padding-left:4px">
+   ${groups.map((g, gi) => `
+    <div class="perm-group-card" data-perm-group="${gi}">
+     <div class="perm-group-head">
+      <span>${g.title}</span>
+      <div class="inline" style="gap:4px">
+       <button type="button" class="btn small secondary" style="padding:4px 8px;font-size:10.5px" data-action="perm-group-set" data-id="${gi}" data-val="allow">سماح للكل</button>
+       <button type="button" class="btn small ghost" style="padding:4px 8px;font-size:10.5px" data-action="perm-group-set" data-id="${gi}" data-val="inherit">افتراضي</button>
+      </div>
+     </div>
+     ${g.keys.filter(k => k in rights).map(key => `
+      <div class="permission-row">
+       <span>${rights[key]}</span>
+       <select aria-label="${rights[key]}" name="perm:${key}">
+        <option value="inherit" ${!(key in u.overrides)?'selected':''}>موروث من الدور</option>
+        <option value="allow" ${u.overrides[key]===true?'selected':''}>سماح</option>
+        <option value="deny" ${u.overrides[key]===false?'selected':''}>منع</option>
+       </select>
+      </div>`).join('')}
+    </div>`).join('')}
+  </div>
+  <button class="btn full">💾 حفظ جميع الصلاحيات</button>
+  <div class="form-error" hidden></div>
+ </form>`);
+}
 function newUser(){
  modal('إضافة مستخدم جديد وتحديد صلاحياته', `
  <form class="form" data-form="new-user">
@@ -1741,6 +2029,59 @@ async function action(name,id,el=null){
  if(name==='support'){
   page = 'support'; render(); return;
  }
+ if(name==='report-order-issue'){
+  const orderNum = el?.dataset?.number || id;
+  const isCourier = user.role === 'Courier';
+  modal(isCourier ? `طلب شكوى على الطلبية ${esc(orderNum)}` : `إبلاغ عن خلل أو شكوى في الطلبية ${esc(orderNum)}`, `
+  <form class="form" data-form="submit-order-complaint" data-id="${esc(id)}">
+   <p class="hint">${isCourier ? 'سيتم تسجيل الشكوى على هذه الطلبية وتحويلها للدعم الفني والإدارة مباشرة.' : 'أخبرنا بتفاصيل الخلل أو المشكلة في طلبيتك ليتم فتح محادثة دعم فني فورية ومتابعتها.'}</p>
+   <label>نوع الخلل أو عنوان الشكوى<input name="subject" required maxlength="120" value="شكوى بخصوص الطلب ${esc(orderNum)}: " placeholder="مثال: نقص في الطلب أو تأخر أو مشكلة في التسليم"></label>
+   <label>تفاصيل المشكلة<textarea name="message" rows="3" required maxlength="2000" placeholder="اشرح المشكلة بالتفصيل..."></textarea></label>
+   <button class="btn full danger" type="submit">⚠️ إرسال الشكوى وفتح الدردشة المباشرة</button>
+  </form>`);
+  return;
+ }
+ if(name==='open-order-complaint-chat'){
+  if(id) activeTicketId = id;
+  page = 'support';
+  render();
+  return;
+ }
+ if(name==='courier-cancel-order'){
+  const orderNum = el?.dataset?.number || id;
+  const penaltyAmt = dashboard?.courierCancelPenaltyAmount ?? 25;
+  modal(`تأكيد إلغاء توصيل الطلب ${esc(orderNum)}`, `
+  <form class="form" data-form="confirm-courier-cancel" data-id="${esc(id)}">
+   <div style="background:rgba(220,38,38,0.15);border:1px solid rgba(248,113,113,0.5);padding:12px;border-radius:12px;color:#fecaca;font-size:13px;line-height:1.7">
+    ⚠️ <b>تنبيه هام:</b> في حال إلغاء توصيل هذا الطلب ستنزل عليك غرامة خصم فورية بقيمة <b>${money(penaltyAmt)} ${currencyLabel(commerce.currency)}</b> كما هو محدد من إدارة مناديب التوصيل.
+   </div>
+   <label>سبب إلغاء التوصيل<input name="reason" required maxlength="200" placeholder="مثال: تعطل المركبة أو ظرف طارئ"></label>
+   <button class="btn full danger" type="submit">❌ تأكيد الإلغاء وقبول غرامة الخصم (${money(penaltyAmt)})</button>
+  </form>`);
+  return;
+ }
+ if(name==='clear-courier-penalty'){
+  if(!apiBase){
+   const d=demoData(); const u=(d.users||[]).find(x=>x.id===id);
+   if(u){ u.penaltyBalance=0; persistDemo(d); }
+  } else {
+   await request('/couriers/'+id+'/clear-penalties','POST');
+  }
+  await refresh();
+  toast('تم تصفير غرامات المندوب بنجاح');
+  return;
+ }
+ if(name==='new-courier-modal'){
+  modal('إضافة مندوب توصيل جديد', `
+  <form class="form" data-form="new-user">
+   <input type="hidden" name="role" value="Courier">
+   <label>اسم المستخدم للمندوب (متصل بدون مسافات)<input name="name" data-username-field="true" required maxlength="40" placeholder="مثال: khaled_courier"></label>
+   <label>البريد الإلكتروني<input name="email" type="email" required placeholder="courier@store.com" dir="ltr"></label>
+   <label>كلمة المرور<input name="password" type="text" required minlength="6" value="123456" dir="ltr"></label>
+   <button class="btn full" type="submit">🚚 إنشاء وتفعيل حساب المندوب</button>
+  </form>`);
+  return;
+ }
  if(name==='open-new-ticket'){
   modal('بدء محادثة دعم فني مباشرة', `
   <form class="form" data-form="new-support-ticket">
@@ -1762,6 +2103,87 @@ async function action(name,id,el=null){
    try { await request('/tickets/'+id+'/claim', 'POST'); } catch(e){}
   }
   await loadSupportTickets(false);
+  return;
+ }
+ if(name==='perm-group-set'){
+  const val = el?.dataset?.val || 'allow';
+  const card = el?.closest('[data-perm-group]');
+  if(card){
+   card.querySelectorAll('select[name^="perm:"]').forEach(s => { s.value = val; });
+   toast(val==='allow' ? 'تم تحديد السماح لجميع صلاحيات هذه المجموعة' : 'تمت إعادة المجموعة للوضع الافتراضي');
+  }
+  return;
+ }
+ if(name==='support-attach-image'){
+  document.getElementById('wa-support-img-input')?.click();
+  return;
+ }
+ if(name==='support-clear-media'){
+  window.supportPendingMedia = null;
+  renderSupportPendingMedia();
+  return;
+ }
+ if(name==='preview-support-image'){
+  modal('معاينة الصورة المرفقة', `<div style="text-align:center"><img src="${esc(id)}" style="max-width:100%;max-height:72vh;border-radius:14px;border:1px solid rgba(212,175,55,0.4)"></div>`);
+  return;
+ }
+ if(name==='support-record-audio'){
+  const micBtn = document.getElementById('wa-support-mic-btn');
+  if(window.supportAudioRecorder && window.supportAudioRecorder.state === 'recording'){
+   window.supportAudioRecorder.stop();
+   return;
+  }
+  if(!navigator.mediaDevices?.getUserMedia){ toast('المتصفح لا يدعم تسجيل الصوت'); return; }
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const mime = ['audio/webm;codecs=opus','audio/webm','audio/mp4'].find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
+  const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+  const chunks = [];
+  const startedAt = Date.now();
+  window.supportAudioRecorder = rec;
+  if(micBtn){ micBtn.classList.add('recording'); micBtn.textContent = '⏹'; }
+  toast('🔴 جاري تسجيل الصوت... اضغط على زر المايك مرة أخرى للإيقاف');
+  rec.ondataavailable = e => { if(e.data && e.data.size > 0) chunks.push(e.data); };
+  rec.onstop = () => {
+   stream.getTracks().forEach(t => t.stop());
+   if(micBtn){ micBtn.classList.remove('recording'); micBtn.textContent = '🎤'; }
+   const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+   const reader = new FileReader();
+   reader.onloadend = () => {
+    const dur = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+    window.supportPendingMedia = { kind: 'Audio', mediaData: reader.result, mediaMime: blob.type || 'audio/webm', durationSec: dur };
+    renderSupportPendingMedia();
+    toast('تم تجهيز التسجيل الصوتي — اضغط إرسال');
+   };
+   reader.readAsDataURL(blob);
+  };
+  rec.start();
+  return;
+ }
+ if(name==='support-wait'){
+  if(!apiBase){
+   const d=demoData(); const t=(d.tickets||[]).find(x=>x.id===id);
+   if(t){ t.messages.push({userId:'system',name:'النظام',senderRole:'System',message:`اختار ${user.name} الانتظار قليلاً لحين رد موظف الدعم الفني.`,at:new Date().toISOString()}); persistDemo(d); }
+  } else { await request('/tickets/'+id+'/wait','POST'); }
+  await loadSupportTickets(false);
+  toast('تم إرسال إشعار الانتظار للدعم الفني');
+  return;
+ }
+ if(name==='support-close-user'){
+  if(!apiBase){
+   const d=demoData(); const t=(d.tickets||[]).find(x=>x.id===id);
+   if(t){ t.status='Closed'; t.messages.push({userId:'system',name:'النظام',senderRole:'System',message:`أغلق ${user.name} الشكوى والمحادثة.`,at:new Date().toISOString()}); persistDemo(d); }
+  } else { await request('/tickets/'+id+'/status','PUT',{status:'Closed'}); }
+  await loadSupportTickets(false);
+  toast('تم إغلاق الشكوى بنجاح');
+  return;
+ }
+ if(name==='support-escalate'){
+  if(!apiBase){
+   const d=demoData(); const t=(d.tickets||[]).find(x=>x.id===id);
+   if(t){ t.escalated=true; t.status='Escalated'; t.messages.push({userId:'system',name:'النظام',senderRole:'System',message:`🚨 تم تصعيد الشكوى إلى الإدارة العليا للمتابعة الفورية!`,at:new Date().toISOString()}); persistDemo(d); }
+  } else { await request('/tickets/'+id+'/escalate','POST'); }
+  await loadSupportTickets(false);
+  toast('تم تصعيد الشكوى للإدارة فوراً!');
   return;
  }
  if(name==='toggle-ticket-status'){
@@ -1851,7 +2273,18 @@ async function action(name,id,el=null){
  if(name==='install-app'){installAppModal();return;}
  if(name==='trigger-pwa-install'){if(deferredInstallPrompt){deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;deferredInstallPrompt=null;closeModal();}return;}
  if(name==='login-screen'){demo=false;sessionStorage.removeItem('ts-demo');user=null;renderAuth();return;}
- if(name==='close'){closeModal();return;}if(name==='privacy'){privacy();return;}if(name==='connect'){connect();return;}
+ if(name==='close'){closeModal();return;}if(name==='privacy'){privacy();return;}if(name==='connect'){if(user&&user.role!=='Admin'){toast('إعدادات الاتصال بيانات سرية خاصة بالإدارة فقط');return;}connect();return;}
+ if(name==='toggle-account-options'){
+  if(!apiBase){
+   const d=demoData(); const u=(d.users||[]).find(x=>x.id===id);
+   if(u){ u.overrides=u.overrides||{}; u.overrides['account.options']=!u.overrides['account.options']; persistDemo(d); }
+  } else {
+   await request('/users/'+id+'/toggle-account-options','POST');
+  }
+  await refresh();
+  toast('تم تحديث صلاحية ظهور خيارات حسابي وتخصيص النغمات للمستخدم');
+  return;
+ }
  if(name==='start-demo'){demo=true;sessionStorage.setItem('ts-demo','true');user=null;renderAuth();return;}
  if(name==='demo-role'){demo=true;sessionStorage.setItem('ts-demo','true');const d=demoData();user=demoUser(d.users.find(u=>u.role===id&&u.active));if(!user)throw new Error('لا يوجد حساب فعال لهذا الدور');sessionStorage.setItem('ts-demo-user',user.id);page='home';await refresh();return;}
  if(name==='switch-role'){stopSharing();user=null;renderAuth();return;}
@@ -1997,6 +2430,54 @@ document.addEventListener('submit',async e=>{
    toast('تم تحديث اسم المجموعة وجميع أصنافها بنجاح');
    return;
   }
+  if(kind==='submit-order-complaint'){
+   let created;
+   if(!apiBase){
+    const d = demoData();
+    const num = 'SUP-' + (1001 + (d.tickets||[]).length);
+    const sup = (d.users||[]).find(x => x.role==='Support' && x.active);
+    created = { id:'t_'+Date.now(), ticketNumber:num, userId:user.id, name:user.name, userRole:user.role, subject:f.subject, orderId:id, status:sup?'InProgress':'Open', assignedSupportId:sup?.id||null, assignedSupportName:sup?.name||null, updatedAt:new Date().toISOString(), messages:[{userId:user.id,name:user.name,message:f.message,at:new Date().toISOString(),senderRole:user.role}] };
+    d.tickets.unshift(created); persistDemo(d);
+   } else {
+    created = await request('/tickets', 'POST', { subject: f.subject, message: f.message, orderId: id });
+   }
+   activeTicketId = created.id;
+   closeModal();
+   await refresh();
+   page = 'support';
+   render();
+   toast('تم تسجيل الشكوى على الطلبية وفتح محادثة الدعم الفني');
+   return;
+  }
+  if(kind==='confirm-courier-cancel'){
+   const penaltyAmt = dashboard?.courierCancelPenaltyAmount ?? 25;
+   if(!apiBase){
+    const d = demoData();
+    const o = (d.orders||[]).find(x=>x.id===id);
+    const u = (d.users||[]).find(x=>x.id===user.id);
+    if(o){ o.courierId = null; o.status = 'Ready'; }
+    if(u){ u.penaltyBalance = (u.penaltyBalance||0) + penaltyAmt; u.cancelledDeliveriesCount = (u.cancelledDeliveriesCount||0) + 1; }
+    persistDemo(d);
+   } else {
+    await request('/orders/'+id+'/courier-cancel', 'POST', { reason: f.reason });
+   }
+   closeModal();
+   await refresh();
+   toast(`تم إلغاء توصيل الطلب وتسجيل غرامة خصم (${money(penaltyAmt)})`);
+   return;
+  }
+  if(kind==='save-courier-penalty'){
+   const val = Number(f.penaltyAmount);
+   if(isNaN(val) || val < 0) throw new Error('أدخل قيمة غرامة صالحة');
+   if(!apiBase){
+    if(dashboard) dashboard.courierCancelPenaltyAmount = val;
+   } else {
+    await request('/couriers/penalty-setting', 'PUT', { penaltyAmount: val });
+   }
+   await refresh();
+   toast('تم حفظ وتحديث قيمة غرامة إلغاء الطلب للمناديب بنجاح');
+   return;
+  }
   if(kind==='new-support-ticket'){
    let created;
    if(!apiBase){
@@ -2016,19 +2497,29 @@ document.addEventListener('submit',async e=>{
   }
   if(kind==='support-reply'){
    const msg = (f.message || '').trim();
-   if(!msg) return;
+   const pend = window.supportPendingMedia;
+   if(!msg && !pend){ toast('اكتب رسالة أو أرفق صورة أو تسجيلاً صوتياً'); return; }
+   const payload = {
+    message: msg || (pend?.kind === 'Audio' ? '🎤 رسالة صوتية' : '📷 صورة مرفقة'),
+    kind: pend?.kind || 'Text',
+    mediaData: pend?.mediaData || null,
+    mediaMime: pend?.mediaMime || null,
+    durationSec: pend?.durationSec || 0
+   };
    if(!apiBase){
     const d = demoData();
     const t = (d.tickets||[]).find(x=>x.id===id);
     if(t){
      const isAdm = user.role === 'Admin';
-     t.messages.push({ userId:user.id, name:isAdm?'الإدارة':user.name, message:msg, at:new Date().toISOString(), senderRole:isAdm?'Admin':user.role });
+     t.messages.push({ userId:user.id, name:isAdm?'الإدارة':user.name, message:payload.message, kind:payload.kind, mediaData:payload.mediaData, mediaMime:payload.mediaMime, durationSec:payload.durationSec, at:new Date().toISOString(), senderRole:isAdm?'Admin':user.role });
      t.updatedAt = new Date().toISOString();
      persistDemo(d);
     }
    } else {
-    await request('/tickets/'+id+'/reply', 'POST', { message: msg });
+    await request('/tickets/'+id+'/reply', 'POST', payload);
    }
+   window.supportPendingMedia = null;
+   renderSupportPendingMedia();
    form.reset();
    await loadSupportTickets(false);
    return;
@@ -2288,12 +2779,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 /* ========================================================
-   WhatsApp-Style Live Support Chat System
+   WhatsApp-Style Live Support Chat System (Instant & Smooth)
    ======================================================== */
 let supportTicketsList = [];
 let activeTicketId = null;
 let supportLookupResult = null;
 let supportPollTimer = null;
+let lastSupportFeedSig = '';
+let lastSupportListSig = '';
 
 function supportHome(){
  const isAdmin = user.role === 'Admin';
@@ -2303,7 +2796,7 @@ function supportHome(){
  <div class="section-head">
   <div>
    <h1>💬 الدعم الفني المباشر (دردشة فورية)</h1>
-   <p>${isAdmin ? 'متابعة جميع محادثات العملاء والتجار والمناديب مع موظفي الدعم الفني والرد باسم الإدارة' : isStaff ? 'محادثاتك المباشرة مع العملاء والتجار والمناديب — المحادثات المفتوحة مع موظف آخر مخفية عنك تلقائياً إلا برقم البلاغ السابق' : 'تواصل مباشر وفوري مع أول موظف دعم فني متصل بنفس تجربة واتساب'}</p>
+   <p>${isAdmin ? 'متابعة جميع المحادثات والشكاوى المصعّدة فوراً والرد باسم الإدارة' : isStaff ? 'محادثاتك المباشرة — المحادثات المفتوحة مع موظف آخر مخفية تلقائياً إلا برقم البلاغ السابق' : 'تواصل مباشر وفوري مع أول موظف دعم فني متصل بنفس تجربة واتساب'}</p>
   </div>
   <div class="inline" style="gap:8px">
    ${canCreate ? `<button class="btn" type="button" data-action="open-new-ticket">➕ محادثة دعم فني جديدة</button>` : ''}
@@ -2315,7 +2808,7 @@ function supportHome(){
   <aside class="wa-sidebar">
    <div class="wa-sidebar-head">
     <div style="display:flex;justify-content:space-between;align-items:center">
-     <strong style="color:#fef08a;font-size:14px">${isAdmin ? '📋 جميع المحادثات الجارية' : isStaff ? '🎧 محادثاتي والبلاغات' : '💬 محادثاتي مع الدعم'}</strong>
+     <strong style="color:#fef08a;font-size:14px">${isAdmin ? '📋 جميع المحادثات والشكاوى' : isStaff ? '🎧 محادثاتي والبلاغات' : '💬 محادثاتي مع الدعم'}</strong>
      <span id="wa-tickets-count" class="badge Ready">0</span>
     </div>
     ${isStaff ? `
@@ -2353,28 +2846,33 @@ function renderSupportChatList(){
  const cntEl = document.getElementById('wa-tickets-count');
  if(!listEl) return;
  const items = getAllVisibleSupportTickets();
+ const sig = items.map(t => `${t.id}:${t.status}:${t.escalated}:${(t.messages||[]).length}:${t.assignedSupportName||''}:${activeTicketId}`).join('|');
+ if(sig === lastSupportListSig) return;
+ lastSupportListSig = sig;
+
  if(cntEl) cntEl.textContent = String(items.length);
  if(!items.length){
   listEl.innerHTML = `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12.5px">لا توجد محادثات حالياً.<br>اضغط على "محادثة دعم فني جديدة" للبدء.</div>`;
   return;
  }
- const statusMap = { Open: 'بانتظار موظف', InProgress: 'جاري المحادثة', Closed: 'مغلقة' };
+ const statusMap = { Open: 'بانتظار موظف', InProgress: 'جاري المحادثة', Escalated: 'مصعّدة للإدارة', Closed: 'مغلقة' };
  listEl.innerHTML = items.map(t => {
   const msgs = t.messages || [];
   const last = msgs[msgs.length - 1];
   const isActive = t.id === activeTicketId;
   const num = t.ticketNumber || ('SUP-' + String(t.id||'').slice(0,4).toUpperCase());
   const roleLbl = roles[t.userRole] || t.userRole || 'مستخدم';
+  const isEsc = t.escalated || t.status === 'Escalated';
   return `
   <button type="button" class="wa-chat-item ${isActive?'active':''}" data-action="select-ticket" data-id="${esc(t.id)}">
    <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px">
     <strong style="color:#fef08a;font-size:12.5px">#${esc(num)} · ${esc(t.name)}</strong>
-    <span class="badge ${t.status==='Closed'?'Cancelled':'Ready'}" style="font-size:10px">${statusMap[t.status]||t.status}</span>
+    <span class="badge ${isEsc?'wa-escalated-badge':t.status==='Closed'?'Cancelled':'Ready'}" style="font-size:10px">${isEsc?'🚨 ':''}${statusMap[t.status]||t.status}</span>
    </div>
    <div style="font-size:12px;color:#fff;font-weight:600;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
     ${t._fromLookup ? '🔎 [بلاغ سابق] ' : ''}${esc(t.subject)}
    </div>
-   <div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;gap:6px">
+   <div style="display:flex;justify-content:space-between;font-size:11px;color:#cbd5e1;gap:6px">
     <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${last ? esc(last.name + ': ' + last.message) : esc(roleLbl)}</span>
     <span>${t.assignedSupportName ? '🎧 '+esc(t.assignedSupportName) : '⏳'}</span>
    </div>
@@ -2382,29 +2880,30 @@ function renderSupportChatList(){
  }).join('');
 }
 
-function renderSupportMainPane(preserveInput=false){
- const pane = document.getElementById('wa-main-pane');
- if(!pane) return;
- const items = getAllVisibleSupportTickets();
- const t = items.find(x => x.id === activeTicketId) || items[0];
- if(!t){
-  pane.innerHTML = `<div class="wa-messages" style="justify-content:center;align-items:center;text-align:center"><div style="color:#94a3b8;font-size:14px"><div style="font-size:40px;margin-bottom:8px">💬</div><p>ابدأ محادثة جديدة مع الدعم الفني الآن</p></div></div>`;
-  return;
- }
- activeTicketId = t.id;
+function buildSupportMessagesHtml(t){
  const isAdmin = user.role === 'Admin';
- const isStaff = isAdmin || user.role === 'Support' || has('support.manage');
- const num = t.ticketNumber || ('SUP-' + String(t.id||'').slice(0,4).toUpperCase());
- const roleLbl = roles[t.userRole] || t.userRole || 'مستخدم';
-
- const existingInput = preserveInput ? pane.querySelector('input[name="message"]') : null;
- const draftVal = existingInput ? existingInput.value : '';
- const wasFocused = existingInput && document.activeElement === existingInput;
-
- const msgsHtml = (t.messages || []).map(m => {
+ const isOwner = t.userId === user.id;
+ const isClosed = t.status === 'Closed';
+ return (t.messages || []).map(m => {
   const sRole = m.senderRole || 'User';
   if(sRole === 'System' || m.userId === 'system'){
    return `<div class="wa-bubble-row sys"><div class="wa-sys-pill">${esc(m.message)}</div></div>`;
+  }
+  if(sRole === 'AutoReply' || m.userId === 'autoreply'){
+   const timeStr = m.at ? new Date(m.at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }) : '';
+   return `
+   <div class="wa-bubble-row autoreply-msg">
+    <div class="wa-autoreply-card">
+     <div class="wa-sender" style="color:#fbbf24">🤖 الرد الآلي · ${timeStr}</div>
+     <div>${esc(m.message)}</div>
+     ${isOwner && !isClosed ? `
+     <div class="wa-delay-actions">
+      <button type="button" class="wa-btn-wait" data-action="support-wait" data-id="${esc(t.id)}">⏳ الانتظار قليلاً</button>
+      <button type="button" class="wa-btn-close" data-action="support-close-user" data-id="${esc(t.id)}">🔒 إغلاق الشكوى</button>
+      <button type="button" class="wa-btn-escalate" data-action="support-escalate" data-id="${esc(t.id)}">🚨 تصعيد الشكوى للإدارة</button>
+     </div>` : ''}
+    </div>
+   </div>`;
   }
   const isMine = m.userId === user.id || (isAdmin && sRole === 'Admin');
   const isAdminMsg = sRole === 'Admin' || m.name === 'الإدارة';
@@ -2414,19 +2913,48 @@ function renderSupportMainPane(preserveInput=false){
   <div class="wa-bubble-row ${isMine?'mine':'theirs'} ${isAdminMsg?'admin-msg':''}">
    <div class="wa-bubble">
     <div class="wa-sender">${senderLabel}</div>
-    <div>${esc(m.message)}</div>
+    ${m.mediaData && m.kind === 'Image' ? `<img src="${esc(m.mediaData)}" class="wa-rich-img" alt="صورة مرفقة" data-action="preview-support-image" data-id="${esc(m.mediaData)}">` : ''}
+    ${m.mediaData && m.kind === 'Audio' ? `
+     <div class="wa-rich-audio">
+      <span>🎤</span>
+      <audio controls preload="metadata" src="${esc(m.mediaData.startsWith('data:')?m.mediaData:('data:'+(m.mediaMime||'audio/webm')+';base64,'+m.mediaData))}"></audio>
+      ${m.durationSec ? `<small style="color:#fef08a;font-size:11px">${m.durationSec}ث</small>` : ''}
+     </div>` : ''}
+    ${m.message ? `<div style="margin-top:4px">${esc(m.message)}</div>` : ''}
     <div class="wa-meta"><span>${timeStr}</span><span>✓✓</span></div>
    </div>
   </div>`;
  }).join('') || `<div class="wa-bubble-row sys"><div class="wa-sys-pill">بدأت المحادثة حول: ${esc(t.subject)}</div></div>`;
+}
 
- if(preserveInput && document.getElementById('wa-messages-feed') && document.getElementById('wa-messages-feed').dataset.ticketId === t.id){
-  const feed = document.getElementById('wa-messages-feed');
-  const atBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 60;
-  feed.innerHTML = msgsHtml;
-  if(atBottom) feed.scrollTop = feed.scrollHeight;
+function renderSupportMainPane(preserveInput=false){
+ const pane = document.getElementById('wa-main-pane');
+ if(!pane) return;
+ const items = getAllVisibleSupportTickets();
+ const t = items.find(x => x.id === activeTicketId) || items[0];
+ if(!t){
+  lastSupportFeedSig = '';
+  pane.innerHTML = `<div class="wa-messages" style="justify-content:center;align-items:center;text-align:center"><div style="color:#94a3b8;font-size:14px"><div style="font-size:40px;margin-bottom:8px">💬</div><p>ابدأ محادثة جديدة مع الدعم الفني الآن</p></div></div>`;
   return;
  }
+ activeTicketId = t.id;
+ const isAdmin = user.role === 'Admin';
+ const isStaff = isAdmin || user.role === 'Support' || has('support.manage');
+ const num = t.ticketNumber || ('SUP-' + String(t.id||'').slice(0,4).toUpperCase());
+ const roleLbl = roles[t.userRole] || t.userRole || 'مستخدم';
+ const isEsc = t.escalated || t.status === 'Escalated';
+ const feedSig = `${t.id}:${t.status}:${isEsc}:${(t.messages||[]).length}:${t.assignedSupportName||''}:${window.supportPendingMedia?1:0}`;
+
+ const existingFeed = document.getElementById('wa-messages-feed');
+ if(preserveInput && existingFeed && existingFeed.dataset.ticketId === t.id){
+  if(feedSig === lastSupportFeedSig) return;
+  lastSupportFeedSig = feedSig;
+  const atBottom = existingFeed.scrollHeight - existingFeed.scrollTop - existingFeed.clientHeight < 90;
+  existingFeed.innerHTML = buildSupportMessagesHtml(t);
+  if(atBottom) existingFeed.scrollTop = existingFeed.scrollHeight;
+  return;
+ }
+ lastSupportFeedSig = feedSig;
 
  pane.innerHTML = `
   <div class="wa-header">
@@ -2434,34 +2962,94 @@ function renderSupportMainPane(preserveInput=false){
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
      <strong style="color:#fff;font-size:14.5px">#${esc(num)} · ${esc(t.name)}</strong>
      <span class="badge" style="background:rgba(212,175,55,0.18);color:#fef08a;font-size:10.5px">${esc(roleLbl)}</span>
+     ${isEsc ? `<span class="badge wa-escalated-badge" style="font-size:10.5px">🚨 مصعّدة للإدارة</span>` : ''}
      <span class="badge ${t.status==='Closed'?'Cancelled':'Ready'}" style="font-size:10.5px">${t.status==='Closed'?'مغلقة':t.assignedSupportName?'🎧 '+esc(t.assignedSupportName):'⏳ بانتظار موظف متصل'}</span>
     </div>
-    <div style="font-size:12px;color:#cbd5e1;margin-top:3px">المشكلة: <b style="color:#fde047">${esc(t.subject)}</b></div>
+    <div style="font-size:12.5px;color:#e2e8f0;margin-top:4px">المشكلة: <b style="color:#fde047">${esc(t.subject)}</b></div>
    </div>
-   ${isStaff ? `
    <div class="inline" style="gap:6px">
-    <button class="btn small ${t.status==='Closed'?'':'danger'}" type="button" data-action="toggle-ticket-status" data-id="${esc(t.id)}" data-status="${t.status==='Closed'?'Open':'Closed'}">
-     ${t.status==='Closed'?'🔓 إعادة فتح':'🔒 إغلاق البلاغ'}
-    </button>
-   </div>` : ''}
+    ${t.userId === user.id && t.status !== 'Closed' && !isEsc ? `<button class="btn small danger" type="button" data-action="support-escalate" data-id="${esc(t.id)}">🚨 تصعيد للإدارة</button>` : ''}
+    ${isStaff ? `
+     <button class="btn small ${t.status==='Closed'?'':'danger'}" type="button" data-action="toggle-ticket-status" data-id="${esc(t.id)}" data-status="${t.status==='Closed'?'Open':'Closed'}">
+      ${t.status==='Closed'?'🔓 إعادة فتح':'🔒 إغلاق البلاغ'}
+     </button>` : ''}
+   </div>
   </div>
   <div id="wa-messages-feed" class="wa-messages" data-ticket-id="${esc(t.id)}">
-   ${msgsHtml}
+   ${buildSupportMessagesHtml(t)}
   </div>
   ${t.status === 'Closed' ? `
-  <div style="padding:12px;text-align:center;background:#111b21;color:#94a3b8;font-size:12.5px;border-top:1px solid rgba(255,255,255,0.08)">
-   🔒 تم إغلاق هذا البلاغ. يمكنك فتح محادثة جديدة أو إعادة فتحه من الإدارة.
+  <div style="padding:12px;text-align:center;background:#111b21;color:#cbd5e1;font-size:12.5px;border-top:1px solid rgba(255,255,255,0.08)">
+   🔒 تم إغلاق هذه الشكوى. يمكنك بدء محادثة جديدة في أي وقت.
   </div>` : `
+  <div id="wa-support-pending" style="padding:0 14px;background:#111b21"></div>
   <form class="wa-composer" data-form="support-reply" data-id="${esc(t.id)}">
-   <input name="message" type="text" maxlength="2000" required autocomplete="off" placeholder="${isAdmin ? 'اكتب رسالتك باسم الإدارة هنا...' : 'اكتب رسالتك للدعم الفني هنا...'}" value="${esc(draftVal)}">
+   <div class="wa-media-toolbar">
+    <button type="button" class="wa-media-btn" data-action="support-attach-image" title="إرفاق صورة">📷</button>
+    <input id="wa-support-img-input" type="file" accept="image/*" hidden>
+    <button type="button" id="wa-support-mic-btn" class="wa-media-btn" data-action="support-record-audio" title="تسجيل رسالة صوتية">🎤</button>
+   </div>
+   <input name="message" type="text" maxlength="2000" autocomplete="off" placeholder="${isAdmin ? 'اكتب رسالتك باسم الإدارة أو أرفق صورة/صوت...' : 'اكتب رسالتك أو أرفق صورة/تسجيل صوتي...'}">
    <button class="btn" type="submit" style="border-radius:22px;padding:10px 18px">➤ إرسال</button>
   </form>`}`;
 
  const feed = document.getElementById('wa-messages-feed');
  if(feed) feed.scrollTop = feed.scrollHeight;
- if(wasFocused){
-  const ni = pane.querySelector('input[name="message"]');
-  if(ni){ ni.focus(); ni.setSelectionRange(ni.value.length, ni.value.length); }
+ const imgInput = document.getElementById('wa-support-img-input');
+ if(imgInput){
+  imgInput.onchange = async e => {
+   const file = e.target.files?.[0];
+   if(!file) return;
+   try {
+    const dataUrl = await normalizeImage(file, 960, 1200000);
+    window.supportPendingMedia = { kind: 'Image', mediaData: dataUrl, mediaMime: 'image/png', durationSec: 0 };
+    renderSupportPendingMedia();
+   } catch(err){ toast(err.message || 'تعذر إرفاق الصورة'); }
+  };
+ }
+ renderSupportPendingMedia();
+}
+
+window.supportPendingMedia = null;
+window.supportAudioRecorder = null;
+
+function renderSupportPendingMedia(){
+ const box = document.getElementById('wa-support-pending');
+ if(!box) return;
+ const m = window.supportPendingMedia;
+ if(!m){ box.innerHTML = ''; return; }
+ box.innerHTML = `
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;margin:6px 0;background:rgba(6,78,59,0.55);border:1px solid rgba(212,175,55,0.45);border-radius:12px">
+   <div style="display:flex;align-items:center;gap:10px">
+    ${m.kind === 'Image' ? `<img src="${esc(m.mediaData)}" style="width:46px;height:46px;border-radius:8px;object-fit:cover">` : `<span style="color:#fef08a;font-size:13px">🎤 تسجيل صوتي جاهز للإرسال (${m.durationSec||1} ثانية)</span>`}
+    <small style="color:#cbd5e1">${m.kind === 'Image' ? 'صورة جاهزة للإرسال' : 'اضغط إرسال لإرفاق الصوت'}</small>
+   </div>
+   <button type="button" class="btn small danger" data-action="support-clear-media">✕ حذف المرفق</button>
+  </div>`;
+}
+
+async function checkSupportDelayAutoReply(t){
+ if(!t || t.userId !== user.id || t.status === 'Closed') return;
+ const msgs = t.messages || [];
+ const lastUserMsg = [...msgs].reverse().find(m => m.userId === user.id);
+ if(!lastUserMsg) return;
+ const lastStaffMsg = [...msgs].reverse().find(m => m.senderRole === 'Support' || m.senderRole === 'Admin');
+ if(lastStaffMsg && new Date(lastStaffMsg.at) > new Date(lastUserMsg.at)) return;
+ const lastAuto = [...msgs].reverse().find(m => m.senderRole === 'AutoReply');
+ if(lastAuto && new Date(lastAuto.at) >= new Date(lastUserMsg.at)) return;
+ const waitMs = Date.now() - new Date(lastUserMsg.at).getTime();
+ if(waitMs >= 25000){
+  if(!apiBase){
+   const d = demoData();
+   const dt = (d.tickets||[]).find(x => x.id === t.id);
+   if(dt){
+    dt.messages.push({ userId:'autoreply', name:'الرد الآلي', senderRole:'AutoReply', message:'نعتذر عن تأخر موظف الدعم الفني في الرد عليك حالياً. يمكنك اختيار: الانتظار قليلاً، أو إغلاق الشكوى، أو تصعيد الشكوى للإدارة فوراً.', at:new Date().toISOString() });
+    dt.lastAutoReplyAt = new Date().toISOString();
+    persistDemo(d);
+   }
+  } else {
+   try { await request('/tickets/' + t.id + '/auto-reply', 'POST'); } catch(e){}
+  }
  }
 }
 
@@ -2472,21 +3060,26 @@ async function loadSupportTickets(preserveInput=true){
    const isAdmin = user.role === 'Admin';
    const isStaff = isAdmin || user.role === 'Support';
    supportTicketsList = (d.tickets || []).filter(t => isAdmin ? true : isStaff ? (!t.assignedSupportId || t.assignedSupportId === user.id) : t.userId === user.id);
+   if(isAdmin) supportTicketsList.sort((a,b) => (b.escalated?1:0) - (a.escalated?1:0));
   } else {
    supportTicketsList = await request('/tickets');
   }
   if(!activeTicketId && supportTicketsList.length > 0) activeTicketId = supportTicketsList[0].id;
+  const activeT = supportTicketsList.find(x => x.id === activeTicketId);
+  if(activeT) await checkSupportDelayAutoReply(activeT);
   renderSupportChatList();
   renderSupportMainPane(preserveInput);
  } catch(e){}
 }
 
 function afterSupportRender(){
+ lastSupportFeedSig = '';
+ lastSupportListSig = '';
  loadSupportTickets(false);
  if(supportPollTimer) clearInterval(supportPollTimer);
  supportPollTimer = setInterval(() => {
   const onSupport = page === 'support' || (page === 'home' && user?.role === 'Support');
   if(!onSupport){ clearInterval(supportPollTimer); supportPollTimer = null; return; }
   loadSupportTickets(true);
- }, 3500);
+ }, 1500);
 }

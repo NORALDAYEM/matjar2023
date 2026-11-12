@@ -208,7 +208,7 @@ const defaultAppearance={storeName:'التسوق',subtitle:'كل ما تحب، �
 const storeFonts={Tahoma:'Tahoma,Arial,sans-serif',Arial:'Arial,Tahoma,sans-serif',System:'system-ui,Tahoma,sans-serif',Serif:'Georgia,"Times New Roman",serif'};
 let storeAppearance={...defaultAppearance},draftLogo='',imageLoading=false,noticeCache=[],storeBanners=[],storeStaff=[];
 function paintAppearance(){
- const a=storeAppearance;const r=document.documentElement;for(const [k,v]of Object.entries({'--green':a.primary,'--bg':a.background,'--ink':a.ink}))r.style.setProperty(k,v);
+ const a=storeAppearance;const r=document.documentElement;if(a.primary)r.style.setProperty('--green',a.primary);
  r.style.fontFamily=storeFonts[a.font]||storeFonts.Tahoma;document.title=a.storeName+' | التسوق';
  document.querySelectorAll('.brand').forEach(b=>{
   const img=b.querySelector('img');if(img&&img.getAttribute('src')!==(a.logo||'icon.svg'))img.setAttribute('src',a.logo||'icon.svg');

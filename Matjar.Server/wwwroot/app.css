@@ -1547,3 +1547,218 @@ body {
     max-height: 300px;
   }
 }
+
+/* Enhanced Professional WhatsApp Chat Typography & Auto-Reply Actions */
+.wa-bubble {
+  font-size: 14px !important;
+  line-height: 1.7 !important;
+  letter-spacing: 0.01em;
+}
+.wa-bubble-row.autoreply-msg {
+  align-self: center;
+  max-width: 92%;
+}
+.wa-autoreply-card {
+  background: linear-gradient(135deg, rgba(120, 53, 15, 0.92) 0%, rgba(69, 26, 3, 0.96) 100%);
+  border: 1px solid rgba(251, 191, 36, 0.65);
+  border-radius: 16px;
+  padding: 12px 15px;
+  color: #fef9c3;
+  font-size: 13.5px;
+  line-height: 1.7;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+.wa-delay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.wa-delay-actions button {
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+}
+.wa-btn-wait { background: #0f766e; color: #fff; }
+.wa-btn-close { background: #334155; color: #fff; }
+.wa-btn-escalate { background: #dc2626; color: #fff; }
+.wa-escalated-badge {
+  background: #dc2626 !important;
+  color: #fff !important;
+  animation: pulseEscalated 1.4s infinite;
+}
+@keyframes pulseEscalated {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
+
+/* ========================================================
+   High-Contrast Popups, Toasts, Inner Cards & Rich Media Player
+   ======================================================== */
+#toast {
+  background: linear-gradient(135deg, #042f24 0%, #031711 100%) !important;
+  color: #fef08a !important;
+  border: 1.5px solid #d4af37 !important;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.75), 0 0 18px rgba(212, 175, 55, 0.35) !important;
+  font-size: 13.5px !important;
+  font-weight: 800 !important;
+  padding: 13px 24px !important;
+  border-radius: 16px !important;
+  z-index: 9999 !important;
+  text-align: center !important;
+}
+
+.ticket-card, .ticket-message, .chat-bubble, .payment-instructions, .chat-pending, .staff-card-kpi div, .live-tracking-panel, .maps-action-bar {
+  background: rgba(6, 48, 36, 0.92) !important;
+  color: #f8fafc !important;
+  border: 1px solid rgba(212, 175, 55, 0.35) !important;
+}
+.ticket-card h3, .ticket-message h3, .ticket-message strong, .staff-card-kpi strong {
+  color: #fef08a !important;
+}
+.ticket-card p, .ticket-message p, .chat-bubble p {
+  color: #f1f5f9 !important;
+}
+.ticket-message small, .ticket-card small, .staff-card-kpi small {
+  color: #cbd5e1 !important;
+}
+.notice-unread {
+  border-right: 4px solid #fbbf24 !important;
+  background: rgba(212, 175, 55, 0.14) !important;
+}
+select option {
+  background: #031711 !important;
+  color: #ffffff !important;
+}
+.form-error, .net-error {
+  background: rgba(127, 29, 29, 0.92) !important;
+  color: #fecaca !important;
+  border: 1px solid rgba(248, 113, 113, 0.6) !important;
+  font-weight: 700 !important;
+}
+
+/* Order Chat Dark Harmony */
+.wa-chat-container {
+  background: #0b141a !important;
+  border: 1px solid rgba(212, 175, 55, 0.35) !important;
+}
+.wa-bubble.incoming {
+  background: #202c33 !important;
+  color: #f8fafc !important;
+}
+.wa-bubble.outgoing {
+  background: #005c4b !important;
+  color: #ffffff !important;
+}
+.wa-bubble-meta {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+.wa-input-bar {
+  background: #111b21 !important;
+  border-top: 1px solid rgba(212, 175, 55, 0.25) !important;
+}
+.wa-input {
+  background: #2a3942 !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+}
+.wa-btn-icon {
+  color: #fef08a !important;
+}
+.wa-btn-icon:hover {
+  background: rgba(212, 175, 55, 0.18) !important;
+}
+
+/* Rich Media Player in Support Chat */
+.wa-rich-audio {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(212, 175, 55, 0.32);
+  padding: 8px 12px;
+  border-radius: 14px;
+  margin-top: 6px;
+  min-width: 230px;
+}
+.wa-rich-audio audio {
+  height: 34px;
+  width: 210px;
+  filter: invert(0.92) hue-rotate(160deg);
+}
+.wa-rich-img {
+  max-width: 260px;
+  max-height: 240px;
+  border-radius: 12px;
+  margin-top: 6px;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  cursor: zoom-in;
+  display: block;
+  object-fit: cover;
+}
+.wa-media-toolbar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.wa-media-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(212, 175, 55, 0.14);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  color: #fef08a;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: 16px;
+}
+.wa-media-btn.recording {
+  background: #dc2626;
+  color: #fff;
+  border-color: #f87171;
+  animation: pulseEscalated 1s infinite;
+}
+
+/* Categorized Permission Groups & Admin Hub Cards */
+.perm-group-card {
+  background: rgba(6, 48, 36, 0.65);
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+.perm-group-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px dashed rgba(212, 175, 55, 0.25);
+  color: #fef08a;
+  font-weight: 800;
+  font-size: 13.5px;
+}
+.hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+.hub-card {
+  background: rgba(4, 25, 19, 0.9);
+  border: 1px solid rgba(212, 175, 55, 0.32);
+  border-radius: 18px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.hub-card h3 {
+  color: #fef08a !important;
+  font-size: 15px;
+  border-bottom: 1px dashed rgba(212, 175, 55, 0.25);
+  padding-bottom: 8px;
+}
