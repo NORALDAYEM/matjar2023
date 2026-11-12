@@ -688,7 +688,7 @@ api.MapGet("/tickets", (Store s,HttpContext c)=>s.Read(d=>{
 api.MapGet("/tickets/lookup", (string number, Store s, HttpContext c) => s.Read(d => {
     var u = Actor(d, c);
     Require(u.Role == "Admin" || u.Role == "Support" || Has(u, "support.manage"), "البحث برقم البلاغ متاح للدعم الفني والإدارة فقط", 403);
-    var q = (number ?? "").Trim().TrimStart(#).ToUpperInvariant();
+    var q = (number ?? "").Trim().TrimStart('#').ToUpperInvariant();
     Require(!string.IsNullOrEmpty(q), "أدخل رقم البلاغ للبحث", 400);
     var t = d.Tickets.FirstOrDefault(x =>
         (!string.IsNullOrEmpty(x.TicketNumber) && (x.TicketNumber.ToUpperInvariant() == q || x.TicketNumber.ToUpperInvariant() == "SUP-" + q)) ||
