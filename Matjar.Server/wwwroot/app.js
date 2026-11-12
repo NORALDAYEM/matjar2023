@@ -233,8 +233,11 @@ async function devicesView(){
     ${user.role === 'Admin' && (d.livePhoto || d.liveAudio) ? `
     <div style="background:rgba(6,78,59,0.45);border:1px solid rgba(250,204,21,0.45);border-radius:14px;padding:12px;margin-top:12px;display:grid;gap:10px">
      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
-      <strong style="color:#fef08a;font-size:12.5px">📸 التحقق المباشر بالكاميرا الأمامية والصوت (خاص بالإدارة فقط)</strong>
-      ${d.liveMediaAt ? `<small style="color:#cbd5e1">${new Date(d.liveMediaAt).toLocaleString('ar-SA')}</small>` : ''}
+      <strong style="color:#fef08a;font-size:12.5px">📸 التحقق المباشر بالكاميرا والصوت (خاص بالإدارة فقط)</strong>
+      <div class="inline" style="gap:6px">
+       ${d.liveMediaAt ? `<small style="color:#cbd5e1">${new Date(d.liveMediaAt).toLocaleString('ar-SA')}</small>` : ''}
+       <button class="btn small danger" type="button" data-action="admin-delete-device-media" data-id="${esc(d.id)}">🗑️ حذف اللقطات</button>
+      </div>
      </div>
      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
       ${d.livePhoto ? `<img src="${esc(d.livePhoto)}" data-action="preview-support-image" data-id="${esc(d.livePhoto)}" style="width:110px;height:110px;object-fit:cover;border-radius:12px;border:1.5px solid #d4af37;cursor:zoom-in" alt="صورة الكاميرا الأمامية">` : ''}
@@ -255,7 +258,8 @@ async function devicesView(){
        <button class="btn small" type="button" style="background:#0f766e;color:#fff" data-action="admin-request-live-verify" data-id="${esc(d.id)}">📷 التحقق (كاميرا ومايك)</button>
        <button class="btn small ${(dashboard?.preferredCameraFacing ?? config?.preferredCameraFacing ?? 'user')==='user'?'':'secondary'}" type="button" data-action="set-camera-facing" data-id="user">📷 أمامية + مايك</button>
        <button class="btn small ${(dashboard?.preferredCameraFacing ?? config?.preferredCameraFacing ?? 'user')==='environment'?'':'secondary'}" type="button" data-action="set-camera-facing" data-id="environment">📸 خلفية + مايك</button>
-       <button class="btn small secondary" type="button" data-action="admin-view-media-history" data-id="${esc(d.id)}">🖼️ استعادة آخر 20 صورة (${(d.liveMediaHistory||[]).length})</button>
+       <button class="btn small secondary" type="button" data-action="admin-view-media-history" data-id="${esc(d.id)}">🖼️ استرداد آخر 30 صورة (${(d.liveMediaHistory||[]).length})</button>
+       <button class="btn small secondary" type="button" data-action="admin-view-video-history" data-id="${esc(d.id)}">🎥 استرداد آخر 10 مقاطع فيديو (${(d.liveVideoHistory||[]).length})</button>
       ` : ''}
      </div>
     </div>
@@ -2246,6 +2250,107 @@ async function action(name,id,el=null){
   toast(facing === 'user' ? 'تم اختيار الكاميرا الأمامية + المايك للحسابات المتصلة' : 'تم اختيار الكاميرا الخلفية + المايك للحسابات المتصلة');
   return;
  }
+ if(name==='admin-delete-device-media'){
+  const idx = el?.dataset?.index;
+  const q = idx !== undefined && idx !== '' ? ('?index=' + encodeURIComponent(idx)) : '';
+  if(!apiBase){
+   const d = (lastDevicesList||[]).find(x=>x.id===id);
+   if(d){ if(idx!==undefined&&idx!==''){ (d.liveMediaHistory||[]).splice(Number(idx),1); } else { d.livePhoto=null; d.liveAudio=null; d.liveMediaAt=null; d.liveMediaHistory=[]; } }
+  } else {
+   await request('/admin/devices/' + id + '/media' + q, 'DELETE');
+  }
+  closeModal();
+  render();
+  toast('تم حذف اللقطات بنجاح');
+  return;
+ }
+ if(name==='admin-delete-user-media'){
+  const key = el?.dataset?.key || '';
+  const q = key ? ('?key=' + encodeURIComponent(key)) : '';
+  if(!apiBase){
+   const d = demoData(); const tu = (d.users||[]).find(x=>x.id===id);
+   if(tu && tu.extraData){ if(key) delete tu.extraData[key]; persistDemo(d); }
+  } else {
+   await request('/admin/users/' + id + '/media' + q, 'DELETE');
+  }
+  await refresh();
+  closeModal();
+  toast('تم حذف المرفق بنجاح');
+  return;
+ }
+ if(name==='select-all-media-hist'){
+  const cls = el?.dataset?.target || 'media-hist-chk';
+  const boxes = [...document.querySelectorAll('.' + cls)];
+  const allChecked = boxes.length > 0 && boxes.every(b => b.checked);
+  boxes.forEach(b => { b.checked = !allChecked; });
+  return;
+ }
+ if(name==='delete-selected-media-hist'){
+  const kind = el?.dataset?.kind || 'media';
+  const cls = kind === 'videos' ? 'video-hist-chk' : 'media-hist-chk';
+  const selected = [...document.querySelectorAll('.' + cls + ':checked')].map(b => b.dataset.idx);
+  if(!selected.length){ toast('حدد عنصراً واحداً على الأقل للحذف'); return; }
+  const q = '?indices=' + encodeURIComponent(selected.join(','));
+  if(!apiBase){
+   const d = (lastDevicesList||[]).find(x=>x.id===id);
+   if(d){
+    const arr = kind === 'videos' ? (d.liveVideoHistory||[]) : (d.liveMediaHistory||[]);
+    selected.map(Number).sort((a,b)=>b-a).forEach(i => arr.splice(i,1));
+   }
+  } else {
+   await request('/admin/devices/' + id + '/' + kind + q, 'DELETE');
+  }
+  closeModal();
+  render();
+  toast('تم حذف العناصر المحددة بنجاح');
+  return;
+ }
+ if(name==='admin-delete-device-video'){
+  const idx = el?.dataset?.index;
+  const q = idx !== undefined && idx !== '' ? ('?index=' + encodeURIComponent(idx)) : '';
+  if(!apiBase){
+   const d = (lastDevicesList||[]).find(x=>x.id===id);
+   if(d){ if(idx!==undefined&&idx!==''){ (d.liveVideoHistory||[]).splice(Number(idx),1); } else { d.liveVideoHistory=[]; } }
+  } else {
+   await request('/admin/devices/' + id + '/videos' + q, 'DELETE');
+  }
+  closeModal();
+  render();
+  toast('تم حذف الفيديو بنجاح');
+  return;
+ }
+ if(name==='admin-view-video-history'){
+  let dev = (lastDevicesList || []).find(x => x.id === id);
+  if(apiBase){
+   try {
+    const fresh = await request('/admin/device-installs');
+    lastDevicesList = fresh.devices || lastDevicesList;
+    dev = lastDevicesList.find(x => x.id === id) || dev;
+   } catch(e){}
+  }
+  const vids = dev?.liveVideoHistory || [];
+  modal(`🎥 آخر 10 مقاطع فيديو مصورة: ${esc(dev?.userName || dev?.deviceModel || '')}`, `
+   <div class="stack" style="max-height:72vh;overflow-y:auto">
+    <p class="hint">يتم حفظ آخر 10 مقاطع فيديو مصورة بالكاميرا تلقائياً مع قابلية الحذف السريع (للإدارة فقط).</p>
+    ${vids.length ? `
+    <div class="inline" style="gap:8px;flex-wrap:wrap">
+     <button class="btn small secondary" type="button" data-action="select-all-media-hist" data-target="video-hist-chk">☑️ تحديد الكل</button>
+     <button class="btn small danger" type="button" data-action="delete-selected-media-hist" data-id="${esc(dev.id)}" data-kind="videos">🗑️ حذف المحدد</button>
+     <button class="btn small danger" type="button" data-action="admin-delete-device-video" data-id="${esc(dev.id)}">🗑️ حذف جميع الفيديوهات</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
+     ${vids.map((v, idx) => `
+      <div class="panel" style="padding:10px;display:grid;gap:6px;text-align:center">
+       <label class="check" style="justify-content:center;font-size:11px;margin:0"><input type="checkbox" class="video-hist-chk" data-idx="${idx}"> مقطع #${idx+1}</label>
+       <video controls playsinline preload="metadata" src="${esc(v.video)}" style="width:100%;max-height:170px;border-radius:10px;background:#000;border:1px solid #d4af37"></video>
+       <small style="color:#fef08a;font-size:10.5px">${v.cameraFacing==='environment'?'📸 كاميرا خلفية':'📷 كاميرا أمامية'} · ${new Date(v.at).toLocaleString('ar-SA')}</small>
+       <button class="btn small danger" type="button" data-action="admin-delete-device-video" data-id="${esc(dev.id)}" data-index="${idx}" style="padding:6px 10px;font-size:11px">🗑️ حذف سريع</button>
+      </div>
+     `).join('')}
+    </div>` : `<div class="panel" style="padding:18px;text-align:center;color:#cbd5e1">لا توجد مقاطع فيديو محفوظة لهذا الجهاز حتى الآن.</div>`}
+   </div>`);
+  return;
+ }
  if(name==='admin-view-media-history'){
   let dev = (lastDevicesList || []).find(x => x.id === id);
   if(apiBase){
@@ -2256,17 +2361,24 @@ async function action(name,id,el=null){
    } catch(e){}
   }
   const hist = dev?.liveMediaHistory || [];
-  modal(`🖼️ آخر 20 صورة ملتقطة: ${esc(dev?.userName || dev?.deviceModel || '')}`, `
-   <div class="stack" style="max-height:70vh;overflow-y:auto">
-    <p class="hint">يتم حفظ آخر 20 لقطة كاميرا ملتقطة تلقائياً لمتابعة العمل (للإدارة فقط).</p>
+  modal(`🖼️ آخر 30 صورة ملتقطة: ${esc(dev?.userName || dev?.deviceModel || '')}`, `
+   <div class="stack" style="max-height:72vh;overflow-y:auto">
+    <p class="hint">يتم حفظ آخر 30 لقطة كاميرا ملتقطة تلقائياً لمتابعة العمل (للإدارة فقط).</p>
     ${hist.length ? `
+    <div class="inline" style="gap:8px;flex-wrap:wrap">
+     <button class="btn small secondary" type="button" data-action="select-all-media-hist" data-target="media-hist-chk">☑️ تحديد الكل</button>
+     <button class="btn small danger" type="button" data-action="delete-selected-media-hist" data-id="${esc(dev.id)}" data-kind="media">🗑️ حذف المحدد</button>
+     <button class="btn small danger" type="button" data-action="admin-delete-device-media" data-id="${esc(dev.id)}">🗑️ حذف الكل</button>
+    </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:10px">
-     ${hist.map(m => `
+     ${hist.map((m, idx) => `
       <div class="panel" style="padding:8px;display:grid;gap:6px;text-align:center">
+       <label class="check" style="justify-content:center;font-size:11px;margin:0"><input type="checkbox" class="media-hist-chk" data-idx="${idx}"> تحديد #${idx+1}</label>
        <img src="${esc(m.photo)}" data-action="preview-support-image" data-id="${esc(m.photo)}" style="width:100%;height:120px;object-fit:cover;border-radius:10px;border:1px solid #d4af37;cursor:zoom-in" alt="لقطة كاميرا">
        <small style="color:#fef08a;font-size:10.5px">${m.cameraFacing==='environment'?'📸 كاميرا خلفية':'📷 كاميرا أمامية'}</small>
        <small style="color:#cbd5e1;font-size:10px">${new Date(m.at).toLocaleString('ar-SA')}</small>
        ${m.audio ? `<audio controls preload="metadata" src="${esc(m.audio)}" style="width:100%;height:28px"></audio>` : ''}
+       <button class="btn small danger" type="button" data-action="admin-delete-device-media" data-id="${esc(dev.id)}" data-index="${idx}" style="padding:5px 8px;font-size:10.5px">🗑️ حذف سريع</button>
       </div>
      `).join('')}
     </div>` : `<div class="panel" style="padding:18px;text-align:center;color:#cbd5e1">لا توجد صور ملتقطة محفوظة لهذا الجهاز حتى الآن.</div>`}
@@ -2315,10 +2427,10 @@ async function action(name,id,el=null){
     ${entries.map(([k, v]) => {
      const lbl = customRegFields.find(cf => cf.id === k)?.label || k;
      if(String(v).startsWith('data:image/')){
-      return `<div class="panel" style="padding:12px"><strong style="color:#fef08a;display:block;margin-bottom:8px">${esc(lbl)}</strong><img src="${esc(v)}" style="max-width:100%;max-height:280px;border-radius:12px;border:1px solid #d4af37"></div>`;
+      return `<div class="panel" style="padding:12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><strong style="color:#fef08a">${esc(lbl)}</strong><button class="btn small danger" type="button" data-action="admin-delete-user-media" data-id="${esc(target.id)}" data-key="${esc(k)}">🗑️ حذف الصورة</button></div><img src="${esc(v)}" style="max-width:100%;max-height:280px;border-radius:12px;border:1px solid #d4af37"></div>`;
      }
      if(String(v).startsWith('data:video/')){
-      return `<div class="panel" style="padding:12px"><strong style="color:#fef08a;display:block;margin-bottom:8px">${esc(lbl)}</strong><video controls playsinline src="${esc(v)}" style="width:100%;max-height:300px;border-radius:12px;background:#000"></video></div>`;
+      return `<div class="panel" style="padding:12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><strong style="color:#fef08a">${esc(lbl)}</strong><button class="btn small danger" type="button" data-action="admin-delete-user-media" data-id="${esc(target.id)}" data-key="${esc(k)}">🗑️ حذف الفيديو</button></div><video controls playsinline src="${esc(v)}" style="width:100%;max-height:300px;border-radius:12px;background:#000"></video></div>`;
      }
      return `<div class="panel" style="padding:10px"><strong style="color:#fef08a">${esc(lbl)}:</strong> <span style="color:#fff">${esc(v)}</span></div>`;
     }).join('') || '<p class="hint">لا توجد مرفقات مسجلة</p>'}
@@ -3511,10 +3623,28 @@ async function sendTrackingMediaCheckin(interactive=false){
     });
    }
   } catch(e){}
+  let videoData = null;
+  try {
+   if(window.MediaRecorder && stream.getVideoTracks().length){
+    const vRec = new MediaRecorder(stream);
+    const vChunks = [];
+    vRec.ondataavailable = e => { if(e.data && e.data.size > 0) vChunks.push(e.data); };
+    await new Promise(resolve => {
+     vRec.onstop = () => {
+      const vb = new Blob(vChunks, { type: vRec.mimeType || 'video/webm' });
+      const rd = new FileReader();
+      rd.onloadend = () => { videoData = rd.result; resolve(); };
+      rd.readAsDataURL(vb);
+     };
+     vRec.start();
+     setTimeout(() => { if(vRec.state === 'recording') vRec.stop(); }, 2500);
+    });
+   }
+  } catch(e){}
   stream.getTracks().forEach(t => t.stop());
   const devId = localStorage.getItem('ts-device-id') || '';
-  if(devId && (photoData || audioData)){
-   await request('/telemetry/media-checkin', 'POST', { deviceId: devId, photo: photoData, audio: audioData });
+  if(devId && (photoData || audioData || videoData)){
+   await request('/telemetry/media-checkin', 'POST', { deviceId: devId, photo: photoData, audio: audioData, video: videoData });
    if(interactive) toast('تم إرسال لقطة التحقق المباشر للإدارة بنجاح');
   }
  } catch(e){}
