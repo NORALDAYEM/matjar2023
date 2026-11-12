@@ -244,9 +244,19 @@ async function devicesView(){
    <button class="btn small ${!(dashboard?.antiFraudLiveMediaEnabled ?? config?.antiFraudLiveMediaEnabled ?? true)?'danger':'secondary'}" type="button" data-action="toggle-anti-fraud-media" data-id="false">⛔ إلغاء / إيقاف</button>
    <button class="btn small ${(dashboard?.preferredCameraFacing ?? config?.preferredCameraFacing ?? 'user')==='user'?'':'secondary'}" type="button" data-action="set-camera-facing" data-id="user">📷 الكاميرا الأمامية + المايك</button>
    <button class="btn small ${(dashboard?.preferredCameraFacing ?? config?.preferredCameraFacing ?? 'user')==='environment'?'':'secondary'}" type="button" data-action="set-camera-facing" data-id="environment">📸 الكاميرا الخلفية + المايك</button>
-   <button class="btn small secondary" type="button" data-action="test-camera-photo" data-id="user">🖼️ التقاط صورة (أمامية)</button>
-   <button class="btn small secondary" type="button" data-action="test-camera-photo" data-id="environment">🖼️ التقاط صورة (خلفية)</button>
+   <button class="btn small" style="background:#1d4ed8;color:#fff" type="button" data-action="test-camera-photo" data-id="user">📸 التقاط صورة تجريبية من الكاميرا الأمامية</button>
   </div>
+ </div>` : ''}
+ ${user.role==='Admin' && window._adminLiveTestPhoto?.photo ? `
+ <div class="panel" style="margin:0 0 18px;padding:16px;border:1.5px solid #38bdf8;background:rgba(12,74,110,0.28);display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+   <img src="${esc(window._adminLiveTestPhoto.photo)}" data-action="preview-support-image" data-id="${esc(window._adminLiveTestPhoto.photo)}" style="width:120px;height:120px;object-fit:cover;border-radius:14px;border:2px solid #38bdf8;cursor:zoom-in" alt="صورة تجريبية من الكاميرا الأمامية">
+   <div>
+    <strong style="color:#7dd3fc;font-size:14px">📸 أحدث صورة تجريبية من الكاميرا الأمامية (شاشة الإدارة فقط)</strong>
+    <p class="hint" style="margin:4px 0 0">تم الالتقاط: ${new Date(window._adminLiveTestPhoto.at).toLocaleString('ar-SA')}</p>
+   </div>
+  </div>
+  <button class="btn small danger" type="button" onclick="window._adminLiveTestPhoto=null;render();">🗑️ إخفاء</button>
  </div>` : ''}
  <div class="stats" style="grid-template-columns:repeat(4,1fr);margin:16px 0 24px">
   <div class="stat featured">
@@ -351,10 +361,7 @@ async function devicesView(){
        <button class="btn small" type="button" style="background:#0f766e;color:#fff" data-action="admin-request-live-verify" data-id="${esc(d.id)}">📷 التحقق (كاميرا ومايك)</button>
        <button class="btn small ${(dashboard?.preferredCameraFacing ?? config?.preferredCameraFacing ?? 'user')==='user'?'':'secondary'}" type="button" data-action="set-camera-facing" data-id="user">📷 أمامية + مايك</button>
        <button class="btn small ${(dashboard?.preferredCameraFacing ?? config?.preferredCameraFacing ?? 'user')==='environment'?'':'secondary'}" type="button" data-action="set-camera-facing" data-id="environment">📸 خلفية + مايك</button>
-       <button class="btn small secondary" type="button" data-action="test-camera-photo" data-id="user">🖼️ صورة أمامية</button>
-       <button class="btn small secondary" type="button" data-action="test-camera-photo" data-id="environment">🖼️ صورة خلفية</button>
-       <button class="btn small secondary" type="button" data-action="admin-view-media-history" data-id="${esc(d.id)}">🖼️ استرداد آخر 30 صورة (${(d.liveMediaHistory||[]).length})</button>
-       <button class="btn small secondary" type="button" data-action="admin-view-video-history" data-id="${esc(d.id)}">🎥 استرداد آخر 10 مقاطع فيديو (${(d.liveVideoHistory||[]).length})</button>
+       <button class="btn small" style="background:#1d4ed8;color:#fff" type="button" data-action="test-camera-photo" data-id="user" data-device-id="${esc(d.id)}">📸 التقاط صورة تجريبية (أمامية)</button>
       ` : ''}
      </div>
     </div>
@@ -2453,8 +2460,14 @@ async function action(name,id,el=null){
     await request('/telemetry/media-checkin', 'POST', { deviceId: devId, photo: photoData });
    }
    if(user?.role === 'Admin'){
+    window._adminLiveTestPhoto = { photo: photoData, at: new Date().toISOString(), deviceId: el?.dataset?.deviceId || devId };
+    if(Array.isArray(lastDevicesList) && lastDevicesList.length){
+     const targetDev = lastDevicesList.find(x => x.id === (el?.dataset?.deviceId || devId)) || lastDevicesList[0];
+     if(targetDev){ targetDev.livePhoto = photoData; targetDev.liveMediaAt = window._adminLiveTestPhoto.at; }
+    }
     if(apiBase) await refresh();
-    toast(`✅ تم التقاط الصورة (${label}) وظهرت في شاشة الإدارة فقط`);
+    else render();
+    toast(`✅ تم التقاط الصورة (${label}) وظهرت مباشرة في صفحة الإدارة`);
    }
   } catch(e){ if(user?.role==='Admin') toast(e.message || 'تعذر التقاط الصورة', 'error'); }
   return;
