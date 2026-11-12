@@ -695,12 +695,20 @@ function navs(){
   ['home','grid','لوحة التاجر'],
   ['products','bag','منتجاتي'],
   ['orders','box','طلبات متجري'],
+  ['support','headset','الدعم الفني'],
   ['notices','bell','الإشعارات'],
   ['account','user','حسابي']
  ];
  if(user.role==='Courier')return [
   ['home','truck','مهام التوصيل'],
   ['history','clock','سجل التسليم'],
+  ['support','headset','الدعم الفني'],
+  ['notices','bell','الإشعارات'],
+  ['account','user','حسابي']
+ ];
+ if(user.role==='Support')return [
+  ['home','headset','الدعم المباشر'],
+  ['orders','box','الطلبات'],
   ['notices','bell','الإشعارات'],
   ['account','user','حسابي']
  ];
@@ -726,6 +734,7 @@ function navs(){
   ['users','shield','المستخدمين'],
   ['regfields','clipboard','نموذج التسجيل'],
   ['staff','users','طاقم العمل'],
+  ['support','headset','الدعم الفني'],
   ['commissions','coins','العمولات'],
   ['notices','bell','الإشعارات'],
   ['audit','clock','سجل النشاط'],
@@ -769,7 +778,9 @@ function render(){
   });
  }
  const view=$('#view');
- if(page==='home')view.innerHTML=user.role==='Support'?supportHome():user.role==='Customer'?shop():user.role==='Courier'?courier(false):overview();
+ if(page==='home' && user.role==='Support'){ view.innerHTML=supportHome(); afterSupportRender(); return; }
+ else if(page==='support'){ view.innerHTML=supportHome(); afterSupportRender(); return; }
+ if(page==='home')view.innerHTML=user.role==='Customer'?shop():user.role==='Courier'?courier(false):overview();
  else if(page==='products')view.innerHTML=productManagement();
  else if(page==='orders')view.innerHTML=ordersView();
  else if(page==='history')view.innerHTML=courier(true);
@@ -1727,6 +1738,45 @@ async function action(name,id,el=null){
   openInGooglePlayMaps(lat, lng);
   return;
  }
+ if(name==='support'){
+  page = 'support'; render(); return;
+ }
+ if(name==='open-new-ticket'){
+  modal('بدء محادثة دعم فني مباشرة', `
+  <form class="form" data-form="new-support-ticket">
+   <p class="hint">سيتم تحويل محادثتك فوراً إلى أول موظف دعم فني متصل.</p>
+   <label>عنوان المشكلة أو الاستفسار<input name="subject" required maxlength="120" placeholder="مثال: استفسار عن طلب أو مشكلة تقنية"></label>
+   <label>تفاصيل رسالتك<textarea name="message" rows="3" required maxlength="2000" placeholder="اكتب رسالتك هنا..."></textarea></label>
+   <button class="btn full" type="submit">💬 بدء الدردشة المباشرة</button>
+  </form>`);
+  return;
+ }
+ if(name==='refresh-support'){
+  await loadSupportTickets(false);
+  toast('تم تحديث المحادثات');
+  return;
+ }
+ if(name==='select-ticket'){
+  activeTicketId = id;
+  if(apiBase && (user.role==='Support' || has('support.manage')) && user.role!=='Admin'){
+   try { await request('/tickets/'+id+'/claim', 'POST'); } catch(e){}
+  }
+  await loadSupportTickets(false);
+  return;
+ }
+ if(name==='toggle-ticket-status'){
+  const nextStatus = el?.dataset?.status || 'Closed';
+  if(!apiBase){
+   const d = demoData();
+   const t = (d.tickets||[]).find(x=>x.id===id);
+   if(t){ t.status = nextStatus; persistDemo(d); }
+  } else {
+   await request('/tickets/'+id+'/status', 'PUT', { status: nextStatus });
+  }
+  await loadSupportTickets(false);
+  toast(nextStatus==='Closed'?'تم إغلاق البلاغ':'تمت إعادة فتح البلاغ');
+  return;
+ }
  if(name==='refresh-admin-gps'){
   if(typeof refreshAdminLiveLocation === 'function'){
    refreshAdminLiveLocation(coords => {
@@ -1945,6 +1995,61 @@ document.addEventListener('submit',async e=>{
    closeModal();
    await refresh();
    toast('تم تحديث اسم المجموعة وجميع أصنافها بنجاح');
+   return;
+  }
+  if(kind==='new-support-ticket'){
+   let created;
+   if(!apiBase){
+    const d = demoData();
+    const num = 'SUP-' + (1001 + (d.tickets||[]).length);
+    const sup = (d.users||[]).find(x => x.role==='Support' && x.active);
+    created = { id:'t_'+Date.now(), ticketNumber:num, userId:user.id, name:user.name, userRole:user.role, subject:f.subject, status:sup?'InProgress':'Open', assignedSupportId:sup?.id||null, assignedSupportName:sup?.name||null, updatedAt:new Date().toISOString(), messages:[{userId:user.id,name:user.name,message:f.message,at:new Date().toISOString(),senderRole:user.role}] };
+    d.tickets.unshift(created); persistDemo(d);
+   } else {
+    created = await request('/tickets', 'POST', { subject: f.subject, message: f.message, orderId: null });
+   }
+   activeTicketId = created.id;
+   closeModal();
+   await loadSupportTickets(false);
+   toast('تم فتح محادثة الدعم الفني بنجاح');
+   return;
+  }
+  if(kind==='support-reply'){
+   const msg = (f.message || '').trim();
+   if(!msg) return;
+   if(!apiBase){
+    const d = demoData();
+    const t = (d.tickets||[]).find(x=>x.id===id);
+    if(t){
+     const isAdm = user.role === 'Admin';
+     t.messages.push({ userId:user.id, name:isAdm?'الإدارة':user.name, message:msg, at:new Date().toISOString(), senderRole:isAdm?'Admin':user.role });
+     t.updatedAt = new Date().toISOString();
+     persistDemo(d);
+    }
+   } else {
+    await request('/tickets/'+id+'/reply', 'POST', { message: msg });
+   }
+   form.reset();
+   await loadSupportTickets(false);
+   return;
+  }
+  if(kind==='ticket-lookup'){
+   const num = (f.number || '').trim();
+   if(!num) throw new Error('أدخل رقم البلاغ السابق للبحث');
+   if(!apiBase){
+    const d = demoData();
+    const found = (d.tickets||[]).find(x => (x.ticketNumber||'').toUpperCase()===num.toUpperCase() || x.id===num);
+    if(!found) throw new Error('لم يتم العثور على بلاغ بهذا الرقم');
+    supportLookupResult = found;
+    activeTicketId = found.id;
+   } else {
+    const found = await request('/tickets/lookup?number=' + encodeURIComponent(num));
+    supportLookupResult = found;
+    activeTicketId = found.id;
+   }
+   renderSupportChatList();
+   renderSupportMainPane(false);
+   toast('تم عرض تفاصيل البلاغ والمحادثة');
    return;
   }
     if(kind==='save-admin-tech-settings'){
@@ -2180,3 +2285,208 @@ document.addEventListener('DOMContentLoaded', () => {
   slider.scrollLeft = scrollLeft - walk;
  });
 });
+
+
+/* ========================================================
+   WhatsApp-Style Live Support Chat System
+   ======================================================== */
+let supportTicketsList = [];
+let activeTicketId = null;
+let supportLookupResult = null;
+let supportPollTimer = null;
+
+function supportHome(){
+ const isAdmin = user.role === 'Admin';
+ const isStaff = isAdmin || user.role === 'Support' || has('support.manage');
+ const canCreate = !isStaff || isAdmin;
+ return `
+ <div class="section-head">
+  <div>
+   <h1>💬 الدعم الفني المباشر (دردشة فورية)</h1>
+   <p>${isAdmin ? 'متابعة جميع محادثات العملاء والتجار والمناديب مع موظفي الدعم الفني والرد باسم الإدارة' : isStaff ? 'محادثاتك المباشرة مع العملاء والتجار والمناديب — المحادثات المفتوحة مع موظف آخر مخفية عنك تلقائياً إلا برقم البلاغ السابق' : 'تواصل مباشر وفوري مع أول موظف دعم فني متصل بنفس تجربة واتساب'}</p>
+  </div>
+  <div class="inline" style="gap:8px">
+   ${canCreate ? `<button class="btn" type="button" data-action="open-new-ticket">➕ محادثة دعم فني جديدة</button>` : ''}
+   <button class="btn secondary" type="button" data-action="refresh-support">🔄 تحديث المحادثات</button>
+  </div>
+ </div>
+
+ <div class="wa-shell">
+  <aside class="wa-sidebar">
+   <div class="wa-sidebar-head">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+     <strong style="color:#fef08a;font-size:14px">${isAdmin ? '📋 جميع المحادثات الجارية' : isStaff ? '🎧 محادثاتي والبلاغات' : '💬 محادثاتي مع الدعم'}</strong>
+     <span id="wa-tickets-count" class="badge Ready">0</span>
+    </div>
+    ${isStaff ? `
+    <form data-form="ticket-lookup" style="display:flex;gap:6px">
+     <input name="number" type="text" placeholder="🔍 رقم البلاغ السابق (مثال: SUP-1001)" style="flex:1;padding:7px 10px;border-radius:10px;border:1px solid rgba(212,175,55,0.35);background:#031711;color:#fff;font-size:12px" dir="auto">
+     <button class="btn small" type="submit">بحث</button>
+    </form>` : ''}
+   </div>
+   <div id="wa-chat-list" class="wa-chat-list">
+    <p class="hint" style="padding:14px;text-align:center">جاري تحميل المحادثات...</p>
+   </div>
+  </aside>
+
+  <section class="wa-main" id="wa-main-pane">
+   <div class="wa-messages" style="justify-content:center;align-items:center;text-align:center">
+    <div style="color:#94a3b8;font-size:14px">
+     <div style="font-size:40px;margin-bottom:8px">💬</div>
+     <p>اختر محادثة من القائمة أو ابدأ محادثة دعم فني جديدة</p>
+    </div>
+   </div>
+  </section>
+ </div>`;
+}
+
+function getAllVisibleSupportTickets(){
+ const merged = [...supportTicketsList];
+ if(supportLookupResult && !merged.some(t => t.id === supportLookupResult.id)){
+  merged.unshift({ ...supportLookupResult, _fromLookup: true });
+ }
+ return merged;
+}
+
+function renderSupportChatList(){
+ const listEl = document.getElementById('wa-chat-list');
+ const cntEl = document.getElementById('wa-tickets-count');
+ if(!listEl) return;
+ const items = getAllVisibleSupportTickets();
+ if(cntEl) cntEl.textContent = String(items.length);
+ if(!items.length){
+  listEl.innerHTML = `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12.5px">لا توجد محادثات حالياً.<br>اضغط على "محادثة دعم فني جديدة" للبدء.</div>`;
+  return;
+ }
+ const statusMap = { Open: 'بانتظار موظف', InProgress: 'جاري المحادثة', Closed: 'مغلقة' };
+ listEl.innerHTML = items.map(t => {
+  const msgs = t.messages || [];
+  const last = msgs[msgs.length - 1];
+  const isActive = t.id === activeTicketId;
+  const num = t.ticketNumber || ('SUP-' + String(t.id||'').slice(0,4).toUpperCase());
+  const roleLbl = roles[t.userRole] || t.userRole || 'مستخدم';
+  return `
+  <button type="button" class="wa-chat-item ${isActive?'active':''}" data-action="select-ticket" data-id="${esc(t.id)}">
+   <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px">
+    <strong style="color:#fef08a;font-size:12.5px">#${esc(num)} · ${esc(t.name)}</strong>
+    <span class="badge ${t.status==='Closed'?'Cancelled':'Ready'}" style="font-size:10px">${statusMap[t.status]||t.status}</span>
+   </div>
+   <div style="font-size:12px;color:#fff;font-weight:600;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+    ${t._fromLookup ? '🔎 [بلاغ سابق] ' : ''}${esc(t.subject)}
+   </div>
+   <div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;gap:6px">
+    <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${last ? esc(last.name + ': ' + last.message) : esc(roleLbl)}</span>
+    <span>${t.assignedSupportName ? '🎧 '+esc(t.assignedSupportName) : '⏳'}</span>
+   </div>
+  </button>`;
+ }).join('');
+}
+
+function renderSupportMainPane(preserveInput=false){
+ const pane = document.getElementById('wa-main-pane');
+ if(!pane) return;
+ const items = getAllVisibleSupportTickets();
+ const t = items.find(x => x.id === activeTicketId) || items[0];
+ if(!t){
+  pane.innerHTML = `<div class="wa-messages" style="justify-content:center;align-items:center;text-align:center"><div style="color:#94a3b8;font-size:14px"><div style="font-size:40px;margin-bottom:8px">💬</div><p>ابدأ محادثة جديدة مع الدعم الفني الآن</p></div></div>`;
+  return;
+ }
+ activeTicketId = t.id;
+ const isAdmin = user.role === 'Admin';
+ const isStaff = isAdmin || user.role === 'Support' || has('support.manage');
+ const num = t.ticketNumber || ('SUP-' + String(t.id||'').slice(0,4).toUpperCase());
+ const roleLbl = roles[t.userRole] || t.userRole || 'مستخدم';
+
+ const existingInput = preserveInput ? pane.querySelector('input[name="message"]') : null;
+ const draftVal = existingInput ? existingInput.value : '';
+ const wasFocused = existingInput && document.activeElement === existingInput;
+
+ const msgsHtml = (t.messages || []).map(m => {
+  const sRole = m.senderRole || 'User';
+  if(sRole === 'System' || m.userId === 'system'){
+   return `<div class="wa-bubble-row sys"><div class="wa-sys-pill">${esc(m.message)}</div></div>`;
+  }
+  const isMine = m.userId === user.id || (isAdmin && sRole === 'Admin');
+  const isAdminMsg = sRole === 'Admin' || m.name === 'الإدارة';
+  const senderLabel = isAdminMsg ? '👑 الإدارة' : (sRole === 'Support' ? `🎧 الدعم الفني: ${esc(m.name)}` : `👤 ${esc(m.name)}`);
+  const timeStr = m.at ? new Date(m.at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' }) : '';
+  return `
+  <div class="wa-bubble-row ${isMine?'mine':'theirs'} ${isAdminMsg?'admin-msg':''}">
+   <div class="wa-bubble">
+    <div class="wa-sender">${senderLabel}</div>
+    <div>${esc(m.message)}</div>
+    <div class="wa-meta"><span>${timeStr}</span><span>✓✓</span></div>
+   </div>
+  </div>`;
+ }).join('') || `<div class="wa-bubble-row sys"><div class="wa-sys-pill">بدأت المحادثة حول: ${esc(t.subject)}</div></div>`;
+
+ if(preserveInput && document.getElementById('wa-messages-feed') && document.getElementById('wa-messages-feed').dataset.ticketId === t.id){
+  const feed = document.getElementById('wa-messages-feed');
+  const atBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 60;
+  feed.innerHTML = msgsHtml;
+  if(atBottom) feed.scrollTop = feed.scrollHeight;
+  return;
+ }
+
+ pane.innerHTML = `
+  <div class="wa-header">
+   <div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+     <strong style="color:#fff;font-size:14.5px">#${esc(num)} · ${esc(t.name)}</strong>
+     <span class="badge" style="background:rgba(212,175,55,0.18);color:#fef08a;font-size:10.5px">${esc(roleLbl)}</span>
+     <span class="badge ${t.status==='Closed'?'Cancelled':'Ready'}" style="font-size:10.5px">${t.status==='Closed'?'مغلقة':t.assignedSupportName?'🎧 '+esc(t.assignedSupportName):'⏳ بانتظار موظف متصل'}</span>
+    </div>
+    <div style="font-size:12px;color:#cbd5e1;margin-top:3px">المشكلة: <b style="color:#fde047">${esc(t.subject)}</b></div>
+   </div>
+   ${isStaff ? `
+   <div class="inline" style="gap:6px">
+    <button class="btn small ${t.status==='Closed'?'':'danger'}" type="button" data-action="toggle-ticket-status" data-id="${esc(t.id)}" data-status="${t.status==='Closed'?'Open':'Closed'}">
+     ${t.status==='Closed'?'🔓 إعادة فتح':'🔒 إغلاق البلاغ'}
+    </button>
+   </div>` : ''}
+  </div>
+  <div id="wa-messages-feed" class="wa-messages" data-ticket-id="${esc(t.id)}">
+   ${msgsHtml}
+  </div>
+  ${t.status === 'Closed' ? `
+  <div style="padding:12px;text-align:center;background:#111b21;color:#94a3b8;font-size:12.5px;border-top:1px solid rgba(255,255,255,0.08)">
+   🔒 تم إغلاق هذا البلاغ. يمكنك فتح محادثة جديدة أو إعادة فتحه من الإدارة.
+  </div>` : `
+  <form class="wa-composer" data-form="support-reply" data-id="${esc(t.id)}">
+   <input name="message" type="text" maxlength="2000" required autocomplete="off" placeholder="${isAdmin ? 'اكتب رسالتك باسم الإدارة هنا...' : 'اكتب رسالتك للدعم الفني هنا...'}" value="${esc(draftVal)}">
+   <button class="btn" type="submit" style="border-radius:22px;padding:10px 18px">➤ إرسال</button>
+  </form>`}`;
+
+ const feed = document.getElementById('wa-messages-feed');
+ if(feed) feed.scrollTop = feed.scrollHeight;
+ if(wasFocused){
+  const ni = pane.querySelector('input[name="message"]');
+  if(ni){ ni.focus(); ni.setSelectionRange(ni.value.length, ni.value.length); }
+ }
+}
+
+async function loadSupportTickets(preserveInput=true){
+ try {
+  if(!apiBase){
+   const d = demoData();
+   const isAdmin = user.role === 'Admin';
+   const isStaff = isAdmin || user.role === 'Support';
+   supportTicketsList = (d.tickets || []).filter(t => isAdmin ? true : isStaff ? (!t.assignedSupportId || t.assignedSupportId === user.id) : t.userId === user.id);
+  } else {
+   supportTicketsList = await request('/tickets');
+  }
+  if(!activeTicketId && supportTicketsList.length > 0) activeTicketId = supportTicketsList[0].id;
+  renderSupportChatList();
+  renderSupportMainPane(preserveInput);
+ } catch(e){}
+}
+
+function afterSupportRender(){
+ loadSupportTickets(false);
+ if(supportPollTimer) clearInterval(supportPollTimer);
+ supportPollTimer = setInterval(() => {
+  const onSupport = page === 'support' || (page === 'home' && user?.role === 'Support');
+  if(!onSupport){ clearInterval(supportPollTimer); supportPollTimer = null; return; }
+  loadSupportTickets(true);
+ }, 3500);
+}
