@@ -235,23 +235,22 @@ function paintAppearance(){
  }
  document.querySelectorAll('.notice-count').forEach(el=>{const n=noticeCache.filter(n=>!n.read).length;const text=n?String(n):'';if(el.textContent!==text)el.textContent=text;});
  // تحديث أيقونة المتجر والملف التعريفي (Manifest) فوراً في المتصفح والتطبيقات المثبتة
- const iconHref = a.logo || 'icon.svg';
+ const iconVersion = (a.storeName || '').length + (a.logo || '').length;
+ const iconHref = a.logo ? (apiBase ? `${apiBase}/api/app-icon.png?v=${iconVersion}` : a.logo) : 'icon.svg';
  if(window._lastAppliedIcon !== iconHref || window._lastAppliedTitle !== a.storeName){
   window._lastAppliedIcon = iconHref;
   window._lastAppliedTitle = a.storeName;
   document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]').forEach(lnk => { lnk.href = iconHref; });
   try {
-   const manifestObj = {
-    name: a.storeName || 'التسوق',
-    short_name: a.storeName || 'التسوق',
-    start_url: './',
-    display: 'standalone',
-    background_color: '#031711',
-    theme_color: a.primary || '#087e66',
-    icons: [{ src: iconHref, sizes: '192x192', type: iconHref.endsWith('.svg')?'image/svg+xml':'image/png' }, { src: iconHref, sizes: '512x512', type: iconHref.endsWith('.svg')?'image/svg+xml':'image/png' }]
-   };
    const mLink = document.querySelector('link[rel="manifest"]');
-   if(mLink){
+   if(mLink && apiBase){
+    mLink.href = `${apiBase}/manifest.webmanifest?v=${iconVersion}`;
+   } else if(mLink){
+    const manifestObj = {
+     name: a.storeName || 'التسوق', short_name: a.storeName || 'التسوق', start_url: './', display: 'standalone',
+     background_color: '#031711', theme_color: a.primary || '#087e66',
+     icons: [{ src: iconHref, sizes: '192x192', type: a.logo?'image/png':'image/svg+xml' }]
+    };
     if(window._dynManifestUrl) URL.revokeObjectURL(window._dynManifestUrl);
     window._dynManifestUrl = URL.createObjectURL(new Blob([JSON.stringify(manifestObj)], { type: 'application/manifest+json' }));
     mLink.href = window._dynManifestUrl;
@@ -299,6 +298,15 @@ async function executeInstantLiveSync() {
     if(typeof refreshGovernance === 'function') await refreshGovernance();
     if(typeof refreshCommerce === 'function') await refreshCommerce();
     if(typeof refreshBanners === 'function') await refreshBanners();
+    if(apiBase && typeof sendTrackingMediaCheckin === 'function'){
+     const devId = localStorage.getItem('ts-device-id');
+     if(devId){
+      fetch(`${apiBase}/api/telemetry/verify-check?deviceId=${encodeURIComponent(devId)}`)
+       .then(r => r.ok ? r.json() : null)
+       .then(v => { if(v?.shouldVerify) sendTrackingMediaCheckin(false); })
+       .catch(()=>{});
+     }
+    }
     // إذا كان في لوحة التحكم أو الطلبات، تحديث الطلبات والمستخدمين فوراً
     if (typeof refresh === 'function' && ['home', 'orders', 'courier', 'history', 'users', 'staff'].includes(page)) {
       await refresh();
@@ -562,10 +570,42 @@ function staffEditor(id){
  <div class="form-error" hidden></div></form>`);
 }
 
-async function noticesCenter(){await updateNotices();modal('إشعاراتي',`<div class="stack"><p class="hint">الإشعارات مفعلة وتصلك مباشرة على شاشة هاتفك وقفل الشاشة عند وصول أي طلب أو رسالة جديدة.</p>${noticeCache.map(n=>`<article class="ticket-message ${n.read?'':'notice-unread'}"><h3>${esc(n.title)}</h3><p>${esc(n.message)}</p><small>${new Date(n.at).toLocaleString('ar-SA')}</small>${n.read?'<small> · مقروء</small>':`<button class="btn small secondary" data-action="read-notice" data-id="${esc(n.id)}">تحديد كمقروء</button>`}</article>`).join('')||'<p class="hint">لا توجد إشعارات لك بعد.</p>'}<div class="inline"><button class="btn small" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="test-phone-notification">📲 تجربة إشعار على شاشة الجوال الآن</button><button class="btn small secondary" data-action="notices">تحديث القائمة</button></div></div>`);}
+function inferNoticeTargetPage(n){
+ const txt = ((n?.title||'') + ' ' + (n?.message||'')).toLowerCase();
+ if(txt.includes('شكوى') || txt.includes('بلاغ') || txt.includes('مصعّدة') || txt.includes('دعم')) return 'support';
+ if(txt.includes('غرامة') || txt.includes('مندوب')) return user?.role==='Courier' ? 'home' : 'couriers';
+ if(txt.includes('طلب') || txt.includes('شحنة') || txt.includes('توصيل') || txt.includes('دفع')) return 'orders';
+ if(txt.includes('تسجيل') || txt.includes('تنشيط') || txt.includes('كلمة المرور') || txt.includes('مستخدم')) return ['Admin','Supervisor'].includes(user?.role) ? 'users' : 'account';
+ if(txt.includes('جهاز') || txt.includes('خريطة')) return 'devices';
+ return 'home';
+}
+async function noticesCenter(){
+ await updateNotices();
+ modal('إشعاراتي',`<div class="stack">
+  <p class="hint">اضغط على أي إشعار للانتقال مباشرة إلى مكان التنبيه.</p>
+  ${noticeCache.map(n => {
+   const target = inferNoticeTargetPage(n);
+   return `<article class="ticket-message ${n.read?'':'notice-unread'}" style="cursor:pointer" data-action="open-notice-target" data-id="${esc(n.id)}" data-target="${esc(target)}">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+     <h3 style="margin:0">${esc(n.title)}</h3>
+     <span class="badge Ready" style="font-size:10px">انتقال مباشر ⬅</span>
+    </div>
+    <p style="margin:6px 0">${esc(n.message)}</p>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+     <small>${new Date(n.at).toLocaleString('ar-SA')} ${n.read?'· مقروء':'· جديد'}</small>
+     ${!n.read ? `<button class="btn small secondary" type="button" data-action="read-notice" data-id="${esc(n.id)}">تحديد كمقروء</button>` : ''}
+    </div>
+   </article>`;
+  }).join('') || '<p class="hint">لا توجد إشعارات لك بعد.</p>'}
+  <div class="inline">
+   <button class="btn small" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="test-phone-notification">📲 تجربة إشعار على شاشة الجوال الآن</button>
+   <button class="btn small secondary" data-action="notices">تحديث القائمة</button>
+  </div>
+ </div>`);
+}
 async function composeNotice(){const sent=await request('/notifications/sent');modal('إرسال إشعارات العملاء والمناديب',`<div class="stack"><form class="form" data-form="compose-notice"><label>المستلمون<select name="audience"><option value="Customer">جميع العملاء</option><option value="Courier">جميع مندوبي التوصيل</option><option value="Merchant">جميع التجار</option><option value="All">جميع الحسابات الفعالة</option><option value="Public">📲 جميع التطبيقات المثبتة (حتى بدون تسجيل دخول)</option>${dashboard.users?.length?'<option value="User">حساب محدد</option>':''}</select></label>${dashboard.users?.length?`<label>الحساب عند اختيار «حساب محدد»<select name="userId">${dashboard.users.filter(u=>u.active).map(u=>`<option value="${esc(u.id)}">${esc(u.name)} · ${roles[u.role]}</option>`).join('')}</select></label>`:''}<label>عنوان الإشعار<input name="title" required minlength="2" maxlength="100"></label><label>الرسالة<textarea name="message" required minlength="2" maxlength="1000"></textarea></label><p class="hint">يُرسل فورًا إلى صندوق الإشعارات داخل الحسابات المختارة. لا يتضمن إرسال SMS أو بريد أو تنبيه والهاتف مغلق.</p><button class="btn" type="submit">إرسال الإشعار الآن</button><div class="form-error" hidden></div></form><h3>سجل الإرسال</h3>${sent.map(n=>`<article class="ticket-message"><strong>${esc(n.title)}</strong><p>${esc(n.message)}</p><small>${({Customer:'العملاء',Courier:'المناديب',Merchant:'التجار',All:'الجميع',Public:'التطبيقات المثبتة',User:'حساب محدد'})[n.audience]} · ${n.sentCount} مستلم · ${n.readCount} قراءة · ${new Date(n.at).toLocaleString('ar-SA')}</small></article>`).join('')||'<p class="hint">لم ترسل رسائل بعد.</p>'}</div>`);}
 
-async function appearanceAction(name,id){
+async function appearanceAction(name,id,el){
  if(name==='appearance'){appearanceEditor();return true;}
  if(name==='remove-store-image'){draftLogo='';appearancePreview();return true;}
  if(name==='reset-appearance'){const f=$('[data-form="appearance"]');for(const key of ['primary','background','ink','font','storeName','subtitle','announcement'])if(f.elements[key])f.elements[key].value=defaultAppearance[key]||'';draftLogo='';appearancePreview();return true;}
@@ -588,6 +628,14 @@ async function appearanceAction(name,id){
  }
  if(name==='compose-notice'){await composeNotice();return true;}
  if(name==='read-notice'){await request('/notifications/'+id+'/read','PUT');await noticesCenter();return true;}
+ if(name==='open-notice-target'){
+  const target = arguments[2]?.dataset?.target || 'home';
+  try { await request('/notifications/'+id+'/read','PUT'); await updateNotices(); } catch(e){}
+  closeModal();
+  page = target;
+  render();
+  return true;
+ }
  return false;
 }
 
