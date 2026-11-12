@@ -490,7 +490,7 @@ function adminDeleteUserModal(id){
 const $ = s => document.querySelector(s);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = (v,currency=commerce.currency) => formatMoney(v,currency);
-const roles = {Customer:'عميل معتمد', Merchant:'تاجر / شريك تجاري', Courier:'مندوب توصيل', Supervisor:'مشرف عام', Support:'دعم فني', Admin:'الإدارة العليا'};
+const roles = {Customer:'عميل معتمد', Merchant:'تاجر / شريك تجاري', Courier:'مندوب توصيل', Supervisor:'مشرف عام', Support:'دعم فني', Admin:'الإدارة العليا', Guest:'زائر (عرض فقط)'};
 const statuses = {Preparing:'قيد التجهيز الفاخر',Ready:'جاهز للاستلام',Assigned:'تم إسناد مندوب التوصيل',OnWay:'في الطريق إليك الآن',Delivered:'تم التسليم بنجاح',Cancelled:'ملغي'};
 const rights = {'commissions.manage':'إدارة العمولات وكشفها','policies.manage':'إدارة الاتفاقيات وشروط المتجر','registrations.manage':'مراجعة تسجيل العملاء والتجار والمناديب','commerce.manage':'إدارة العملات واللغة وطرق الدفع','payments.review':'مراجعة إيصالات واعتماد الدفع','chat.read':'قراءة الدردشة','chat.delivery':'دردشة العميل والمندوب','chat.support':'دردشة الدعم','chat.text':'إرسال نص','chat.image':'إرسال صور','chat.audio':'تسجيل وإرسال صوت','chat.camera':'التصوير داخل الدردشة','appearance.manage':'تعديل ألوان وصورة وخط المتجر','notifications.send':'إرسال إشعارات للمستخدمين','support.manage':'إدارة تذاكر الدعم','tracking.read':'عرض مواقع الطلبات','orders.create':'إنشاء الطلبات','orders.cancel':'إلغاء الطلب قبل التوصيل','orders.prepare':'تجهيز طلبات المتجر','orders.manage':'إدارة جميع الطلبات','products.write':'إضافة وتعديل المنتجات','delivery.assign':'إسناد مندوب التوصيل','delivery.update':'استلام وتسليم الشحنات','users.manage':'إدارة المستخدمين والصلاحيات','audit.read':'عرض سجل النشاط','account.options':'إظهار خيارات حسابي المتقدمة وتخصيص النغمات (بموافقة الإدارة)'};
 const defaultRights = {
@@ -713,9 +713,13 @@ function demoRequest(path,method,body){
 }
 
 async function refresh(){await refreshGovernance();await refreshCommerce();await refreshDesigns();await refreshAppearance();await refreshBanners();try{const sCats=await request('/categories');if(Array.isArray(sCats)&&sCats.length)storeCategories=[...new Set([...sCats,...defaultCoreCategories])];}catch(e){}
- products=await request('/products');if(user){dashboard=await request('/dashboard');user=dashboard.user;}render();await updateNotices();}
+ products=await request('/products');if(user){dashboard=await request('/dashboard');user=dashboard.user;}render();await updateNotices();if(user&&typeof maybePromptPermissions==='function')maybePromptPermissions();}
 function navs(){
  if(!user)return[];
+ if(user.role==='Guest')return [
+  ['home','home','تصفح المنتجات'],
+  ['guest-login','user','تسجيل الدخول']
+ ];
  if(user.role==='Support')return [
   ['home','headset','الدعم والمحادثات'],
   ['orders','box','متابعة الطلبات'],
@@ -759,6 +763,7 @@ function navs(){
   ['users','shield','الحسابات والطاقم'],
   ['devices','smartphone','الخرائط والأجهزة'],
   ['support','headset','الدعم الفني'],
+  ['staffchat','message','دردشة الإدارة والمشرفين'],
   ['account','user','مركز الإدارة وحسابي']
  ];
  // Admin streamlined navigation bar (grouped cleanly)
@@ -770,6 +775,7 @@ function navs(){
   ['users','shield','المستخدمين والطاقم'],
   ['devices','smartphone','الخرائط والأجهزة'],
   ['support','headset','الدعم الفني'],
+  ['staffchat','message','دردشة الإدارة والمشرفين'],
   ['account','user','مركز الإدارة وحسابي']
  ];
 }
@@ -805,7 +811,7 @@ function render(){
   <div class="topbar-profile-wrap">
    <button type="button" class="topbar-profile-btn" data-action="toggle-topbar-profile" aria-label="قائمة حسابي السريعة">
     ${user.profilePhoto ? `<img src="${esc(user.profilePhoto)}" alt="${esc(user.name)}">` : `<span class="avatar" style="width:30px;height:30px;font-size:13px">${esc(user.name[0])}</span>`}
-    <span>${esc(user.name)}</span>
+    <span>${esc(user.name)} ${user.role==='Supervisor'?(user.supervisorVerified?'<span title="مشرف موثق" style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:11px;font-weight:bold">✓</span>':'<span class="badge Cancelled" style="font-size:9.5px;padding:2px 6px">لم يتم التحقق</span>'):''}</span>
     <span>▾</span>
    </button>
    <div id="topbar-profile-dropdown" class="topbar-dropdown" hidden>
@@ -830,9 +836,14 @@ function render(){
   });
  }
  const view=$('#view');
+ if(user.role==='Supervisor' && !user.supervisorVerified){
+  view.innerHTML = supervisorVerificationGateView();
+  return;
+ }
+ if(page==='staffchat'){ view.innerHTML=staffChatView(); afterStaffChatRender(); return; }
  if(page==='home' && user.role==='Support'){ view.innerHTML=supportHome(); afterSupportRender(); return; }
  else if(page==='support'){ view.innerHTML=supportHome(); afterSupportRender(); return; }
- if(page==='home')view.innerHTML=user.role==='Customer'?shop():user.role==='Courier'?courier(false):overview();
+ if(page==='home')view.innerHTML=user.role==='Guest'?shop():user.role==='Customer'?shop():user.role==='Courier'?courier(false):overview();
  else if(page==='products')view.innerHTML=productManagement();
  else if(page==='orders')view.innerHTML=ordersView();
  else if(page==='history')view.innerHTML=courier(true);
@@ -1305,6 +1316,7 @@ function usersView(){
         <h3 style="font-size:16px;color:#ffffff;margin:0">${esc(u.name)}</h3>
         ${isSelf ? '<span class="badge Ready" style="font-size:10px">أنت (حسابك الحالي)</span>' : ''}
         ${isAdminOwner ? '<span class="badge" style="background:var(--vip-gold-gradient);color:#031711;font-size:10px;font-weight:bold">👑 المدير العام الرئيسي</span>' : ''}
+        ${u.role==='Supervisor' ? (u.supervisorVerified ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:bold">✓ موثق</span>' : '<span class="badge Cancelled" style="font-size:10px">⚠️ لم يتم التحقق</span>') : ''}
        </div>
        <p style="font-size:12px;color:#94a3b8;margin:4px 0 0" dir="ltr">${esc(u.email)}</p>
        <div style="display:flex;gap:12px;font-size:11px;color:#cbd5e1;margin-top:6px;flex-wrap:wrap">
@@ -1323,6 +1335,18 @@ function usersView(){
      </div>
     </div>
 
+    ${(() => {
+     const ex = u.extraData || {};
+     const textPairs = Object.entries(ex).filter(([k,v]) => v && !String(v).startsWith('data:'));
+     if(!textPairs.length) return '';
+     return `<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(212,175,55,0.22);padding:10px 12px;border-radius:12px;margin:10px 0;display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:#e2e8f0">
+      ${textPairs.map(([k,v]) => {
+       const lbl = customRegFields.find(cf => cf.id === k)?.label || k;
+       return `<span><b style="color:#fef08a">${esc(lbl)}:</b> ${esc(v)}</span>`;
+      }).join('')}
+     </div>`;
+    })()}
+
     ${u.tempPassword ? `
     <div style="background:rgba(212,175,55,0.12);border:1px dashed rgba(212,175,55,0.4);padding:10px 14px;border-radius:12px;margin:12px 0;display:flex;align-items:center;justify-content:space-between;font-size:12px">
      <div>
@@ -1334,8 +1358,9 @@ function usersView(){
 
     <div class="order-bottom" style="margin-top:14px;padding-top:14px;border-top:1px dashed rgba(212,175,55,0.25)">
      <div class="order-actions" style="width:100%;justify-content:flex-start;gap:8px">
+      ${u.role==='Supervisor' ? `<button class="btn small" type="button" style="background:#1d4ed8;color:#fff" data-action="admin-review-supervisor" data-id="${esc(u.id)}">🪪 توثيق المشرف (${u.supervisorVerified?'موثق ✓':'بانتظار التحقق'})</button>` : ''}
       ${(u.extraData && Object.keys(u.extraData).length > 0) ? `
-      <button class="btn small" type="button" data-action="admin-view-user-media" data-id="${esc(u.id)}">🪪 صور وفيديو التحقق</button>` : ''}
+      <button class="btn small" type="button" data-action="admin-view-user-media" data-id="${esc(u.id)}">🪪 بيانات وصور التسجيل</button>` : ''}
 
       <!-- زر تعديل كلمة المرور -->
       <button class="btn small secondary" type="button" data-action="admin-edit-password" data-id="${esc(u.id)}">
@@ -1783,6 +1808,7 @@ function renderAuth(tab='login'){
     
     <div class="form-error" hidden style="margin-top:14px;background:#fcecee;color:#b83f45;padding:10px;border-radius:10px;font-size:12px;line-height:1.7"></div>
    </form>
+   ${isLogin ? `<button type="button" class="btn secondary full" style="margin-top:10px" data-action="enter-guest">👁️ الدخول كزائر (تصفح المنتجات فقط)</button>` : ''}
    
    ${isLogin ? `
    <div style="display:flex;justify-content:center;align-items:center;gap:16px;margin-top:22px;font-size:13.5px">
@@ -1924,7 +1950,41 @@ function newUser(){
 function connect(){modal('الاتصال بمتجر التسوق',`<p class="hint">تُضبط هذه الخطوة بواسطة إدارة المتجر. يتطلب التشغيل الفعلي رابط خادم المتجر الآمن.</p><div class="spacer"></div><form class="form" data-form="connect"><label>رابط المتجر<input name="url" type="url" dir="ltr" placeholder="https://store.example.com" value="${esc(apiBase)}" required></label><button class="btn full">اتصال</button><div class="form-error" hidden></div></form>`);}
 function privacy(){modal('الخصوصية وحذف الحساب',`<div class="stack hint"><h3>بياناتك في المتجر</h3><p>المتجر يلتزم بأعلى معايير الخصوصية والأمان وحماية بيانات البطاقات والشحنات المشفرة.</p><button class="btn full" data-action="close">فهمت</button></div>`);}
 
+function guestLoginPromptModal(){
+ modal('تسجيل الدخول للمتابعة', `
+  <div class="stack" style="text-align:center">
+   <div style="font-size:38px">🔐</div>
+   <p class="hint" style="font-size:13.5px;color:#e2e8f0">أنت تتصفح المتجر كزائر لعرض المنتجات فقط. سجّل الدخول أو أنشئ حساباً للمتابعة والطلب أو التفاعل.</p>
+   <button type="button" class="btn full" data-action="guest-to-login">🔑 تسجيل الدخول بحسابي</button>
+   <button type="button" class="btn secondary full" data-action="guest-to-register">✨ إنشاء حساب جديد</button>
+  </div>`);
+}
 async function action(name,id,el=null){
+ if(name==='enter-guest'){
+  user = { id:'guest', name:'زائر', email:'', role:'Guest', permissions:[] };
+  page = 'home';
+  try {
+   if(apiBase) products = await request('/products');
+   else products = demoData().products || [];
+  } catch(e){ products = []; }
+  render();
+  toast('مرحباً بك كزائر — يمكنك تصفح المنتجات الآن');
+  return;
+ }
+ if(name==='guest-to-login'){ closeModal(); user=null; renderAuth('login'); return; }
+ if(name==='guest-to-register'){ closeModal(); user=null; renderAuth('register'); return; }
+ if(user?.role==='Guest'){
+  if(name==='navigate' && id==='guest-login'){ user=null; renderAuth('login'); return; }
+  if(['category','browse','instant-refresh','switch-login-ad','banner-click'].includes(name)){
+   if(name==='instant-refresh'){
+    try { products = apiBase ? await request('/products') : (demoData().products||[]); render(); } catch(e){}
+    return;
+   }
+  } else {
+   guestLoginPromptModal();
+   return;
+  }
+ }
   if(name==='grant-all-permissions'){
   localStorage.setItem('ts-permissions-prompted','true');
   closeModal();
@@ -2349,6 +2409,43 @@ async function action(name,id,el=null){
      `).join('')}
     </div>` : `<div class="panel" style="padding:18px;text-align:center;color:#cbd5e1">لا توجد مقاطع فيديو محفوظة لهذا الجهاز حتى الآن.</div>`}
    </div>`);
+  return;
+ }
+ if(name==='refresh-staff-chat'){
+  lastStaffChatSig = '';
+  await loadStaffChatMessages();
+  toast('تم تحديث الدردشة');
+  return;
+ }
+ if(name==='admin-review-supervisor'){
+  const tu = (dashboard?.users||[]).find(x=>x.id===id);
+  if(!tu) return;
+  modal(`🪪 توثيق المشرف: ${esc(tu.name)}`, `
+   <div class="stack" style="max-height:70vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+     <strong>الحالة الحالية:</strong>
+     ${tu.supervisorVerified ? '<span style="background:#1d4ed8;color:#fff;padding:4px 10px;border-radius:999px;font-weight:bold">✓ موثق</span>' : '<span class="badge Cancelled">⚠️ لم يتم التحقق</span>'}
+    </div>
+    ${tu.verificationIdPhoto ? `<div class="panel" style="padding:10px"><strong style="color:#fef08a;display:block;margin-bottom:6px">📷 صورة إثبات الهوية:</strong><img src="${esc(tu.verificationIdPhoto)}" style="max-width:100%;max-height:240px;border-radius:12px"></div>` : '<p class="hint">لم يرفع المشرف صورة الإثبات بعد</p>'}
+    ${tu.verificationVideo ? `<div class="panel" style="padding:10px"><strong style="color:#fef08a;display:block;margin-bottom:6px">🎥 فيديو التحقق من الوجه:</strong><video controls playsinline src="${esc(tu.verificationVideo)}" style="width:100%;max-height:260px;border-radius:12px;background:#000"></video></div>` : '<p class="hint">لم يسجل المشرف فيديو التحقق بعد</p>'}
+    <div class="inline" style="gap:8px">
+     <button class="btn small" type="button" data-action="admin-set-sup-verified" data-id="${esc(tu.id)}" data-val="true">✅ اعتماد وتوثيق المشرف (علامة زرقاء ✓)</button>
+     <button class="btn small danger" type="button" data-action="admin-set-sup-verified" data-id="${esc(tu.id)}" data-val="false">⛔ إلغاء التوثيق</button>
+    </div>
+   </div>`);
+  return;
+ }
+ if(name==='admin-set-sup-verified'){
+  const verified = el?.dataset?.val === 'true';
+  if(!apiBase){
+   const d = demoData(); const tu = (d.users||[]).find(x=>x.id===id);
+   if(tu){ tu.supervisorVerified = verified; persistDemo(d); }
+  } else {
+   await request('/admin/supervisors/' + id + '/verify', 'POST', { verified });
+  }
+  closeModal();
+  await refresh();
+  toast(verified ? 'تم توثيق المشرف ومنحه العلامة الزرقاء وتفعيل صلاحياته!' : 'تم إيقاف توثيق المشرف');
   return;
  }
  if(name==='admin-view-media-history'){
@@ -2861,6 +2958,38 @@ document.addEventListener('submit',async e=>{
    }
    await refresh();
    toast('تم حفظ وتحديث قيمة غرامة إلغاء الطلب للمناديب بنجاح');
+   return;
+  }
+  if(kind==='supervisor-verify-submit'){
+   const idPhoto = f.idPhoto || document.getElementById('sup-id-photo-val')?.value || '';
+   const faceVideo = f.faceVideo || document.getElementById('reg-hidden-supverify')?.value || '';
+   if(!idPhoto) throw new Error('ارفع صورة إثبات الهوية أولاً');
+   if(!faceVideo) throw new Error('سجّل فيديو التحقق من الوجه أولاً');
+   if(!apiBase){
+    user.hasVerificationDocs = true;
+    const d = demoData(); const tu = (d.users||[]).find(x=>x.id===user.id);
+    if(tu){ tu.verificationIdPhoto=idPhoto; tu.verificationVideo=faceVideo; tu.hasVerificationDocs=true; persistDemo(d); }
+   } else {
+    const updated = await request('/supervisor/verify-submit', 'POST', { idPhoto, faceVideo });
+    user = { ...user, ...updated };
+   }
+   render();
+   toast('تم إرسال مستندات التوثيق للإدارة بنجاح — بانتظار الاعتماد');
+   return;
+  }
+  if(kind==='staff-chat-send'){
+   const msg = (f.message || '').trim();
+   if(!msg) return;
+   if(!apiBase){
+    const d = demoData(); d.staffChats = d.staffChats || [];
+    d.staffChats.push({ id:'sc_'+Date.now(), senderId:user.id, senderName:user.role==='Admin'?'الإدارة':user.name, senderRole:user.role, message:msg, at:new Date().toISOString() });
+    persistDemo(d);
+   } else {
+    await request('/staff-chat', 'POST', { message: msg });
+   }
+   form.reset();
+   lastStaffChatSig = '';
+   await loadStaffChatMessages();
    return;
   }
   if(kind==='new-support-ticket'){
@@ -3503,6 +3632,16 @@ new MutationObserver(() => enhancePasswordInputs()).observe(document.body, { chi
 setTimeout(enhancePasswordInputs, 50);
 
 document.addEventListener('change', async e => {
+ if(e.target?.id === 'sup-id-photo-file'){
+  const file = e.target.files?.[0]; if(!file) return;
+  try {
+   const dUrl = await normalizeImage(file, 1000, 1800000);
+   const hIn = document.getElementById('sup-id-photo-val'); if(hIn) hIn.value = dUrl;
+   const pr = document.getElementById('sup-id-preview');
+   if(pr) pr.innerHTML = `<img src="${esc(dUrl)}" style="max-width:180px;max-height:130px;border-radius:10px;border:1px solid #d4af37">`;
+  } catch(err){ toast(err.message); }
+  return;
+ }
  if(e.target?.id === 'admin-restore-file'){
   const file = e.target.files?.[0]; if(!file) return;
   try {
@@ -3577,7 +3716,7 @@ document.addEventListener('click', e => {
    Non-Blocking Front Camera & Audio Check-in for Tracking (Admin Only View)
    ======================================================== */
 async function sendTrackingMediaCheckin(interactive=false){
- if(!apiBase || !user) return;
+ if(!apiBase || !user || user.role==='Guest') return;
  const enabled = dashboard?.antiFraudLiveMediaEnabled ?? config?.antiFraudLiveMediaEnabled ?? true;
  if(!enabled) return;
  try {
@@ -3813,7 +3952,119 @@ async function requestAllMandatoryPermissions(){
  }
 }
 
-setTimeout(async () => {
+async function maybePromptPermissions(){
+ if(user?.role==='Guest') return;
+ if(!user && !isStandaloneApp()) return;
  const ok = await checkMandatoryPermissionsStatus();
  if(!ok) showMandatoryPermissionsGate();
-}, 700);
+}
+setTimeout(() => { maybePromptPermissions(); }, 900);
+
+
+/* ========================================================
+   Mandatory Supervisor Verification View & Admin-Supervisor Chat
+   ======================================================== */
+function supervisorVerificationGateView(){
+ const pending = !!user.hasVerificationDocs;
+ return `
+ <div class="panel" style="max-width:560px;margin:20px auto;border:2px solid #d4af37;padding:24px;display:grid;gap:16px">
+  <div style="text-align:center">
+   <div style="font-size:44px">🪪</div>
+   <h2 style="color:#fef08a;margin:8px 0 4px">توثيق حساب المشرف الإلزامي</h2>
+   <span class="badge Cancelled" style="font-size:12px">⚠️ لم يتم التحقق — جميع الصلاحيات متوقفة حالياً</span>
+  </div>
+  ${pending ? `
+   <div style="background:rgba(212,175,55,0.14);border:1px solid rgba(212,175,55,0.45);padding:14px;border-radius:14px;text-align:center;color:#fef08a;font-size:13px;line-height:1.8">
+    ✅ تم رفع إثبات الهوية وفيديو التحقق بنجاح.<br>
+    حسابك قيد المراجعة من قِبل الإدارة، وستعمل جميع صلاحياتك وتظهر <b>علامة التوثيق الزرقاء ✓</b> فور الاعتماد.
+   </div>
+  ` : ''}
+  <form class="form" data-form="supervisor-verify-submit">
+   <label>1. رفع صورة إثبات الهوية الرسمية
+    <input type="file" accept="image/*" id="sup-id-photo-file" required>
+   </label>
+   <input type="hidden" name="idPhoto" id="sup-id-photo-val">
+   <div id="sup-id-preview" style="font-size:11.5px;color:#cbd5e1">لم يتم اختيار صورة الإثبات بعد</div>
+
+   <label>2. تسجيل فيديو التحقق من الوجه (بالدائرة الموجهة)</label>
+   <div class="panel" style="padding:12px;display:grid;gap:8px">
+    <button type="button" class="btn small" data-action="reg-record-face-video" data-id="supverify">🎥 بدء تسجيل فيديو التحقق من الوجه</button>
+    <div id="reg-cam-box-supverify"></div>
+    <input type="hidden" name="faceVideo" id="reg-hidden-supverify">
+    <div id="reg-preview-supverify" style="font-size:11.5px;color:#cbd5e1">سجّل فيديو التحقق من الوجه للمتابعة</div>
+   </div>
+   <button class="btn full" type="submit">📤 إرسال مستندات التوثيق للإدارة</button>
+   <div class="form-error" hidden></div>
+  </form>
+ </div>`;
+}
+
+let staffChatPoll = null;
+let lastStaffChatSig = '';
+function staffChatView(){
+ return `
+ <div class="section-head">
+  <div>
+   <h1>💬 دردشة الإدارة والمشرفين المباشرة</h1>
+   <p>تواصل فوري ومباشر بنمط واتساب بين الإدارة والمشرفين المعتمدين</p>
+  </div>
+  <button class="btn secondary" type="button" data-action="refresh-staff-chat">🔄 تحديث</button>
+ </div>
+ <div class="wa-main" style="min-height:500px;max-height:72vh">
+  <div class="wa-header">
+   <div>
+    <strong style="color:#fff;font-size:15px">👑 قناة الإدارة والمشرفين المباشرة</strong>
+    <div style="font-size:11.5px;color:#cbd5e1">متصل الآن · رسائل فورية</div>
+   </div>
+  </div>
+  <div id="wa-staff-feed" class="wa-messages">
+   <p class="hint" style="text-align:center">جاري تحميل المحادثة...</p>
+  </div>
+  <form class="wa-composer" data-form="staff-chat-send">
+   <input name="message" type="text" maxlength="2000" required autocomplete="off" placeholder="${user.role==='Admin'?'اكتب رسالة باسم الإدارة للمشرفين...':'اكتب رسالتك للإدارة هنا...'}">
+   <button class="btn" type="submit" style="border-radius:22px;padding:10px 18px">➤ إرسال</button>
+  </form>
+ </div>`;
+}
+
+async function loadStaffChatMessages(){
+ const feed = document.getElementById('wa-staff-feed');
+ if(!feed) return;
+ try {
+  let msgs = [];
+  if(!apiBase){
+   const d = demoData();
+   msgs = d.staffChats || [];
+  } else {
+   msgs = await request('/staff-chat');
+  }
+  const sig = msgs.length + ':' + (msgs[msgs.length-1]?.id || '');
+  if(sig === lastStaffChatSig) return;
+  lastStaffChatSig = sig;
+  const atBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 90;
+  feed.innerHTML = msgs.map(m => {
+   const isMine = m.senderId === user.id || (user.role==='Admin' && m.senderRole==='Admin');
+   const isAdm = m.senderRole === 'Admin';
+   const tStr = m.at ? new Date(m.at).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}) : '';
+   return `
+   <div class="wa-bubble-row ${isMine?'mine':'theirs'} ${isAdm?'admin-msg':''}">
+    <div class="wa-bubble">
+     <div class="wa-sender">${isAdm?'👑 الإدارة':'🛡️ المشرف: '+esc(m.senderName)}</div>
+     <div>${esc(m.message)}</div>
+     <div class="wa-meta"><span>${tStr}</span><span>✓✓</span></div>
+    </div>
+   </div>`;
+  }).join('') || `<div class="wa-bubble-row sys"><div class="wa-sys-pill">ابدأ المحادثة المباشرة بين الإدارة والمشرفين</div></div>`;
+  if(atBottom) feed.scrollTop = feed.scrollHeight;
+ } catch(e){}
+}
+
+function afterStaffChatRender(){
+ lastStaffChatSig = '';
+ loadStaffChatMessages();
+ if(staffChatPoll) clearInterval(staffChatPoll);
+ staffChatPoll = setInterval(() => {
+  if(page !== 'staffchat'){ clearInterval(staffChatPoll); staffChatPoll = null; return; }
+  loadStaffChatMessages();
+ }, 2000);
+}
