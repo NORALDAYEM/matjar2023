@@ -180,7 +180,7 @@ let devicesMarkers = [];
 let lastDevicesList = [];
 
 async function devicesView(){
- if(!['Admin','Supervisor'].includes(user.role) && !has('tracking.read') && !has('users.manage')) return empty('هذه الصفحة مخصصة لإدارة المتجر والمشرفين');
+ if(user.role !== 'Admin') return empty('هذه الصفحة مخصصة لإدارة المتجر الرئيسية فقط');
  
  let data = { totalInstalls: 5, activeDevices: 4, iosCount: 3, androidCount: 2, desktopCount: 0, devices: [] };
  try {
@@ -600,7 +600,7 @@ const defaultRights = {
  Customer:[...chatRightKeys,'orders.create','orders.cancel'],
  Merchant:[...chatRightKeys.filter(p=>p!=='chat.delivery'),'products.write','orders.prepare','tracking.read'],
  Courier:[...chatRightKeys,'delivery.update','tracking.read'],
- Supervisor:[...chatRightKeys,'orders.manage','orders.prepare','orders.cancel','products.write','delivery.assign','delivery.update','tracking.read','support.manage','payments.review','registrations.manage','notifications.send','appearance.manage','audit.read'],
+ Supervisor:['orders.manage','orders.prepare','orders.cancel','products.write','delivery.assign','delivery.update','payments.review','registrations.manage','notifications.send','appearance.manage','audit.read'],
  Admin:Object.keys(rights)
 };
 const paths = {
@@ -863,9 +863,6 @@ function navs(){
   ['products','bag','المنتجات'],
   ['couriers','truck','المناديب'],
   ['users','shield','الحسابات والطاقم'],
-  ['devices','smartphone','الخرائط والأجهزة'],
-  ['support','headset','الدعم الفني'],
-  ['staffchat','message','دردشة الإدارة والمشرفين'],
   ['account','user','مركز الإدارة وحسابي']
  ];
  // Admin streamlined navigation bar (grouped cleanly)
@@ -938,7 +935,8 @@ function render(){
   });
  }
  const view=$('#view');
- if(user.role==='Supervisor' && !user.supervisorVerified){
+ const _reqSupVer = dashboard?.requireSupervisorVerification ?? config?.requireSupervisorVerification ?? true;
+ if(user.role==='Supervisor' && _reqSupVer && !user.supervisorVerified){
   view.innerHTML = supervisorVerificationGateView();
   return;
  }
@@ -1140,7 +1138,7 @@ function orderCard(o){
    <div class="order-actions">
     ${paymentOrderButton(o)}
     ${o.courierId&&has('chat.read')&&has('chat.delivery')&&['Customer','Courier','Admin'].includes(user.role)?`<button class="btn small secondary" style="background:#075e54;color:white" data-action="order-chat" data-id="${esc(o.id)}">💬 دردشة WhatsApp مع المندوب</button>`:``}
-    ${user.role!=='Merchant'?`<button class="btn small secondary" data-action="track-order" data-id="${esc(o.id)}">📍 تتبع Google Maps</button>`:``}
+    ${!['Merchant','Supervisor'].includes(user.role)?`<button class="btn small secondary" data-action="track-order" data-id="${esc(o.id)}">📍 تتبع Google Maps</button>`:``}
     ${user.role==='Customer' ? `<button class="btn small danger" type="button" data-action="report-order-issue" data-id="${esc(o.id)}" data-number="${esc(o.number)}">⚠️ إبلاغ عن خلل / شكوى في الطلبية</button>` : ''}
     ${user.role==='Courier' ? `<button class="btn small secondary" type="button" style="border-color:#f59e0b;color:#fde047" data-action="report-order-issue" data-id="${esc(o.id)}" data-number="${esc(o.number)}">⚠️ طلب شكوى على الطلبية</button>` : ''}
     ${user.role==='Courier' && ['Assigned','OnWay'].includes(o.status) ? `<button class="btn small danger" type="button" data-action="courier-cancel-order" data-id="${esc(o.id)}" data-number="${esc(o.number)}">❌ إلغاء التوصيل (غرامة خصم ${money(penaltyAmt)})</button>` : ''}
@@ -1388,7 +1386,18 @@ function usersView(){
   </div>
  </div>
 
- <div class="panel" style="margin:12px 0 18px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+ ${user.role==='Admin' ? `
+ <div class="panel" style="margin:12px 0 12px;padding:14px 18px;border:1px solid rgba(56,189,248,0.45);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+  <div>
+   <strong style="color:#7dd3fc;font-size:13.5px">🪪 خيار توثيق المشرفين الإلزامي (بيانات التوثيق تظهر للإدارة فقط):</strong>
+   <span style="color:#cbd5e1;font-size:12px;margin-right:8px">${(dashboard?.requireSupervisorVerification ?? config?.requireSupervisorVerification ?? true) ? '✅ مُنشّط (أي مشرف غير موثق يُغلق حسابه ويُطلب منه الإثبات والفيديو)' : '⛔ ملغى (يفتح حساب المشرف بدون إلزام التوثيق)'}</span>
+  </div>
+  <div class="inline" style="gap:8px">
+   <button class="btn small ${(dashboard?.requireSupervisorVerification ?? config?.requireSupervisorVerification ?? true)?'':'secondary'}" type="button" data-action="toggle-supervisor-verification" data-id="true">✅ تنشيط التوثيق</button>
+   <button class="btn small ${!(dashboard?.requireSupervisorVerification ?? config?.requireSupervisorVerification ?? true)?'danger':'secondary'}" type="button" data-action="toggle-supervisor-verification" data-id="false">⛔ إلغاء التوثيق</button>
+  </div>
+ </div>` : ''}
+  <div class="panel" style="margin:12px 0 18px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
   <div>
    <strong style="color:#fef08a;font-size:13.5px">⚙️ آلية تنشيط الحسابات المسجلة الجديدة:</strong>
    <span style="color:#cbd5e1;font-size:12px;margin-right:8px">${governance?.policies?.autoApproveCustomers ? '✅ تفعيل تلقائي فوري' : '🛡️ بموافقة المشرفين والإدارة'}</span>
@@ -1425,7 +1434,7 @@ function usersView(){
         ${isAdminOwner ? '<span class="badge" style="background:var(--vip-gold-gradient);color:#031711;font-size:10px;font-weight:bold">👑 المدير العام الرئيسي</span>' : ''}
         ${verifiedBadgeHtml(u, u.role==='Supervisor')}
        </div>
-       <p style="font-size:12px;color:#94a3b8;margin:4px 0 0" dir="ltr">${esc(u.email)}</p>
+       ${user.role==='Admin' && u.email ? `<p style="font-size:12px;color:#94a3b8;margin:4px 0 0" dir="ltr">${esc(u.email)}</p>` : ''}
        <div style="display:flex;gap:12px;font-size:11px;color:#cbd5e1;margin-top:6px;flex-wrap:wrap">
         <span>الدور: <b style="color:#fef08a">${roles[u.role]||u.role}</b></span>
         <span>·</span>
@@ -1443,6 +1452,7 @@ function usersView(){
     </div>
 
     ${(() => {
+     if(user.role !== 'Admin') return '';
      const ex = u.extraData || {};
      const textPairs = Object.entries(ex).filter(([k,v]) => v && !String(v).startsWith('data:'));
      if(!textPairs.length) return '';
@@ -1465,7 +1475,7 @@ function usersView(){
 
     <div class="order-bottom" style="margin-top:14px;padding-top:14px;border-top:1px dashed rgba(212,175,55,0.25)">
      <div class="order-actions" style="width:100%;justify-content:flex-start;gap:8px">
-      ${u.role==='Supervisor' ? `<button class="btn small" type="button" style="background:#1d4ed8;color:#fff" data-action="admin-review-supervisor" data-id="${esc(u.id)}">🪪 توثيق المشرف (${u.supervisorVerified?'موثق ✓':'بانتظار التحقق'})</button>` : ''}
+      ${user.role==='Admin' && u.role==='Supervisor' ? `<button class="btn small" type="button" style="background:#1d4ed8;color:#fff" data-action="admin-review-supervisor" data-id="${esc(u.id)}">🪪 بيانات توثيق المشرف (${u.supervisorVerified?'موثق ✓':'بانتظار التحقق'})</button>` : ''}
       ${(u.extraData && Object.keys(u.extraData).length > 0) ? `
       <button class="btn small" type="button" data-action="admin-view-user-media" data-id="${esc(u.id)}">🪪 بيانات وصور التسجيل</button>` : ''}
 
@@ -2071,7 +2081,19 @@ function guestLoginPromptModal(){
   </div>`);
 }
 async function action(name,id,el=null){
- if(name==='set-verified-filter'){ window._verifiedFilter = id || 'all'; render(); return; }
+ if(name==='toggle-supervisor-verification'){
+  if(user?.role !== 'Admin') return;
+  const enabled = id === 'true';
+  if(apiBase){
+   await request('/admin/supervisor-verification-policy', 'POST', { enabled });
+  }
+  if(dashboard) dashboard.requireSupervisorVerification = enabled;
+  config.requireSupervisorVerification = enabled;
+  render();
+  toast(enabled ? '✅ تم تنشيط خيار توثيق المشرفين — أي مشرف غير موثق سيُطلب منه التوثيق' : '⛔ تم إلغاء إلزامية توثيق المشرفين');
+  return;
+ }
+  if(name==='set-verified-filter'){ window._verifiedFilter = id || 'all'; render(); return; }
  if(name==='admin-set-verified-badge'){
   const [uid, badge] = String(id||'').split('|');
   if(!uid) return;
@@ -3151,14 +3173,19 @@ document.addEventListener('submit',async e=>{
    if(!faceVideo) throw new Error('سجّل فيديو التحقق من الوجه أولاً');
    if(!apiBase){
     user.hasVerificationDocs = true;
+    user.supervisorVerified = true;
+    if(!user.verifiedBadge || user.verifiedBadge === 'none') user.verifiedBadge = 'blue';
     const d = demoData(); const tu = (d.users||[]).find(x=>x.id===user.id);
-    if(tu){ tu.verificationIdPhoto=idPhoto; tu.verificationVideo=faceVideo; tu.hasVerificationDocs=true; persistDemo(d); }
+    if(tu){ tu.verificationIdPhoto=idPhoto; tu.verificationVideo=faceVideo; tu.hasVerificationDocs=true; tu.supervisorVerified=true; tu.verifiedBadge=user.verifiedBadge; persistDemo(d); }
+    page = 'home';
+    render();
    } else {
     const updated = await request('/supervisor/verify-submit', 'POST', { idPhoto, faceVideo });
-    user = { ...user, ...updated };
+    user = { ...user, ...updated, supervisorVerified: true };
+    page = 'home';
+    await refresh();
    }
-   render();
-   toast('تم إرسال مستندات التوثيق للإدارة بنجاح — بانتظار الاعتماد');
+   toast('✅ تم إرسال الإثبات وفيديو التحقق وتفعيل حسابك بنجاح!');
    return;
   }
   if(kind==='staff-chat-send'){
@@ -4171,14 +4198,17 @@ function supervisorVerificationGateView(){
   ` : ''}
   <form class="form" data-form="supervisor-verify-submit">
    <label>1. رفع صورة إثبات الهوية الرسمية
-    <input type="file" accept="image/*" id="sup-id-photo-file" required>
+    <input type="file" accept="image/*" id="sup-id-photo-file">
    </label>
    <input type="hidden" name="idPhoto" id="sup-id-photo-val">
    <div id="sup-id-preview" style="font-size:11.5px;color:#cbd5e1">لم يتم اختيار صورة الإثبات بعد</div>
 
    <label>2. تسجيل فيديو التحقق من الوجه (بالدائرة الموجهة)</label>
    <div class="panel" style="padding:12px;display:grid;gap:8px">
-    <button type="button" class="btn small" data-action="reg-record-face-video" data-id="supverify">🎥 بدء تسجيل فيديو التحقق من الوجه</button>
+    <div class="inline" style="gap:8px;flex-wrap:wrap">
+     <button type="button" class="btn small" data-action="reg-record-face-video" data-id="supverify">🎥 بدء تسجيل فيديو التحقق من الوجه</button>
+     <label class="btn small secondary" style="margin:0;cursor:pointer">📁 رفع فيديو من الجهاز<input type="file" accept="video/*" class="reg-media-file" data-field-id="supverify" data-media-kind="video" hidden></label>
+    </div>
     <div id="reg-cam-box-supverify"></div>
     <input type="hidden" name="faceVideo" id="reg-hidden-supverify">
     <div id="reg-preview-supverify" style="font-size:11.5px;color:#cbd5e1">سجّل فيديو التحقق من الوجه للمتابعة</div>
