@@ -1,5 +1,45 @@
 
 /* ========================================================
+   Strict Connected Username Validator (منع المسافات والرموز في اسم المستخدم)
+   ======================================================== */
+function sanitizeConnectedUsername(val) {
+ // إزالة أي مسافات أو رموز والإبقاء فقط على الحروف العربية والإنجليزية والأرقام متصلة
+ return String(val || '').replace(/[^\p{L}\p{N}]/gu, '');
+}
+
+function validateConnectedUsername(username) {
+ const raw = String(username || '');
+ if (!raw) throw new Error('يرجى إدخال اسم المستخدم');
+ if (/\s/.test(raw)) throw new Error('اسم المستخدم يجب أن يكون متصلاً بدون أي مسافات (Space)');
+ if (!/^[\p{L}\p{N}]+$/u.test(raw)) throw new Error('اسم المستخدم يجب أن يحتوي على حروف (عربية أو إنجليزية) وأرقام فقط بدون أي رموز');
+ if (raw.length < 2 || raw.length > 50) throw new Error('اسم المستخدم يجب أن يكون متصلاً وبين حرفين و50 حرفاً');
+ return raw;
+}
+
+// منع كتابة المسافة أو الرموز لحظياً في حقول اسم المستخدم
+document.addEventListener('keydown', e => {
+ const el = e.target;
+ if (el && (el.dataset.usernameField === 'true' || el.name === 'name' && el.closest('form[data-form="register"], form[data-form="new-user"], form[data-form="update-profile"]'))) {
+  if (e.key === ' ' || e.code === 'Space') {
+   e.preventDefault();
+   toast('اسم المستخدم يجب أن يكون متصلاً بدون مسافات');
+  }
+ }
+});
+
+document.addEventListener('input', e => {
+ const el = e.target;
+ if (el && (el.dataset.usernameField === 'true' || (el.name === 'name' && el.closest('form[data-form="register"], form[data-form="new-user"], form[data-form="update-profile"]')))) {
+  const cleaned = sanitizeConnectedUsername(el.value);
+  if (el.value !== cleaned) {
+   el.value = cleaned;
+   toast('يُسمح بالحروف والأرقام المتصلة فقط بدون مسافات أو رموز');
+  }
+ }
+});
+
+
+/* ========================================================
    Admin Device Analytics & Customer Location Map Screen
    ======================================================== */
 let devicesMapInstance = null;
@@ -335,10 +375,17 @@ function adminDeleteUserModal(id){
 const $ = s => document.querySelector(s);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = (v,currency=commerce.currency) => formatMoney(v,currency);
-const roles = {Customer:'عميل معتمد', Merchant:'شريك تجاري', Courier:'مندوب التوصيل السريع', Admin:'الإدارة العليا', Support:'الدعم الفني المباشر'};
+const roles = {Customer:'عميل معتمد', Merchant:'تاجر / شريك تجاري', Courier:'مندوب توصيل', Supervisor:'مشرف عام', Support:'دعم فني', Admin:'الإدارة العليا'};
 const statuses = {Preparing:'قيد التجهيز الفاخر',Ready:'جاهز للاستلام',Assigned:'تم إسناد مندوب التوصيل',OnWay:'في الطريق إليك الآن',Delivered:'تم التسليم بنجاح',Cancelled:'ملغي'};
 const rights = {'commissions.manage':'إدارة العمولات وكشفها','policies.manage':'إدارة الاتفاقيات وشروط المتجر','registrations.manage':'مراجعة تسجيل العملاء والتجار والمناديب','commerce.manage':'إدارة العملات واللغة وطرق الدفع','payments.review':'مراجعة إيصالات واعتماد الدفع','chat.read':'قراءة الدردشة','chat.delivery':'دردشة العميل والمندوب','chat.support':'دردشة الدعم','chat.text':'إرسال نص','chat.image':'إرسال صور','chat.audio':'تسجيل وإرسال صوت','chat.camera':'التصوير داخل الدردشة','appearance.manage':'تعديل ألوان وصورة وخط المتجر','notifications.send':'إرسال إشعارات للمستخدمين','support.manage':'إدارة تذاكر الدعم','tracking.read':'عرض مواقع الطلبات','orders.create':'إنشاء الطلبات','orders.cancel':'إلغاء الطلب قبل التوصيل','orders.prepare':'تجهيز طلبات المتجر','orders.manage':'إدارة جميع الطلبات','products.write':'إضافة وتعديل المنتجات','delivery.assign':'إسناد مندوب التوصيل','delivery.update':'استلام وتسليم الشحنات','users.manage':'إدارة المستخدمين والصلاحيات','audit.read':'عرض سجل النشاط'};
-const defaultRights = {Support:[...chatRightKeys.filter(p=>p!=='chat.delivery'),'support.manage'],Customer:[...chatRightKeys,'orders.create','orders.cancel'],Merchant:[...chatRightKeys.filter(p=>p!=='chat.delivery'),'products.write','orders.prepare'],Courier:[...chatRightKeys,'delivery.update'],Admin:Object.keys(rights)};
+const defaultRights = {
+ Support:[...chatRightKeys.filter(p=>p!=='chat.delivery'),'support.manage','orders.manage','tracking.read'],
+ Customer:[...chatRightKeys,'orders.create','orders.cancel'],
+ Merchant:[...chatRightKeys.filter(p=>p!=='chat.delivery'),'products.write','orders.prepare','tracking.read'],
+ Courier:[...chatRightKeys,'delivery.update','tracking.read'],
+ Supervisor:[...chatRightKeys,'orders.manage','orders.prepare','orders.cancel','products.write','delivery.assign','delivery.update','tracking.read','support.manage','payments.review','registrations.manage','notifications.send','appearance.manage','audit.read'],
+ Admin:Object.keys(rights)
+};
 const paths = {
 home:'M3 10 12 3l9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z',
 bag:'M5 7h14l1 14H4L5 7Zm4 0V5a3 3 0 0 1 6 0v2',
@@ -352,7 +399,13 @@ shield:'M12 2 3 6v6c0 5 9 10 9 10s9-5 9-10V6l-9-4Zm-4 10 3 3 5-6',
 search:'m21 21-5-5M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16',
 heart:'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z',
 plus:'M12 5v14M5 12h14',arrow:'m14 6-6 6 6 6M8 12h13',logout:'M9 3H3v18h6M14 8l5 4-5 4M7 12h12',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2',
-check:'m5 12 4 4L19 6',clock:'M12 8v5l3 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20',chart:'M3 3v18h18M7 15l5-5 4 3 5-8',pin:'M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0ZM12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6',close:'m6 6 12 12M6 18 18 6',edit:'m16 3 5 5-13 13H3v-5L16 3Z',bell:'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4'};
+check:'m5 12 4 4L19 6',clock:'M12 8v5l3 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20',chart:'M3 3v18h18M7 15l5-5 4 3 5-8',pin:'M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0ZM12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6',close:'m6 6 12 12M6 18 18 6',edit:'m16 3 5 5-13 13H3v-5L16 3Z',bell:'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4',
+megaphone:'M3 11l18-5v12L3 14v-3zm0 3v5a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-4',
+palette:'M12 2a10 10 0 0 0-10 10c0 5.52 4.48 10 10 10 1.38 0 2.5-1.12 2.5-2.5 0-.61-.23-1.2-.64-1.67-.08-.1-.13-.21-.13-.33 0-.28.22-.5.5-.5H16c3.31 0 6-2.69 6-6 0-4.96-4.48-9-10-9zm-5.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z',
+smartphone:'M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm5 17h.01',
+clipboard:'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z',
+coins:'M8 8a6 4 0 1 0 12 0A6 4 0 1 0 8 8zm0 4v4c0 2.2 2.7 4 6 4s6-1.8 6-4v-4M4 12v4c0 2.2 2.7 4 6 4',
+headset:'M3 18v-6a9 9 0 0 1 18 0v6M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z'};
 function icon(name,size=21){return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]||paths.bag}"/></svg>`;}
 function art(name){
  const shapes={
@@ -400,21 +453,95 @@ const defaultRealImages = {
  'bottle': 'https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=700&auto=format&fit=crop&q=85'
 };
 
+
+/* ==========================================================================
+   COMPREHENSIVE CORE GROUPS & 52 PRODUCTS CATALOG (المجموعات الأساسية والأصناف)
+   ========================================================================== */
+const defaultCoreCategories = [
+ 'الإلكترونيات والهواتف الذكية',
+ 'الأزياء والملابس الفاخرة',
+ 'العطور والعود والعناية',
+ 'الساعات والمجوهرات والإكسسوارات',
+ 'المنزل والديكور والقهوة',
+ 'الأحذية والحقائب الجلدية',
+ 'الأجهزة المنزلية والذكية',
+ 'التمور والضيافة العربية'
+];
+
+let storeCategories = [...defaultCoreCategories];
+
+const masterCatalogItems = [
+ // 1. الإلكترونيات والهواتف الذكية
+ ['آيفون 16 برو ماكس 256 جيجا تيتانيوم','الإلكترونيات والهواتف الذكية',5199,'watch',25,'شاشة Super Retina XDR مقاس 6.9 بوصة مع شريحة A18 Pro ونظام كاميرات احترافي فائق الدقة.','https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=700&auto=format&fit=crop&q=80'],
+ ['سامسونج جالكسي S24 ألترا 512 جيجا','الإلكترونيات والهواتف الذكية',4699,'watch',20,'مزود بقلم S Pen المدمج وميزات الذكاء الاصطناعي Galaxy AI وكاميرا 200 ميجابكسل.','https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=700&auto=format&fit=crop&q=80'],
+ ['لابتوب ماك بوك برو M3 مقاس 14 بوصة','الإلكترونيات والهواتف الذكية',7499,'watch',10,'أداء خارق للمحترفين مع شاشة Liquid Retina XDR وبطارية تدوم حتى 22 ساعة.','https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=700&auto=format&fit=crop&q=80'],
+ ['آيباد برو شاشة OLED مقاس 13 بوصة','الإلكترونيات والهواتف الذكية',4899,'watch',15,'أنحف وأقوى جهاز لوحي بشاشة Ultra Retina XDR ومعالج M4 فائق السرعة.','https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=700&auto=format&fit=crop&q=80'],
+ ['سماعة رأس لاسلكية عازلة للضوضاء ANC','الإلكترونيات والهواتف الذكية',1299,'headphones',30,'صوت محيطي فائق النقاء Hi-Res مع عزل ذكي للضوضاء وبطارية 35 ساعة.','https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=700&auto=format&fit=crop&q=80'],
+ ['سماعات أذن لاسلكية برو مقاومة للماء','الإلكترونيات والهواتف الذكية',899,'headphones',40,'تصميم مريح داخل الأذن مع صوت مكاني تفاعلي وشحن لاسلكي سريع MagSafe.','https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=700&auto=format&fit=crop&q=80'],
+ ['كاميرا رقمية احترافية ميرورليس 4K','الإلكترونيات والهواتف الذكية',6400,'watch',8,'مستشعر إطار كامل بدقة 33 ميجابكسل وتصوير فيديو سينمائي 4K 60fps.','https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=700&auto=format&fit=crop&q=80'],
+ ['شاحن متنقل باور بانك 20000 مللي أمبير','الإلكترونيات والهواتف الذكية',249,'watch',60,'شحن سريع بقوة 65 واط يدعم شحن الهواتف واللابتوبات مع شاشة رقمية.','https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=700&auto=format&fit=crop&q=80'],
+
+ // 2. الأزياء والملابس الفاخرة
+ ['ثوب رجالي كلاسيكي قماش ياباني فاخر','الأزياء والملابس الفاخرة',380,'shirt',45,'خامة يابانية باردة ومقاومة للتجعد مع خياطة متقنة وتفاصيل ياقة ملكية.','https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=700&auto=format&fit=crop&q=80'],
+ ['بشت ملكي حساوي مطرز بخيوط الزري الذهبي','الأزياء والملابس الفاخرة',1850,'shirt',12,'حياكة يدوية أصيلة من الصوف الطبيعي الناعم وتطريز زري ألماني مذهب.','https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=700&auto=format&fit=crop&q=80'],
+ ['عباية كريب حريري سوداء بتطريز ناعم','الأزياء والملابس الفاخرة',540,'shirt',28,'قصة انسيابية راقية من الكريب الكوري الأصلي مع طرحة مطرزة متناسقة.','https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=700&auto=format&fit=crop&q=80'],
+ ['بدلة رسمية إيطالية صوف كشمير','الأزياء والملابس الفاخرة',1650,'shirt',14,'تفصيل إيطالي Slim Fit يمنحك حضوراً مميزاً في الاجتماعات والمناسبات الرسمية.','https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=700&auto=format&fit=crop&q=80'],
+ ['قميص قطن مصري نخبوي بأزرار صدفية','الأزياء والملابس الفاخرة',260,'shirt',35,'منسوج من القطن الطبيعي 100% بملمس حريري ناعم وتصميم رسمي أنيق.','https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=700&auto=format&fit=crop&q=80'],
+ ['شماغ ملكي قطن إنجليزي أصلي','الأزياء والملابس الفاخرة',320,'shirt',50,'حياكة إنجليزية فاخرة من القطن الخالص بثبات عالٍ للأطراف واللون.','https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=700&auto=format&fit=crop&q=80'],
+ ['جاكيت شتوي جلد طبيعي مبطن','الأزياء والملابس الفاخرة',790,'shirt',18,'جلد طبيعي معالج مقاوم للأمطار والرياح مع بطانة داخلية دافئة ومريحة.','https://images.unsplash.com/photo-1551028719-00167b16eac5?w=700&auto=format&fit=crop&q=80'],
+ ['فستان سهرة مخملي بتصميم ملكي','الأزياء والملابس الفاخرة',920,'shirt',15,'تصميم عصري فاخر للمناسبات الخاصة بخامات ناعمة وتطريز يدوي متقن.','https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=700&auto=format&fit=crop&q=80'],
+
+ // 3. العطور والعود والعناية
+ ['عطر العود الملكي المعتق 100 مل','العطور والعود والعناية',490,'bottle',30,'مزيج ساحر من دهن العود الكمبودي المعتق مع العنبر الدافئ والمسك الأبيض.','https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=700&auto=format&fit=crop&q=80'],
+ ['دهن عود كمبودي قديم ربع تولة','العطور والعود والعناية',650,'bottle',20,'دهن عود صافي طبيعي 100% ذو ثبات عالٍ وفوحان يدوم لأكثر من يومين.','https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=700&auto=format&fit=crop&q=80'],
+ ['أوقية عود مروكي طبيعي محسن فاخر','العطور والعود والعناية',340,'bottle',40,'كسرات مباخر منتقاة بعناية تتميز برائحة بخورية زكية وكثافة دخان عالية.','https://images.unsplash.com/photo-1541643600914-78b084683601?w=700&auto=format&fit=crop&q=80'],
+ ['عطر ورد طائفي ملكي نخب أول','العطور والعود والعناية',420,'bottle',25,'مستخلص من قطفة الورد الطائفي البكر ليمنحك عبير الأصالة والانتعاش.','https://images.unsplash.com/photo-1588405748880-12d1d2a59f75?w=700&auto=format&fit=crop&q=80'],
+ ['مجموعة العناية الفاخرة بالبشرة والذهب','العطور والعود والعناية',580,'bottle',22,'طقم متكامل يضم سيروم الكولاجين وكريم الترطيب العميق بخلاصة الذهب.','https://images.unsplash.com/photo-1556228720-195a672e8a03?w=700&auto=format&fit=crop&q=80'],
+ ['مبخرة إلكترونية ذكية محمولة','العطور والعود والعناية',195,'bottle',55,'تسخين فوري آمن للعود والبخور بدون فحم، مثالية للسيارة والمكتب والمنزل.','https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?w=700&auto=format&fit=crop&q=80'],
+ ['عطر مسك الرمان الأبيض الفاخر','العطور والعود والعناية',230,'bottle',45,'نفحات ناعمة تجمع بين المسك الصافي وخلاصة فاكهة الرمان المنعشة.','https://images.unsplash.com/photo-1594035910387-fea47794261f?w=700&auto=format&fit=crop&q=80'],
+
+ // 4. الساعات والمجوهرات والإكسسوارات
+ ['ساعة كرونوغراف سويسرية مطلية بالذهب','الساعات والمجوهرات والإكسسوارات',1450,'watch',12,'حركة أوتوماتيكية دقيقة مع زجاج ياقوتي ضد الخدش ومقاومة للماء حتى 100 متر.','https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=700&auto=format&fit=crop&q=80'],
+ ['ساعة ذكية ألترا تيتانيوم رياضية','الساعات والمجوهرات والإكسسوارات',3199,'watch',18,'هيكل تيتانيوم صلب مع نظام GPS مزدوج التردد ومستشعرات صحية متكاملة.','https://images.unsplash.com/photo-1579586337278-3befd40fd17a?w=700&auto=format&fit=crop&q=80'],
+ ['نظارة شمسية مستقطبة بإطار تيتانيوم ذهبي','الساعات والمجوهرات والإكسسوارات',360,'watch',30,'حماية كاملة UV400 من أشعة الشمس مع تصميم خفيف ومريح للقيادة والسفر.','https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=700&auto=format&fit=crop&q=80'],
+ ['طقم قلم وكبك رجالي مطلي بالذهب والصدف','الساعات والمجوهرات والإكسسوارات',440,'watch',25,'علبة إهداء ملكية فاخرة تضم قلماً انسيابياً وأزرار أكمام (كبك) ومسبحة.','https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=700&auto=format&fit=crop&q=80'],
+ ['عقد ذهب عيار 18 بتصميم الألماس الناعم','الساعات والمجوهرات والإكسسوارات',2250,'watch',9,'تصميم أنثوي ساحر مرصع بأحجار الزركون السويسري البراق مع شهادة ضمان.','https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=700&auto=format&fit=crop&q=80'],
+ ['سبحة كهرمان طبيعي أصلي بتمليكة فضة','الساعات والمجوهرات والإكسسوارات',520,'watch',20,'خراطة يدوية متقنة من الكهرمان الصافي مع طربزونة فضة عيار 925.','https://images.unsplash.com/photo-1611591437281-460bfbe1220a?w=700&auto=format&fit=crop&q=80'],
+
+ // 5. المنزل والديكور والقهوة
+ ['ماكينة إسبريسو وكابتشينو إيطالية احترافية','المنزل والديكور والقهوة',1150,'coffee',14,'مضخة ضغط 15 بار مع مطحنة بن مدمجة وعصا تبخير الحليب لتحضير القهوة المختصة.','https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=700&auto=format&fit=crop&q=80'],
+ ['طقم دلال قهوة عربية وفناجيل مذهبة (18 قطعة)','المنزل والديكور والقهوة',680,'coffee',20,'دلتان ستانلس ستيل تحفظ الحرارة 18 ساعة مع 12 فنجال قهوة و6 بيالات شاي مذهبة.','https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=700&auto=format&fit=crop&q=80'],
+ ['مصباح طاولة رخامي بإضاءة LED دافئة','المنزل والديكور والقهوة',290,'lamp',25,'قاعدة من الرخام الطبيعي مع تحكم باللمس في 3 درجات سطوع لإضاءة مريحة.','https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=700&auto=format&fit=crop&q=80'],
+ ['فواحة عطرية ذكية بتقنية الموجات فوق الصوتية','المنزل والديكور والقهوة',185,'lamp',40,'تعطير هادئ للمنزل والمكتب مع إضاءة محيطية بـ 7 ألوان ومؤقت إيقاف تلقائي.','https://images.unsplash.com/photo-1585837575652-267c041d77d4?w=700&auto=format&fit=crop&q=80'],
+ ['سجادة صلاة تركية طبية مبطنة بالميموري فوم','المنزل والديكور والقهوة',145,'lamp',60,'ثلاث طبقات مريحة للمفاصل والركبتين بنقوش إسلامية هادئة وملمس مخملي.','https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?w=700&auto=format&fit=crop&q=80'],
+ ['حقيبة تحضير القهوة المختصة V60 للسفر','المنزل والديكور والقهوة',370,'coffee',22,'تضم مطحنة يدوية، إبريق ترشيح، ميزان رقمي، قمع تقطير، وفلاتر وكوبين.','https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=700&auto=format&fit=crop&q=80'],
+
+ // 6. الأحذية والحقائب الجلدية
+ ['حقيبة يد نسائية جلد إيطالي طبيعي','الأحذية والحقائب الجلدية',590,'bag',18,'مصنوعة يدوياً من أفخم الجلود الطبيعية مع قفل ذهبي وحزام كتف قابل للتعديل.','https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=700&auto=format&fit=crop&q=80'],
+ ['حذاء رياضي كاجوال مريح للمشي والجري','الأحذية والحقائب الجلدية',390,'shoe',32,'نعل مرن ممتص للصدمات مع نسيج شبكي يسمح بالتهوية طوال اليوم.','https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=700&auto=format&fit=crop&q=80'],
+ ['حذاء شرقي جلد طبيعي مطرز يدوياً','الأحذية والحقائب الجلدية',280,'shoe',40,'أصالة الصناعة اليدوية من الجلد الطبيعي المريح مع أرضية طبية مانعة للانزلاق.','https://images.unsplash.com/photo-1560769629-975ec94e6a86?w=700&auto=format&fit=crop&q=80'],
+ ['حقيبة سفر ذكية صلبة بميزان وقفل رقمي TSA','الأحذية والحقائب الجلدية',460,'bag',25,'هيكل بولي كربونات مقاوم للكسر مع 4 عجلات مزدوجة تدور 360 درجة.','https://images.unsplash.com/photo-1565026057447-bc90a3dceb87?w=700&auto=format&fit=crop&q=80'],
+ ['محفظة بطاقات جلد طبيعي بحماية RFID','الأحذية والحقائب الجلدية',165,'bag',50,'تصميم نحيف للغاية يتسع لـ 8 بطاقات والأوراق النقدية مع حماية ضد السرقة اللاسلكية.','https://images.unsplash.com/photo-1627123424574-724758594e93?w=700&auto=format&fit=crop&q=80'],
+ ['حقيبة ظهر عملية للابتوب مقاومة للماء','الأحذية والحقائب الجلدية',230,'bag',35,'تتسع للابتوب حتى 16 بوصة مع منفذ شحن USB خارجي وجيوب متعددة منظمة.','https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=700&auto=format&fit=crop&q=80'],
+
+ // 7. الأجهزة المنزلية والذكية
+ ['مكنسة روبوت ذكية بالليزر والمسح الرطب','الأجهزة المنزلية والذكية',1590,'lamp',12,'رسم خرائط ذكي للمنزل بالليزر مع تفريغ تلقائي للغبار وتحكم كامل من الجوال.','https://images.unsplash.com/photo-1558317374-067fb5f30001?w=700&auto=format&fit=crop&q=80'],
+ ['منقي ومعقم هواء ذكي بفلتر HEPA الثلاثي','الأجهزة المنزلية والذكية',690,'lamp',20,'ينقي 99.97% من الغبار ومسببات الحساسية والروائح مع مستشعر جودة الهواء.','https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=700&auto=format&fit=crop&q=80'],
+ ['قلاية هوائية رقمية صحية سعة 7 لتر','الأجهزة المنزلية والذكية',430,'coffee',28,'طهي صحي بدون زيت مع 8 برامج مسبقة وشاشة لمس رقمية ونافذة مراقبة.','https://images.unsplash.com/photo-1585515320310-259814833e62?w=700&auto=format&fit=crop&q=80'],
+ ['شاشة تلفزيون ذكية 65 بوصة 4K QLED','الأجهزة المنزلية والذكية',2490,'watch',10,'ألوان سينمائية نابضة بالحياة مع تقنية Dolby Vision ونظام تشغيل ذكي متكامل.','https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=700&auto=format&fit=crop&q=80'],
+ ['قفل باب ذكي بالبصمة والبطاقة وتطبيق الجوال','الأجهزة المنزلية والذكية',780,'watch',16,'أمان فائق لمنزلك أو مكتبك مع 5 طرق فتح: البصمة، الرمز السري، البطاقة، المفتاح، والتطبيق.','https://images.unsplash.com/photo-1558002038-1055907df827?w=700&auto=format&fit=crop&q=80'],
+
+ // 8. التمور والضيافة العربية
+ ['تمر سكري قصيمي ملكي فاخر (كرتون 3 كيلو)','التمور والضيافة العربية',145,'coffee',80,'تمور سكري مفتل فرز أول حبة كبيرة ولون ذهبي، معبأة ومغلفة بعناية فائقة.','https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=700&auto=format&fit=crop&q=80'],
+ ['تمر عجوة المدينة المنورة الفاخر 1 كيلو','التمور والضيافة العربية',120,'coffee',65,'عجوة المدينة الأصلية طبيعية 100% من مزارع العوالي المباركة في علبة إهداء.','https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=700&auto=format&fit=crop&q=80'],
+ ['تمر مجدول ملكي جامبو محشي بالمكسرات','التمور والضيافة العربية',175,'coffee',50,'تشكيلة فاخرة للضيافة محشوة باللوز المحمص والفستق والبيكان والطحينة السائلة.','https://images.unsplash.com/photo-1548907040-4baa42d10919?w=700&auto=format&fit=crop&q=80'],
+ ['قهوة سعودية شقراء بالزعفران والهيل (1 كيلو)','التمور والضيافة العربية',95,'coffee',90,'خلطة بن هرري محمصة بعناية ومطعمة بالهيل الفاخر والزعفران الأصلي والقرنفل.','https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=700&auto=format&fit=crop&q=80'],
+ ['صينية شوكولاتة بلجيكية فاخرة للضيافة (1.2 كيلو)','التمور والضيافة العربية',260,'coffee',35,'تشكيلة متنوعة من الشوكولاتة البلجيكية الفاخرة بحشوات الكراميل والبندق والفستق.','https://images.unsplash.com/photo-1549007994-cb92caebd54b?w=700&auto=format&fit=crop&q=80'],
+ ['عسل سدر جبلي طبيعي أصلي (1 كيلو)','التمور والضيافة العربية',290,'bottle',40,'عسل سدر طبيعي مفحوص مخبرياً غني بالإنزيمات الطبيعية وذو طعم وقوام مميز.','https://images.unsplash.com/photo-1587049352847-4a222e784d38?w=700&auto=format&fit=crop&q=80']
+];
+
 function seedDemo(){
-  const names=[
-  ['حقيبة يد جلدية إيطالية فاخرة','إكسسوارات',480,'bag',15,'حقيبة يد نسائية مصنوعة يدوياً من أفخم جلود التوسكانا الطبيعية مع حزام مريح وسحاب ذهبي أنيق.'],
-  ['ساعة يد كرونوغراف ملكية ذهبية','إلكترونيات ومجوهرات',1250,'watch',8,'ساعة يد ميكانيكية بسوار فولاذي مطلي بالذهب ومينا ياقوتي مقاوم للخدش وحركة سويسرية دقيقة.'],
-  ['عطر العود الملكي ونفحات العنبر','عطور وعناية',390,'perfume',20,'عطر نخبوي مركز يجمع بين دهن العود الكمبودي النادر ونفحات العنبر والمسك الأبيض الفاخر.'],
-  ['سماعة رأس لاسلكية هاي-ريز عازلة','إلكترونيات ومجوهرات',780,'headphones',12,'صوت نقي فائق الدقة مع خاصية إلغاء الضوضاء النشطة ANC الذكية وبطارية تدوم حتى 35 ساعة متواصلة.'],
-  ['حذاء سنيكرز كاجوال جلدي نخبوي','أزياء',420,'shoe',16,'تصميم عصري فخم من الجلد الطبيعي المرن مع نعل طبي مبتكر يمتص الصدمات ويوفر راحة قصوى طوال اليوم.'],
-  ['نظارة شمسية كلاسيكية بإطار ذهبي','إكسسوارات',290,'glasses',25,'عدسات مستقطبة مستوية بحماية 100% من الأشعة فوق البنفسجية UV400 وإطار تيتانيوم ذهبي خفيف ومتين.'],
-  ['ماكينة تحضير قهوة إسبريسو إيطالية','المنزل والديكور',850,'coffee',10,'مضخة إيطالية بقوة 15 بار مع نظام تسخين فوري وعصا تبخير احترافية لتحضير أرقى مشروبات القهوة المختصة.'],
-  ['مصباح طاولة رخامي بإضاءة دافئة','المنزل والديكور',240,'lamp',14,'قطعة ديكور راقية بقاعدة من الرخام الأسود الطبيعي ولمسات نحاسية مع إضاءة LED ذكية قابلة للتعتيم.'],
-  ['كاميرا رقمية ميرورليس بدقة 4K','إلكترونيات ومجوهرات',3400,'camera',6,'مستشعر احترافي كامل بدقة 24.2 ميجابكسل مع تصوير فيديو سينمائي بدقة 4K ونظام تركيز بؤري فائق السرعة.'],
-  ['محفظة بطاقات جلد طبيعي مع حماية RFID','إكسسوارات',160,'wallet',30,'محفظة نحيفة بحجم الجيب مصنوعة من جلد عالي الجودة ومزودة بشريحة أمان تمنع قراءة البطاقات عن بُعد.'],
-  ['قميص قطني نخبوي بأزرار لؤلؤية','أزياء',260,'shirt',22,'منسوج من خيوط القطن المصري الفاخر 100% بنعومة لا تضاهى وتصميم رسمي جذاب للمناسبات الخاصة.'],
-  ['قارورة ماء حرارية فاخرة مزدوجة','إكسسوارات',135,'bottle',40,'مصنوعة من الفولاذ المقاوم للصدأ بدرجة 316 لحفظ المشروبات باردة 24 ساعة وساخنة 12 ساعة مع ملمس مخملي.']
- ];
+  const names = masterCatalogItems;
  const users=[
   {id:'c1',name:'نورة أحمد',email:'customer@example.test',role:'Customer'},
   {id:'m1',name:'متجر التفاصيل الفاخرة',email:'merchant@example.test',role:'Merchant'},
@@ -470,9 +597,66 @@ function demoRequest(path,method,body){
  d.audit.unshift({at:new Date().toISOString(),name:u?.name||'',action:'تحديث تجريبي'});persistDemo(d);return result;
 }
 
-async function refresh(){await refreshGovernance();await refreshCommerce();await refreshDesigns();await refreshAppearance();await refreshBanners();products=await request('/products');if(user){dashboard=await request('/dashboard');user=dashboard.user;}render();await updateNotices();}
-function navs(){if(!user)return[];if(user.role==='Support')return [['home','shield','الدعم الفني المباشر'],['account','user','حسابي']];return user.role==='Customer'?[['home','home','اكتشف'],['orders','box','طلباتي'],['cart','cart','السلة'],['account','user','حسابي']]:user.role==='Merchant'?[['home','grid','نظرة عامة'],['products','bag','المنتجات'],['orders','box','الطلبات'],['account','user','حسابي']]:user.role==='Courier'?[['home','truck','مهامي'],['history','clock','السجل'],['account','user','حسابي']]:[['home','grid','لوحة التحكم'],['orders','box','الطلبات'],['products','bag','المنتجات'],['devices','truck','الأجهزة والتثبيتات'],['staff','users','طاقم العمل'],['users','shield','الصلاحيات'],['audit','clock','سجل النشاط'],['account','user','حسابي']];}
-function navHtml(mobile=false){return navs().map(([id,symbol,title])=>`<button data-action="navigate" data-id="${id}" class="${page===id?'active':''}">${icon(symbol,mobile?22:20)}<span>${title}</span>${id==='cart'&&cartCount()?`<b class="count">${cartCount()}</b>`:''}</button>`).join('');}
+async function refresh(){await refreshGovernance();await refreshCommerce();await refreshDesigns();await refreshAppearance();await refreshBanners();try{const sCats=await request('/categories');if(Array.isArray(sCats)&&sCats.length)storeCategories=[...new Set([...sCats,...defaultCoreCategories])];}catch(e){}
+ products=await request('/products');if(user){dashboard=await request('/dashboard');user=dashboard.user;}render();await updateNotices();}
+function navs(){
+ if(!user)return[];
+ if(user.role==='Support')return [
+  ['home','headset','الدعم والمحادثات'],
+  ['orders','box','متابعة الطلبات'],
+  ['notices','bell','الإشعارات'],
+  ['account','user','حسابي']
+ ];
+ if(user.role==='Customer')return [
+  ['home','home','الرئيسية'],
+  ['favorites','heart','المفضلة'],
+  ['cart','cart','حقيبة التسوق'],
+  ['orders','box','طلبياتي'],
+  ['support','headset','الدعم والمحادثة'],
+  ['notices','bell','الإشعارات'],
+  ['account','user','حسابي']
+ ];
+ if(user.role==='Merchant')return [
+  ['home','grid','لوحة التاجر'],
+  ['products','bag','منتجاتي'],
+  ['orders','box','طلبات متجري'],
+  ['notices','bell','الإشعارات'],
+  ['account','user','حسابي']
+ ];
+ if(user.role==='Courier')return [
+  ['home','truck','مهام التوصيل'],
+  ['history','clock','سجل التسليم'],
+  ['notices','bell','الإشعارات'],
+  ['account','user','حسابي']
+ ];
+ if(user.role==='Supervisor')return [
+  ['home','grid','لوحة المشرف'],
+  ['orders','box','إدارة الطلبات'],
+  ['products','bag','المنتجات'],
+  ['banners','megaphone','الإعلانات'],
+  ['appearance','palette','مظهر المتجر'],
+  ['support','headset','مركز الدعم'],
+  ['notices','bell','الإشعارات'],
+  ['audit','clock','سجل النشاط'],
+  ['account','user','حسابي']
+ ];
+ // Admin full control bar
+ return [
+  ['home','grid','لوحة التحكم'],
+  ['orders','box','الطلبات'],
+  ['products','bag','المنتجات'],
+  ['banners','megaphone','الإعلانات'],
+  ['appearance','palette','مظهر المتجر'],
+  ['devices','smartphone','الأجهزة والخريطة'],
+  ['users','shield','المستخدمين'],
+  ['regfields','clipboard','نموذج التسجيل'],
+  ['staff','users','طاقم العمل'],
+  ['commissions','coins','العمولات'],
+  ['notices','bell','الإشعارات'],
+  ['audit','clock','سجل النشاط'],
+  ['account','user','حسابي']
+ ];
+}
 
 function render(){
  document.body.dataset.page = page;
@@ -499,6 +683,8 @@ function render(){
  else if(page==='history')view.innerHTML=courier(true);
  else if(page==='cart')view.innerHTML=cartView();
  else if(page==='staff')view.innerHTML=staffPageView();
+ else if(page==='devices'){devicesView().then(html => { view.innerHTML = html; }); return;}
+ else if(page==='favorites')view.innerHTML=favoritesView();
  else if(page==='users')view.innerHTML=usersView();
  else if(page==='audit')view.innerHTML=`<div class="section-head"><div><h2>سجل نشاط المتجر</h2><p>تتبع العمليات والمستخدمين والمنتجات والطلبات بدقة</p></div>${pill((dashboard.audit||[]).length+' عملية','clock')}</div><div class="panel">${(dashboard.audit||[]).map(a=>`<div class="audit-item">${esc(a.action)}<small>${esc(a.name)} · ${date(a.at)}</small></div>`).join('')||empty('لا توجد عمليات مسجلة بعد')}</div>`;
  else view.innerHTML=accountView();
@@ -518,9 +704,14 @@ function productCard(p,manage=false){
    <p class="vip-product-desc">${esc(p.description || 'منتج حصري وفاخر تم اختياره بعناية ليناسب ذوقك الرفيع.')}</p>
    <div class="vip-product-footer">
     ${amount(p.price)}
-    <button class="vip-btn-add" data-action="${manage?'edit-product':'add'}" data-id="${esc(p.id)}" aria-label="${manage?'تعديل المنتج':'إضافة إلى السلة'}" title="${manage?'تعديل المنتج':'إضافة إلى السلة'}">
-     ${icon(manage?'edit':'plus',18)}
-    </button>
+    ${manage ? `
+    <div class="inline" style="gap:6px">
+     <button class="btn small secondary" type="button" data-action="edit-product" data-id="${esc(p.id)}" title="تعديل الصنف والسعر" style="padding:7px 11px;font-size:11px">✏️ تعديل</button>
+     <button class="btn small danger" type="button" data-action="delete-product" data-id="${esc(p.id)}" title="حذف الصنف نهائياً" style="padding:7px 11px;font-size:11px">🗑️ حذف</button>
+    </div>` : `
+    <button class="vip-btn-add" data-action="add" data-id="${esc(p.id)}" aria-label="إضافة إلى السلة" title="إضافة إلى السلة">
+     ${icon('plus',18)}
+    </button>`}
    </div>
   </div>
  </article>`;
@@ -596,8 +787,18 @@ function renderBannersCarousel(){
 }
 
 
+
+function favoritesView(){
+ const favProds = products.filter(p => favorites.includes(p.id));
+ return `<div class="section-head">
+  <div><h1>مقتنياتك المفضلة</h1><p>${favProds.length} منتج في قائمة أمنياتك</p></div>
+  <button class="btn small secondary" data-action="navigate" data-id="home">تصفح المتجر</button>
+ </div>
+ ${favProds.length ? `<div class="products">${favProds.map(p=>productCard(p)).join('')}</div>` : empty('قائمة المفضلة فارغة حالياً','اضغط على أيقونة القلب أعلى أي منتج لحفظه هنا للرجوع إليه سريعاً','heart')}`;
+}
+
 function shop(){
- const cats=['الكل',...new Set(products.map(p=>p.category))];
+ const cats=['الكل',...new Set([...storeCategories,...products.map(p=>p.category)].filter(Boolean))];
  const shown=products.filter(p=>(category==='الكل'||p.category===category)&&p.name.includes(search));
  return `${renderBannersCarousel()}
  <div class="hero" style="background:linear-gradient(135deg, #064e3b 0%, #022c22 100%);color:white;border:1px solid rgba(212,175,55,0.4);box-shadow:0 15px 40px rgba(0,0,0,0.15)">
@@ -622,12 +823,88 @@ function shop(){
 }
 
 function stat(title,value,note,symbol,featured=false){return `<div class="stat ${featured?'featured':''}"><div class="label">${title}${icon(symbol,20)}</div><strong>${value}</strong><small>${note}</small></div>`;}
-function overview(){const os=dashboard.orders,active=os.filter(o=>!['Delivered','Cancelled'].includes(o.status)),complete=os.filter(o=>o.status==='Delivered'),sales=complete.reduce((n,o)=>n+o.total,0);return `<div class="section-head"><div><h1>${user.role==='Admin'?'إدارة المتجر والعمليات':'مساحة الشريك التجاري الفاخرة'}</h1><p>تحكم فوري في المنتجات والمبيعات والطلبيات وإعلانات المتجر وطاقم العمل.</p></div><div class="inline"><button class="btn secondary" data-action="appearance">🎨 مظهر المتجر واللوجو</button><button class="btn secondary" data-action="banners-manager">📢 إدارة الإعلانات</button><button class="btn" data-action="edit-product">${icon('plus',17)}إضافة منتج فاخر</button></div></div><div class="stats">${stat('الطلبات المكتملة',complete.length,'طلبيات سُلمت للعملاء بنجاح','check',true)}${stat('الطلبات الجارية',active.length,'قيد التجهيز والتوصيل السريع','box')}${stat('إجمالي المبيعات المكتملة',salesByCurrency(complete),user.role==='Admin'?'إجمالي صافي المبيعات':'قيمة بنود متجرك','chart')}${stat('طاقم وعمال المتجر',dashboard.staff?.length||0,'موظفون مسجلون في المنظومة','users')}</div><div class="dashboard-grid"><div><div class="section-head"><h2>أحدث الطلبيات المعتمدة</h2><button class="btn small ghost" data-action="navigate" data-id="orders">عرض الكل</button></div><div class="order-list">${os.slice(0,3).map(orderCard).join('')||empty('طلباتك الجديدة ستظهر هنا')}</div></div><div class="panel"><h3>حالة الطلبيات والتشغيل</h3><div class="chart">${['Preparing','Ready','Assigned','OnWay','Delivered'].map(s=>{const count=os.filter(o=>o.status===s).length;return `<div class="bar" style="height:${Math.max(8,count/Math.max(os.length,1)*100)}%" title="${statuses[s]}: ${count}"><span>${statuses[s]}</span></div>`;}).join('')}</div><p class="report-note">لوحة قياس فورية للطلبات المعتمدة. تُحتسب قيمة الطلبيات المسلّمة فقط.</p><div class="spacer"></div>${pill('منظومة تشغيل آمنة ومعتمدة','shield')}</div></div>`;}
+function overview(){const os=dashboard.orders,active=os.filter(o=>!['Delivered','Cancelled'].includes(o.status)),complete=os.filter(o=>o.status==='Delivered'),sales=complete.reduce((n,o)=>n+o.total,0);return `<div class="section-head"><div><h1>${user.role==='Admin'?'إدارة المتجر والعمليات':user.role==='Supervisor'?'لوحة الإشراف العام ومتابعة العمليات':'مساحة الشريك التجاري الفاخرة'}</h1><p>تحكم فوري في المنتجات والمبيعات والطلبيات وإعلانات المتجر وطاقم العمل.</p></div><div class="inline"><button class="btn secondary" data-action="appearance">🎨 مظهر المتجر واللوجو</button><button class="btn secondary" data-action="banners-manager">📢 إدارة الإعلانات</button><button class="btn" data-action="edit-product">${icon('plus',17)}إضافة منتج فاخر</button></div></div><div class="stats">${stat('الطلبات المكتملة',complete.length,'طلبيات سُلمت للعملاء بنجاح','check',true)}${stat('الطلبات الجارية',active.length,'قيد التجهيز والتوصيل السريع','box')}${stat('إجمالي المبيعات المكتملة',salesByCurrency(complete),user.role==='Admin'?'إجمالي صافي المبيعات':'قيمة بنود متجرك','chart')}${stat('طاقم وعمال المتجر',dashboard.staff?.length||0,'موظفون مسجلون في المنظومة','users')}</div><div class="dashboard-grid"><div><div class="section-head"><h2>أحدث الطلبيات المعتمدة</h2><button class="btn small ghost" data-action="navigate" data-id="orders">عرض الكل</button></div><div class="order-list">${os.slice(0,3).map(orderCard).join('')||empty('طلباتك الجديدة ستظهر هنا')}</div></div><div class="panel"><h3>حالة الطلبيات والتشغيل</h3><div class="chart">${['Preparing','Ready','Assigned','OnWay','Delivered'].map(s=>{const count=os.filter(o=>o.status===s).length;return `<div class="bar" style="height:${Math.max(8,count/Math.max(os.length,1)*100)}%" title="${statuses[s]}: ${count}"><span>${statuses[s]}</span></div>`;}).join('')}</div><p class="report-note">لوحة قياس فورية للطلبات المعتمدة. تُحتسب قيمة الطلبيات المسلّمة فقط.</p><div class="spacer"></div>${pill('منظومة تشغيل آمنة ومعتمدة','shield')}</div></div>`;}
 function timeline(o){const steps=['Preparing','Ready','Assigned','OnWay','Delivered'];const index=steps.indexOf(o.status);return `<div class="timeline">${steps.map((s,i)=>`<span class="step ${i<=index?'done':''}">${statuses[s]}</span>`).join('')}</div>`;}
 function orderCard(o){const prep=has('orders.prepare')&&o.status==='Preparing'&&!o.readyMerchants?.includes(user.id);return `<article class="order"><div class="order-top"><div><div class="order-code">${esc(o.number)}</div><small style="font-size:10px">${date(o.createdAt)}</small></div><span class="badge ${esc(o.status)}">${statuses[o.status]}</span></div><div class="order-items">${o.lines.map(l=>`${esc(l.name)} <b>× ${l.qty}</b>`).join(' · ')}</div>${user.role==='Customer'?timeline(o):`<div class="order-meta">${esc(o.customerName)}${user.role!=='Merchant'?'<br>'+esc(o.address)+'<br>'+esc(o.phone):''}</div>`}${commissionOrderLine(o)}${o.pin&&user.role==='Customer'&&!['Delivered','Cancelled'].includes(o.status)?`<div class="pin">رمز تأكيد الاستلام السري: <strong>${esc(o.pin)}</strong></div><p class="hint">سلّم هذا الرمز لمندوب التوصيل عند استلام طلبيتك وفحصها فقط.</p>`:''}<div class="order-bottom">${amount(o.total,o.currency||'SAR')}<div class="order-actions">${paymentOrderButton(o)}${o.courierId&&has('chat.read')&&has('chat.delivery')&&['Customer','Courier','Admin'].includes(user.role)?`<button class="btn small secondary" style="background:#075e54;color:white" data-action="order-chat" data-id="${esc(o.id)}">💬 دردشة WhatsApp مع المندوب</button>`:''}${user.role!=='Merchant'?`<button class="btn small secondary" data-action="track-order" data-id="${esc(o.id)}">📍 تتبع Google Maps</button>`:''}${prep?`<button class="btn small" data-action="order-ready" data-id="${esc(o.id)}">تم التجهيز ${icon('check',14)}</button>`:''}${has('delivery.assign')&&['Ready','Assigned'].includes(o.status)?`<button class="btn small" data-action="assign" data-id="${esc(o.id)}">إسناد مندوب</button>`:''}${has('delivery.update')&&o.status==='Assigned'?`<button class="btn small" data-action="order-pickup" data-id="${esc(o.id)}">استلام الشحنة</button>`:''}${has('delivery.update')&&o.status==='OnWay'?`<button class="btn small" data-action="deliver" data-id="${esc(o.id)}">تأكيد التسليم</button>`:''}${(has('orders.cancel')||has('orders.manage'))&&['Preparing','Ready'].includes(o.status)?`<button class="btn small danger" data-action="cancel-order" data-id="${esc(o.id)}">إلغاء الطلب</button>`:''}</div></div></article>`;}
 function ordersView(){return `<div class="section-head"><div><h1>${user.role==='Customer'?'طلبياتك، خطوة بخطوة.':'إدارة الطلبيات والشحنات'}</h1><p>متابعة وتحديث حالة الشحنات لحظة بلحظة</p></div>${pill(dashboard.orders.length+' طلب','box')}</div><div class="order-list">${dashboard.orders.map(orderCard).join('')||empty('لا توجد طلبات بعد','ابدأ التسوق لتجرب طلبك الأول')}</div>`;}
 function courier(history){const os=dashboard.orders.filter(o=>history?['Delivered','Cancelled'].includes(o.status):!['Delivered','Cancelled'].includes(o.status));return `<div class="section-head"><div><h1>${history?'سجل التوصيل والشحنات':'مهام التوصيل المباشرة'}</h1><p>${history?'جميع المهمات التي تم تسليمها بنجاح':'المهمات المسندة إليك الآن. استلم الشحنة، ابدأ الملاحة، وأكّد التسليم.'}</p></div>${pill('مندوب التوصيل السريع','truck')}</div><div class="stats">${stat('شحنات جارية',dashboard.orders.filter(o=>!['Delivered','Cancelled'].includes(o.status)).length,'بانتظار وصولك للعميل','truck',true)}${stat('شحنات مسلّمة',dashboard.orders.filter(o=>o.status==='Delivered').length,'تم تسليمها للعملاء','check')}</div><div class="order-list">${os.map(orderCard).join('')||empty('لا توجد مهام حالياً','ستظهر هنا الشحنات فور إسنادها لك من الإدارة','truck')}</div>`;}
-function productManagement(){return `<div class="section-head"><div><h1>كتالوج المنتجات الفاخرة.</h1><p>أضف الصور الحقيقية والتفاصيل والسعر، وتابع المخزون المتاح.</p></div>${has('products.write')?`<button class="btn" data-action="edit-product">${icon('plus',17)}إضافة منتج جديد</button>`:''}</div><div class="products">${dashboard.products.map(p=>productCard(p,true)).join('')}</div>${dashboard.products.length?'':empty('ابدأ بمنتجك الأول','منتجاتك الجديدة ستظهر للعملاء بعد إضافتها')}</div>`;}
+let adminSelectedCat = 'الكل';
+
+function productManagement(){
+ const allProds = dashboard?.products || [];
+ const allCats = ['الكل', ...new Set([...storeCategories, ...allProds.map(p => p.category)].filter(Boolean))];
+ if (!allCats.includes(adminSelectedCat)) adminSelectedCat = 'الكل';
+ const filtered = allProds.filter(p => (adminSelectedCat === 'الكل' || p.category === adminSelectedCat) && (!search || p.name.includes(search) || p.category.includes(search)));
+
+ return `
+ <div class="section-head" style="flex-wrap:wrap;gap:14px">
+  <div>
+   <h1>إدارة المجموعات الأساسية والأصناف والأسعار</h1>
+   <p>إجمالي ${allProds.length} صنف موزعة على ${allCats.length - 1} مجموعات أساسية — قابلة للتعديل والحذف والإضافة الفورية</p>
+  </div>
+  ${has('products.write') ? `
+  <div class="inline" style="gap:8px;flex-wrap:wrap">
+   <button class="btn secondary" type="button" data-action="categories-manager">📂 إدارة المجموعات (${allCats.length - 1})</button>
+   <button class="btn ghost" type="button" data-action="seed-full-catalog">🔄 استعادة الكتالوج الشامل (52 صنف)</button>
+   <button class="btn" type="button" data-action="edit-product">${icon('plus',17)} إضافة صنف جديد</button>
+  </div>` : ''}
+ </div>
+
+ <div class="search-row">
+  <div class="searchbox">${icon('search',18)}<input id="search" placeholder="ابحث عن أي صنف أو مجموعة لتعديله أو حذفه..." value="${esc(search)}"></div>
+ </div>
+
+ <div class="category-list">
+  ${allCats.map(c => {
+   const count = c === 'الكل' ? allProds.length : allProds.filter(p => p.category === c).length;
+   return `<button type="button" class="category ${adminSelectedCat === c ? 'active' : ''}" data-action="admin-cat-filter" data-id="${esc(c)}">
+    ${icon(c === 'الكل' ? 'grid' : 'bag', 15)}
+    <span>${esc(c)}</span>
+    <small style="opacity:0.8;margin-right:4px">(${count})</small>
+   </button>`;
+  }).join('')}
+ </div>
+
+ <div class="products">${filtered.map(p => productCard(p, true)).join('')}</div>
+ ${filtered.length ? '' : empty('لا توجد أصناف في هذه المجموعة حالياً', 'اضغط على «إضافة صنف جديد» أو «استعادة الكتالوج الشامل»', 'bag')}`;
+}
+
+function categoriesManagerModal(){
+ const allProds = dashboard?.products || [];
+ const cats = [...new Set([...storeCategories, ...allProds.map(p => p.category)].filter(Boolean))];
+ modal('إدارة المجموعات والأقسام الأساسية في المتجر', `
+ <div class="stack">
+  <form class="form" data-form="add-category" style="background:rgba(212,175,55,0.1);border:1px solid rgba(212,175,55,0.3);padding:14px;border-radius:14px">
+   <label>إضافة مجموعة أساسية جديدة للمتجر
+    <div class="inline" style="gap:8px;flex-wrap:nowrap">
+     <input name="name" required minlength="2" maxlength="60" placeholder="مثال: العطور الشرقية، الأجهزة الذكية، الهدايا...">
+     <button class="btn small" type="submit" style="white-space:nowrap">+ إضافة المجموعة</button>
+    </div>
+   </label>
+  </form>
+
+  <div style="display:grid;gap:10px;max-height:48vh;overflow-y:auto;padding-left:4px">
+   ${cats.map(c => {
+    const count = allProds.filter(p => p.category === c).length;
+    return `
+    <div style="background:rgba(4,25,19,0.85);border:1px solid rgba(212,175,55,0.25);border-radius:14px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+     <div>
+      <strong style="color:#ffffff;font-size:14px">📂 ${esc(c)}</strong>
+      <small style="display:block;color:#fef08a;margin-top:3px">${count} صنف مسجل داخل هذه المجموعة</small>
+     </div>
+     <div class="inline" style="gap:6px">
+      <button class="btn small secondary" type="button" data-action="edit-product-in-cat" data-id="${esc(c)}">+ إضافة صنف هنا</button>
+      <button class="btn small ghost" type="button" data-action="rename-category-prompt" data-id="${esc(c)}">✏️ تعديل الاسم</button>
+      <button class="btn small danger" type="button" data-action="delete-category-confirm" data-id="${esc(c)}">🗑️ حذف المجموعة</button>
+     </div>
+    </div>`;
+   }).join('')}
+  </div>
+
+  <button class="btn full secondary" type="button" data-action="close">إغلاق</button>
+ </div>`);
+}
+
 
 function cartView(){
  const lines=Object.entries(cart).map(([id,qty])=>({p:products.find(p=>p.id===id),qty})).filter(l=>l.p);
@@ -796,8 +1073,8 @@ function accountView(){return `<div class="section-head"><div><h1>حسابك ف�
    DYNAMIC REGISTRATION FIELDS MANAGER (نظام إدارة وتخصيص حقول التسجيل من الإدارة)
    ========================================================================== */
 let customRegFields = [
- { id: 'name', label: 'الاسم الكامل', type: 'text', required: true, enabled: true, placeholder: 'أدخل اسمك الكريم', isSystem: true },
- { id: 'email', label: 'اسم المستخدم أو البريد الإلكتروني', type: 'text', required: true, enabled: true, placeholder: 'you@example.com أو اسم المستخدم', isSystem: true },
+ { id: 'name', label: 'اسم المستخدم (متصل بدون مسافات أو رموز)', type: 'text', required: true, enabled: true, placeholder: 'مثال: محمدالعتيبي أو Ahmed2026', isSystem: true },
+ { id: 'email', label: 'البريد الإلكتروني (لإرسال واستعادة كلمة المرور)', type: 'email', required: true, enabled: true, placeholder: 'you@example.com', isSystem: true },
  { id: 'password', label: 'كلمة المرور', type: 'password', required: true, enabled: true, placeholder: 'كلمة المرور (6 أحرف فأكثر)', isSystem: true },
  { id: 'phone', label: 'رقم الجوال للتواصل', type: 'tel', required: true, enabled: true, placeholder: '05xxxxxxxx', isSystem: false },
  { id: 'city', label: 'المدينة / المنطقة', type: 'text', required: false, enabled: true, placeholder: 'الرياض، جدة، مكة، القصيم...', isSystem: false },
@@ -934,8 +1211,8 @@ function deleteRegField(id){
 function resetRegFields(){
  localStorage.removeItem('ts-reg-fields');
  customRegFields = [
-  { id: 'name', label: 'الاسم الكامل', type: 'text', required: true, enabled: true, placeholder: 'أدخل اسمك الكريم', isSystem: true },
-  { id: 'email', label: 'اسم المستخدم أو البريد الإلكتروني', type: 'text', required: true, enabled: true, placeholder: 'you@example.com أو اسم المستخدم', isSystem: true },
+  { id: 'name', label: 'اسم المستخدم (متصل بدون مسافات أو رموز)', type: 'text', required: true, enabled: true, placeholder: 'مثال: محمدالعتيبي أو Ahmed2026', isSystem: true },
+  { id: 'email', label: 'البريد الإلكتروني (لإرسال واستعادة كلمة المرور)', type: 'email', required: true, enabled: true, placeholder: 'you@example.com', isSystem: true },
   { id: 'password', label: 'كلمة المرور', type: 'password', required: true, enabled: true, placeholder: 'كلمة المرور (6 أحرف فأكثر)', isSystem: true },
   { id: 'phone', label: 'رقم الجوال للتواصل', type: 'tel', required: true, enabled: true, placeholder: '05xxxxxxxx', isSystem: false },
   { id: 'city', label: 'المدينة / المنطقة', type: 'text', required: false, enabled: true, placeholder: 'الرياض، جدة، مكة، القصيم...', isSystem: false },
@@ -979,7 +1256,7 @@ function renderAuth(tab='login'){
       <span class="input-icon">
        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       </span>
-      <input class="vip-input" name="email" type="text" maxlength="200" required autocomplete="username" dir="ltr" placeholder="أدخل اسم المستخدم أو البريد">
+      <input class="vip-input" name="email" type="text" maxlength="200" required autocomplete="username" dir="auto" oninput="this.value=this.value.replace(/\s+/g,'')" placeholder="اسم المستخدم المتصل (عربي / إنجليزي)">
      </div>
     </div>
     
@@ -1043,17 +1320,18 @@ function renderAuth(tab='login'){
 
     ${isForgot ? `
     <div class="vip-input-group">
-     <label>اسم المستخدم أو البريد الإلكتروني أو رقم الجوال</label>
+     <label>اسم المستخدم (المتصل)</label>
      <div class="input-wrapper">
       <span class="input-icon">
        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       </span>
-      <input class="vip-input" name="emailOrUsername" type="text" maxlength="200" required autocomplete="username" dir="ltr" placeholder="أدخل اسم المستخدم أو البريد أو الجوال">
+      <input class="vip-input" name="emailOrUsername" data-username-field="true" type="text" maxlength="50" required autocomplete="username" dir="auto" placeholder="أدخل اسم المستخدم لإرسال كلمة السر لإيميله">
      </div>
+     <small style="display:block;color:#fef08a;font-size:11px;margin-top:6px">سيتم إرسال كلمة المرور فوراً إلى البريد الإلكتروني المسجل لاسم المستخدم هذا.</small>
     </div>
     <button class="vip-btn-login" type="submit">
      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m14 6-6 6 6 6M8 12h13"/></svg>
-     <span>إرسال طلب الاستعادة للإدارة</span>
+     <span>إرسال كلمة السر إلى إيميل المستخدم</span>
     </button>` : ''}
     
     <div class="form-error" hidden style="margin-top:14px;background:#fcecee;color:#b83f45;padding:10px;border-radius:10px;font-size:12px;line-height:1.7"></div>
@@ -1097,7 +1375,12 @@ function productEditor(id){
   <label>المخزون<input name="stock" type="number" min="0" max="100000" step="1" value="${p.stock}" required></label>
  </div>
  <div class="row">
-  <label>القسم<input name="category" value="${esc(p.category)}" required minlength="2" maxlength="50"></label>
+  <label>المجموعة الأساسية / القسم
+  <input name="category" list="store-categories-datalist" value="${esc(p.category)}" required minlength="2" maxlength="60" placeholder="اختر مجموعة أو اكتب اسم مجموعة جديدة">
+  <datalist id="store-categories-datalist">
+   ${[...new Set([...storeCategories, ...(dashboard?.products||[]).map(x=>x.category)])].map(c=>`<option value="${esc(c)}">`).join('')}
+  </datalist>
+ </label>
   <label>رسم المنتج البديل<select name="icon">${Object.keys(palettes).map(k=>`<option value="${k}" ${p.icon===k?'selected':''}>${({bag:'حقيبة',shoe:'حذاء',headphones:'سماعة',watch:'ساعة',shirt:'قميص',lamp:'مصباح',coffee:'كوب',bottle:'قارورة'})[k]}</option>`).join('')}</select></label>
  </div>
  ${user.role==='Admin'?`<label>التاجر<select name="merchantId">${dashboard.users.filter(u=>['Merchant','Admin'].includes(u.role)&&u.active).map(u=>`<option value="${esc(u.id)}" ${u.id===p.merchantId?'selected':''}>${esc(u.name)}</option>`).join('')}</select></label>`:`<input type="hidden" name="merchantId" value="${esc(p.merchantId)}">`}
@@ -1117,7 +1400,41 @@ function productEditor(id){
  };
 }
 function permissionEditor(id){const u=dashboard.users.find(u=>u.id===id);if(!u||id===user.id)return;modal('صلاحيات '+u.name,`<form class="form" data-form="permissions" data-id="${esc(id)}"><div class="row"><label>نوع الحساب<select name="role">${Object.keys(roles).map(r=>`<option value="${r}" ${r===u.role?'selected':''}>${roles[r]}</option>`).join('')}</select></label><label class="check"><input name="active" type="checkbox" ${u.active?'checked':''}>الحساب فعال</label></div><p class="hint">موروث: يتبع الدور. السماح والمنع استثناءان خاصان بهذا المستخدم. المدير يمتلك كامل الصلاحيات.</p><div class="modal-scroll">${Object.entries(rights).map(([key,title])=>`<div class="permission-row"><span>${title}</span><select aria-label="${title}" name="perm:${key}"><option value="inherit" ${!(key in u.overrides)?'selected':''}>موروث من الدور</option><option value="allow" ${u.overrides[key]===true?'selected':''}>سماح</option><option value="deny" ${u.overrides[key]===false?'selected':''}>منع</option></select></div>`).join('')}</div><button class="btn full">حفظ الصلاحيات</button><div class="form-error" hidden></div></form>`);}
-function newUser(){modal('إضافة عضو للفريق',`<form class="form" data-form="new-user"><label>الاسم<input name="name" required minlength="2" maxlength="80"></label><label>البريد الإلكتروني<input name="email" type="email" required dir="ltr"></label><label>كلمة مرور أولية<input name="password" type="password" required minlength="6" maxlength="128" autocomplete="new-password"></label><label>الدور<select name="role">${Object.entries(roles).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label><button class="btn full">إنشاء المستخدم</button><div class="form-error" hidden></div></form>`);}
+function newUser(){
+ modal('إضافة مستخدم جديد وتحديد صلاحياته', `
+ <form class="form" data-form="new-user">
+  <div style="background:rgba(212,175,55,0.12);border:1px solid rgba(212,175,55,0.35);padding:12px 14px;border-radius:12px;font-size:12px;color:#fef08a;line-height:1.7">
+   <strong>إنشاء حساب فوري يفتح من أي جهاز:</strong><br>
+   يمكنك كتابة اسم المستخدم باللغة <b>العربية</b> أو <b>الإنجليزية</b>، وسيتم تفعيل الحساب فوراً ليفتح حسب الدور والصلاحيات المحددة.
+  </div>
+  
+  <label>اسم المستخدم (متصل بدون مسافات أو رموز - عربي أو إنجليزي)
+   <input name="name" data-username-field="true" type="text" required minlength="2" maxlength="50" placeholder="مثال: محمدالعتيبي أو Khaled1">
+  </label>
+  
+  <label>البريد الإلكتروني للمستخدم (لإرسال واستعادة كلمة السر)
+   <input name="email" type="email" required dir="ltr" maxlength="200" placeholder="user@example.com">
+  </label>
+  
+  <label>كلمة المرور للدخول (4 أحرف أو أرقام فأكثر)
+   <input name="password" type="text" required minlength="4" maxlength="128" autocomplete="off" placeholder="مثال: 123456">
+  </label>
+  
+  <label>الدور ونوع الواجهة التي ستفتح للمستخدم
+   <select name="role" required>
+    <option value="Courier">🛵 مندوب توصيل (تفتح له شاشة مهام التوصيل والخرائط)</option>
+    <option value="Supervisor">🛡️ مشرف عام (تفتح له لوحة الإشراف والطلبات والمنتجات)</option>
+    <option value="Merchant">🏪 تاجر / شريك تجاري (تفتح له شاشة إدارة منتجاته وطلباته)</option>
+    <option value="Support">🎧 دعم فني (تفتح له شاشة تذاكر ومحادثات العملاء والطلبات)</option>
+    <option value="Customer">🛍️ عميل معتمد (تفتح له واجهة التسوق والسلة والطلبات)</option>
+    <option value="Admin">👑 مدير عام (كامل صلاحيات الإدارة العليا)</option>
+   </select>
+  </label>
+  
+  <button class="btn full" type="submit">✓ إنشاء وتفعيل المستخدم فوراً</button>
+  <div class="form-error" hidden></div>
+ </form>`);
+}
 function connect(){modal('الاتصال بمتجر التسوق',`<p class="hint">تُضبط هذه الخطوة بواسطة إدارة المتجر. يتطلب التشغيل الفعلي رابط خادم المتجر الآمن.</p><div class="spacer"></div><form class="form" data-form="connect"><label>رابط المتجر<input name="url" type="url" dir="ltr" placeholder="https://store.example.com" value="${esc(apiBase)}" required></label><button class="btn full">اتصال</button><div class="form-error" hidden></div></form>`);}
 function privacy(){modal('الخصوصية وحذف الحساب',`<div class="stack hint"><h3>بياناتك في المتجر</h3><p>المتجر يلتزم بأعلى معايير الخصوصية والأمان وحماية بيانات البطاقات والشحنات المشفرة.</p><button class="btn full" data-action="close">فهمت</button></div>`);}
 
@@ -1229,6 +1546,88 @@ async function action(name,id){
   toast('تم تحديث كافة بيانات المتجر بنجاح!');
   return;
  }
+  if(name==='admin-cat-filter'){adminSelectedCat=id;render();return;}
+ if(name==='categories-manager'){categoriesManagerModal();return;}
+ if(name==='edit-product-in-cat'){
+  closeModal();
+  productEditor();
+  setTimeout(()=>{const inp=document.querySelector('form[data-form="product"] input[name="category"]');if(inp)inp.value=id;},50);
+  return;
+ }
+ if(name==='delete-product'){
+  const p = (dashboard?.products||[]).find(x=>x.id===id) || products.find(x=>x.id===id);
+  modal('تأكيد حذف الصنف', `
+  <div class="stack">
+   <p style="color:#ef4444;font-size:14px;line-height:1.7">
+    ⚠️ هل أنت متأكد من حذف الصنف <b>«${esc(p?.name||'هذا الصنف')}»</b> نهائياً من المتجر؟
+   </p>
+   <div class="inline" style="justify-content:flex-end;gap:10px;margin-top:12px">
+    <button class="btn ghost" type="button" data-action="close">إلغاء</button>
+    <button class="btn danger" type="button" data-action="confirm-delete-product" data-id="${esc(id)}">تأكيد الحذف النهائي</button>
+   </div>
+  </div>`);
+  return;
+ }
+ if(name==='confirm-delete-product'){
+  if(!apiBase){
+   const d = demoData();
+   d.products = d.products.filter(x=>x.id!==id);
+   saveDemoData(d);
+  } else {
+   await request('/products/'+id, 'DELETE');
+  }
+  closeModal();
+  await refresh();
+  toast('تم حذف الصنف من المتجر بنجاح');
+  return;
+ }
+ if(name==='rename-category-prompt'){
+  modal('تعديل اسم المجموعة الأساسية', `
+  <form class="form" data-form="rename-category" data-id="${esc(id)}">
+   <label>الاسم الحالي للمجموعة<input value="${esc(id)}" disabled></label>
+   <label>الاسم الجديد للمجموعة<input name="newName" value="${esc(id)}" required minlength="2" maxlength="60"></label>
+   <button class="btn full" type="submit">حفظ الاسم الجديد وتحديث أصناف المجموعة</button>
+  </form>`);
+  return;
+ }
+ if(name==='delete-category-confirm'){
+  modal('حذف المجموعة وأصنافها', `
+  <div class="stack">
+   <p style="color:#ef4444;font-size:14px;line-height:1.7">
+    ⚠️ هل تريد حذف مجموعة <b>«${esc(id)}»</b> مع جميع الأصناف المدرجة بداخلها؟
+   </p>
+   <div class="inline" style="justify-content:flex-end;gap:10px">
+    <button class="btn ghost" type="button" data-action="close">تراجع</button>
+    <button class="btn danger" type="button" data-action="confirm-delete-category" data-id="${esc(id)}">نعم، حذف المجموعة</button>
+   </div>
+  </div>`);
+  return;
+ }
+ if(name==='confirm-delete-category'){
+  storeCategories = storeCategories.filter(c => c !== id);
+  if(!apiBase){
+   const d = demoData();
+   d.products = d.products.filter(p => p.category !== id);
+   saveDemoData(d);
+  } else {
+   await request('/categories/' + encodeURIComponent(id), 'DELETE');
+  }
+  closeModal();
+  await refresh();
+  toast('تم حذف المجموعة بنجاح');
+  return;
+ }
+ if(name==='seed-full-catalog'){
+  if(!apiBase){
+   localStorage.removeItem('ts-demo-data');
+  } else {
+   await request('/products/seed-catalog', 'POST');
+  }
+  storeCategories = [...defaultCoreCategories];
+  await refresh();
+  toast('تم توليد واستعادة الكتالوج الشامل (8 مجموعات و52 صنفاً بالأسعار) بنجاح!');
+  return;
+ }
  if(name==='to-register'){renderAuth('register');return;}
  if(name==='to-forgot'){renderAuth('forgot');return;}
  if(name==='to-login'){renderAuth('login');return;}
@@ -1265,7 +1664,28 @@ async function action(name,id){
  if(name==='demo-role'){demo=true;sessionStorage.setItem('ts-demo','true');const d=demoData();user=demoUser(d.users.find(u=>u.role===id&&u.active));if(!user)throw new Error('لا يوجد حساب فعال لهذا الدور');sessionStorage.setItem('ts-demo-user',user.id);page='home';await refresh();return;}
  if(name==='switch-role'){stopSharing();user=null;renderAuth();return;}
  if(name==='logout'){stopSharing();await request('/auth/logout','POST');token='';user=null;sessionStorage.removeItem('ts-token');sessionStorage.removeItem('ts-demo-user');renderAuth();return;}
- if(name==='navigate'){page=id;render();window.scrollTo(0,0);return;}
+ if(name==='navigate'){
+  // اختصارات احترافية تفتح نوافذ التحكم مباشرة مع تمرير سلس للشريط السفلي
+  if(id==='banners'){await bannersManager();return;}
+  if(id==='appearance'){appearanceEditor();return;}
+  if(id==='regfields'){registrationFieldsManager();return;}
+  if(id==='commissions'){if(typeof commissionsModal==='function')commissionsModal();return;}
+  if(id==='notices'){if(typeof noticesCenter==='function')await noticesCenter();return;}
+  if(id==='support'){if(typeof supportCenter==='function')await supportCenter();return;}
+  
+  page=id;
+  render();
+  window.scrollTo({top:0,behavior:'smooth'});
+  
+  // تمرير الشريط السفلي تلقائياً ليتوسط الخيار النشط بنعومة
+  setTimeout(()=>{
+   const activeBtn = document.querySelector(`.mobile-nav button[data-id="${id}"]`);
+   if(activeBtn && activeBtn.scrollIntoView){
+    activeBtn.scrollIntoView({behavior:'smooth', block:'nearest', inline:'center'});
+   }
+  }, 60);
+  return;
+ }
  if(name==='category'){category=id;render();return;}
  if(name==='browse'){$('#product-heading')?.scrollIntoView({behavior:'smooth'});return;}
  if(name==='favorite'){favorites=favorites.includes(id)?favorites.filter(x=>x!==id):[...favorites,id];localStorage.setItem('ts-favorites',JSON.stringify(favorites));render();return;}
@@ -1306,6 +1726,7 @@ document.addEventListener('submit',async e=>{
   const f=Object.fromEntries(new FormData(form));const kind=form.dataset.form,id=form.dataset.id;
   if(await governanceForm(kind,id,f,form))return;if(await commerceForm(kind,id,f,form))return;if(await chatForm(kind,id,f,form))return;if(await appearanceForm(kind,id,f,form))return;if(await extendedForm(kind,id,f))return;
   if(kind==='update-profile'){
+   f.name = validateConnectedUsername(f.name);
    const updated=await request('/me/profile','PUT',f);
    user=updated;closeModal();render();toast('تم تحديث بيانات الحساب وكلمة المرور بنجاح');return;
   }
@@ -1357,11 +1778,40 @@ document.addEventListener('submit',async e=>{
    toast('تم حفظ وتعديل كلمة المرور بنجاح للمستخدم');
    return;
   }
+    if(kind==='add-category'){
+   const cName = (f.name||'').trim();
+   if(!cName) throw new Error('أدخل اسم المجموعة');
+   if(!storeCategories.includes(cName)) storeCategories.push(cName);
+   if(apiBase) await request('/categories', 'POST', { name: cName });
+   categoriesManagerModal();
+   toast('تمت إضافة المجموعة الأساسية بنجاح');
+   return;
+  }
+  if(kind==='rename-category'){
+   const nName = (f.newName||'').trim();
+   if(!nName) throw new Error('أدخل الاسم الجديد');
+   const idx = storeCategories.indexOf(id);
+   if(idx >= 0) storeCategories[idx] = nName;
+   else storeCategories.push(nName);
+   if(!apiBase){
+    const d = demoData();
+    d.products.forEach(p => { if(p.category === id) p.category = nName; });
+    saveDemoData(d);
+   } else {
+    await request('/categories', 'PUT', { oldName: id, newName: nName });
+   }
+   closeModal();
+   await refresh();
+   toast('تم تحديث اسم المجموعة وجميع أصنافها بنجاح');
+   return;
+  }
   if(kind==='register'){
+   f.name = validateConnectedUsername(f.name);
    if(!apiBase){
     const d=demoData();
     const email=(f.email||'').trim().toLowerCase();
-    if(d.users.some(u=>u.email.toLowerCase()===email))throw new Error('البريد مسجل بالفعل');
+    if(d.users.some(u=>u.name.toLowerCase()===f.name.toLowerCase()))throw new Error('اسم المستخدم هذا موجود ومسجل مسبقاً، اختر اسماً آخر');
+    if(d.users.some(u=>u.email.toLowerCase()===email))throw new Error('البريد الإلكتروني مسجل بالفعل');
     const newUser={id:'u_'+Date.now(),name:f.name.trim(),email,password:f.password,role:'Customer',active:false,overrides:{}};
     d.users.push(newUser);
     if(!d.notices) d.notices=[];
@@ -1431,7 +1881,35 @@ document.addEventListener('submit',async e=>{
   if(kind==='connect'){const url=new URL(f.url);if(url.protocol!=='https:'&&!(url.protocol==='http:'&&['localhost','127.0.0.1'].includes(url.hostname)))throw new Error('استخدم رابط HTTPS آمنًا');const next=url.origin;const res=await fetch(next+'/api/health');if(!res.ok||(await res.json()).status!=='ok')throw new Error('هذا الرابط ليس خادم المتجر');apiBase=next;localStorage.setItem('ts-server',apiBase);demo=false;sessionStorage.removeItem('ts-demo');sessionStorage.removeItem('ts-demo-user');token='';user=null;sessionStorage.removeItem('ts-token');setupNeeded=(await request('/setup')).required;closeModal();renderAuth();}
   if(kind==='checkout'){const result=await request('/orders','POST',{items:Object.entries(cart).map(([productId,qty])=>({productId,qty})),address:f.address,phone:f.phone,destination:checkoutDestination,paymentMethodId:f.paymentMethodId||'cod',currency:commerce.currency,commissionVersion:governance.commissions.version});checkoutDestination=null;cart={};saveCart();page='orders';await refresh();toast('تأكد طلبك الفاخر رقم '+result.number);if(result.paymentType&&result.paymentType!=='Cash')await paymentOrder(result.id);}
   if(kind==='product'){await request('/products'+(id?'/'+id:''),id?'PUT':'POST',{...f,price:Number(f.price),stock:Number(f.stock),active:f.active==='on'});closeModal();await refresh();toast('تم حفظ المنتج بنجاح');}
-  if(kind==='new-user'){await request('/users','POST',f);closeModal();await refresh();toast('تم إنشاء المستخدم');}
+  if(kind==='new-user'){
+   const cleanName = validateConnectedUsername(f.name);
+   const cleanEmail = (f.email||'').trim() || cleanName;
+   const payload = { name: cleanName, email: cleanEmail, password: f.password, role: f.role };
+   if(!apiBase){
+    const d = demoData();
+    if(d.users.some(x => x.name.toLowerCase()===cleanName.toLowerCase() || x.email.toLowerCase()===cleanEmail.toLowerCase())) throw new Error('الاسم أو المعرف مسجل مسبقاً');
+    d.users.push({ id:'u_'+Date.now(), name:cleanName, email:cleanEmail, password:f.password, tempPassword:f.password, role:f.role, active:true, overrides:{} });
+    saveDemoData(d);
+   } else {
+    await request('/users','POST',payload);
+   }
+   closeModal();
+   await refresh();
+   modal('تم إنشاء وتفعيل الحساب بنجاح!', `
+   <div class="stack" style="text-align:center">
+    <h3 style="color:#22c55e;margin:0">✓ الحساب جاهز للفتح من أي جهاز فوراً</h3>
+    <p class="hint">يستطيع المستخدم الآن فتح التطبيق من هاتفه أو جهاز الكمبيوتر وتسجيل الدخول بالبيانات التالية:</p>
+    <div style="background:rgba(4,25,19,0.9);border:1px solid rgba(212,175,55,0.45);border-radius:14px;padding:16px;text-align:right;font-size:13px;line-height:1.9">
+     <div>👤 <strong>اسم المستخدم للدخول:</strong> <code style="color:#fde047;font-size:15px">${esc(cleanName)}</code></div>
+     ${cleanEmail !== cleanName ? `<div>📧 <strong>أو عبر المعرف:</strong> <code style="color:#fde047;font-size:14px">${esc(cleanEmail)}</code></div>` : ''}
+     <div>🔑 <strong>كلمة المرور:</strong> <code style="color:#fde047;font-size:15px">${esc(f.password)}</code></div>
+     <div>🛡️ <strong>الواجهة والصلاحية:</strong> <span style="color:#22c55e;font-weight:bold">${esc(roles[f.role]||f.role)}</span></div>
+    </div>
+    <button class="btn full" type="button" data-action="copy-text" data-id="اسم المستخدم: ${esc(cleanName)} | كلمة المرور: ${esc(f.password)}">📋 نسخ بيانات الدخول لإرسالها للمستخدم</button>
+    <button class="btn ghost full" type="button" data-action="close">تم</button>
+   </div>`);
+   return;
+  }
   if(kind==='permissions'){const overrides={};for(const [key,value]of Object.entries(f))if(key.startsWith('perm:')&&value!=='inherit')overrides[key.slice(5)]=value==='allow';await request('/users/'+id,'PUT',{role:f.role,active:f.active==='on',overrides});closeModal();await refresh();toast('تم حفظ الصلاحيات');}
   if(kind==='assign'||kind==='deliver'){await request('/orders/'+id+'/'+kind,'POST',f);if(kind==='deliver'&&sharingOrder===id)stopSharing();closeModal();await refresh();toast('تم تحديث الشحنة');}
   if(kind==='delete-account'){if(demo){closeModal();toast('حذف الحسابات الفعلية متاح عند ربط المتجر');return;}await request('/me','DELETE',f);token='';user=null;sessionStorage.removeItem('ts-token');closeModal();renderAuth();toast('تم حذف حسابك');}
@@ -1511,3 +1989,27 @@ async function init(){
  }catch(err){renderAuth();}
 }
 init();
+
+
+// دعم السحب السلس يميناً ويساراً لشريط الخيارات السفلي
+document.addEventListener('DOMContentLoaded', () => {
+ let isDown = false, startX, scrollLeft;
+ document.addEventListener('mousedown', e => {
+  const slider = e.target.closest('.mobile-nav');
+  if(!slider) return;
+  isDown = true;
+  startX = e.pageX - slider.offsetLeft;
+  scrollLeft = slider.scrollLeft;
+ });
+ document.addEventListener('mouseleave', () => { isDown = false; });
+ document.addEventListener('mouseup', () => { isDown = false; });
+ document.addEventListener('mousemove', e => {
+  if(!isDown) return;
+  const slider = e.target.closest('.mobile-nav');
+  if(!slider) return;
+  e.preventDefault();
+  const x = e.pageX - slider.offsetLeft;
+  const walk = (x - startX) * 1.8;
+  slider.scrollLeft = scrollLeft - walk;
+ });
+});

@@ -1236,3 +1236,119 @@ html, body {
     font-size: 20px !important;
   }
 }
+
+/* ==========================================================================
+   SMOOTH SCROLLABLE LUXURY MOBILE BOTTOM DOCK (شريط خيارات الهواتف القابل للتمرير)
+   ========================================================================== */
+@media (max-width: 800px) {
+  .mobile-nav {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 95 !important;
+    background: rgba(2, 18, 13, 0.96) !important;
+    backdrop-filter: blur(28px) !important;
+    -webkit-backdrop-filter: blur(28px) !important;
+    border-top: 1px solid rgba(212, 175, 55, 0.35) !important;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.55), 0 0 20px rgba(212, 175, 55, 0.08) !important;
+    
+    /* تمرير أفقي انسيابي يميناً ويساراً بدون شريط تمرير مزعج */
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    gap: 8px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scroll-behavior: smooth !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    scroll-snap-type: x proximity !important;
+    padding: 10px 14px max(12px, env(safe-area-inset-bottom)) !important;
+    touch-action: pan-x !important;
+  }
+
+  .mobile-nav::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  .mobile-nav button {
+    flex: 0 0 auto !important;
+    min-width: 78px !important;
+    padding: 8px 12px !important;
+    border-radius: 16px !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+    border: 1px solid rgba(212, 175, 55, 0.14) !important;
+    color: #94a3b8 !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    white-space: nowrap !important;
+    position: relative !important;
+    scroll-snap-align: center !important;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  .mobile-nav button svg {
+    width: 20px !important;
+    height: 20px !important;
+    transition: transform 0.25s ease !important;
+  }
+
+  .mobile-nav button:active {
+    transform: scale(0.95) !important;
+  }
+
+  /* تصميم الزر النشط بنمط الفخامة الذهبي المتوهج */
+  .mobile-nav button.active {
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.22) 0%, rgba(6, 78, 59, 0.65) 100%) !important;
+    border: 1px solid rgba(254, 240, 138, 0.65) !important;
+    color: #fef08a !important;
+    font-weight: 800 !important;
+    box-shadow: 0 4px 15px rgba(212, 175, 55, 0.25) !important;
+    transform: translateY(-2px) !important;
+  }
+
+  .mobile-nav button.active svg {
+    color: #fef08a !important;
+    transform: scale(1.1) !important;
+    filter: drop-shadow(0 0 6px rgba(254, 240, 138, 0.45));
+  }
+
+  .mobile-nav button.active::after {
+    content: "";
+    position: absolute;
+    bottom: 3px;
+    width: 18px;
+    height: 2.5px;
+    border-radius: 4px;
+    background: var(--vip-gold-gradient);
+  }
+
+  /* شارات الأعداد والتنبيهات فوق الخيارات */
+  .mobile-nav .count {
+    position: absolute !important;
+    top: 4px !important;
+    left: 8px !important;
+    background: var(--vip-gold-gradient) !important;
+    color: #031711 !important;
+    border-radius: 12px !important;
+    min-width: 17px !important;
+    height: 17px !important;
+    padding: 0 4px !important;
+    display: grid !important;
+    place-items: center !important;
+    font-size: 9.5px !important;
+    font-weight: 800 !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid #031711 !important;
+  }
+}
