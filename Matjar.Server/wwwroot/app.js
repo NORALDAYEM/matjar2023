@@ -658,6 +658,23 @@ function navs(){
  ];
 }
 
+function navHtml(mobile=false){
+ const pendingOrders = (dashboard?.orders||[]).filter(o=>!['Delivered','Cancelled'].includes(o.status)).length;
+ const frozenUsers = (dashboard?.users||[]).filter(u=>!u.active).length;
+ const unreadNotices = (typeof noticeCache!=='undefined'?noticeCache:[]).filter(n=>!n.read).length;
+ 
+ return navs().map(([id,symbol,title])=>{
+  let badge = '';
+  if(id==='cart' && cartCount()) badge = `<b class="count">${cartCount()}</b>`;
+  else if(id==='orders' && pendingOrders) badge = `<b class="count">${pendingOrders}</b>`;
+  else if(id==='users' && frozenUsers && user?.role==='Admin') badge = `<b class="count" style="background:#ef4444;color:#fff">${frozenUsers}</b>`;
+  else if(id==='notices' && unreadNotices) badge = `<b class="count">${unreadNotices}</b>`;
+  else if(id==='favorites' && favorites?.length) badge = `<b class="count">${favorites.length}</b>`;
+  
+  return `<button type="button" data-action="navigate" data-id="${id}" class="${page===id?'active':''}">${icon(symbol,mobile?21:20)}<span>${title}</span>${badge}</button>`;
+ }).join('');
+}
+
 function render(){
  document.body.dataset.page = page;
  if(!user){renderAuth();return;}
