@@ -1,9 +1,131 @@
 const chatRightKeys=['chat.read','chat.delivery','chat.support','chat.text','chat.image','chat.audio','chat.camera'];
-const designScreens={'Login':'شاشة الدخول','Customer.home':'العميل · المنتجات','Customer.orders':'العميل · الطلبات','Customer.cart':'العميل · السلة','Customer.account':'العميل · حسابي','Merchant.home':'التاجر · الرئيسية','Merchant.products':'التاجر · المنتجات','Merchant.orders':'التاجر · الطلبات','Merchant.account':'التاجر · الحساب','Courier.home':'المندوب · المهام','Courier.history':'المندوب · السجل','Courier.account':'المندوب · الحساب','Support.home':'الدعم · الرئيسية','Support.account':'الدعم · الحساب','Admin.home':'الإدارة · الرئيسية','Admin.orders':'الإدارة · الطلبات','Admin.products':'الإدارة · المنتجات','Admin.users':'الإدارة · الصلاحيات','Admin.audit':'الإدارة · سجل النشاط','Admin.account':'الإدارة · الحساب'};
-const designDefaults={title:'',subtitle:'',primary:'',background:'',ink:'',font:'Inherit',image:'',layout:'Standard',columns:2,radius:16};
-let interfaceDesigns={},designImage='',designImageLoading=false,chatState=null;
+const designScreens={'All':'🌟 جميع الشاشات والتطبيق بالكامل','Login':'شاشة الدخول','Customer.home':'العميل · المنتجات','Customer.orders':'العميل · الطلبات','Customer.cart':'العميل · السلة','Customer.account':'العميل · حسابي','Merchant.home':'التاجر · الرئيسية','Merchant.products':'التاجر · المنتجات','Merchant.orders':'التاجر · الطلبات','Merchant.account':'التاجر · الحساب','Courier.home':'المندوب · المهام','Courier.history':'المندوب · السجل','Courier.account':'المندوب · الحساب','Support.home':'الدعم · الرئيسية','Support.account':'الدعم · الحساب','Admin.home':'الإدارة · الرئيسية','Admin.orders':'الإدارة · الطلبات','Admin.products':'الإدارة · المنتجات','Admin.users':'الإدارة · الصلاحيات','Admin.audit':'الإدارة · سجل النشاط','Admin.account':'الإدارة · الحساب'};
+const designDefaults={title:'',subtitle:'',primary:'',background:'',ink:'',font:'Inherit',image:'',backgroundImage:'',backgroundOpacity:0.78,glassBlur:16,layout:'Standard',columns:2,radius:16};
+const curatedWallpapers = [
+ { name:'بوتيك فاخر', url:'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=1600&auto=format&fit=crop&q=80' },
+ { name:'رخام وذهب', url:'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=1600&auto=format&fit=crop&q=80' },
+ { name:'زمرد ليلي', url:'https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=1600&auto=format&fit=crop&q=80' },
+ { name:'مجوهرات ذهبية', url:'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=1600&auto=format&fit=crop&q=80' },
+ { name:'ساعات فاخرة', url:'https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=1600&auto=format&fit=crop&q=80' },
+ { name:'عطور ملكية', url:'https://images.unsplash.com/photo-1541643600914-78b084683601?w=1600&auto=format&fit=crop&q=80' },
+ { name:'أبراج حديثة', url:'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&auto=format&fit=crop&q=80' },
+ { name:'أضواء المدينة', url:'https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=1600&auto=format&fit=crop&q=80' },
+ { name:'هدايا وتغليف', url:'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=1600&auto=format&fit=crop&q=80' },
+ { name:'أزياء راقية', url:'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1600&auto=format&fit=crop&q=80' },
+ { name:'ديكور عصري', url:'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=1600&auto=format&fit=crop&q=80' },
+ { name:'مكتب أعمال', url:'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1600&auto=format&fit=crop&q=80' },
+ { name:'أناقة كلاسيكية', url:'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=1600&auto=format&fit=crop&q=80' },
+ { name:'أمواج ذهبية', url:'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1600&auto=format&fit=crop&q=80' },
+ { name:'سماء ليلية', url:'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1600&auto=format&fit=crop&q=80' },
+ { name:'غابة زمردية', url:'https://images.unsplash.com/photo-1448375240586-882707db888b?w=1600&auto=format&fit=crop&q=80' },
+ { name:'صحراء ذهبية', url:'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=1600&auto=format&fit=crop&q=80' },
+ { name:'بحر هادئ', url:'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1600&auto=format&fit=crop&q=80' },
+ { name:'قهوة ومزاج', url:'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1600&auto=format&fit=crop&q=80' },
+ { name:'تقنية وابتكار', url:'https://images.unsplash.com/photo-1518770660439-4636190af475?w=1600&auto=format&fit=crop&q=80' },
+ { name:'إلكترونيات', url:'https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=1600&auto=format&fit=crop&q=80' },
+ { name:'أحذية رياضية', url:'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=1600&auto=format&fit=crop&q=80' },
+ { name:'حقائب فاخرة', url:'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=1600&auto=format&fit=crop&q=80' },
+ { name:'نسيج مخملي', url:'https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=1600&auto=format&fit=crop&q=80' },
+ { name:'ألوان متدرجة', url:'https://images.unsplash.com/photo-1557683316-973673baf926?w=1600&auto=format&fit=crop&q=80' },
+ { name:'رخام أسود', url:'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=1600&auto=format&fit=crop&q=80' },
+ { name:'إضاءة ذهبية', url:'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=1600&auto=format&fit=crop&q=80' },
+ { name:'جبال الضباب', url:'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1600&auto=format&fit=crop&q=80' }
+];
+let interfaceDesigns={},designImage='',designBgImage='',designImageLoading=false,chatState=null;
 async function refreshDesigns(){try{interfaceDesigns=await request('/designs');}catch{}}
-function paintInterface(){const key=user?user.role+'.'+page:'Login',d=interfaceDesigns[key];if(!d)return;const r=document.documentElement;if(d.primary)r.style.setProperty('--green',d.primary);if(d.font!=='Inherit')r.style.fontFamily=storeFonts[d.font]||storeFonts.Tahoma;const el=$('#view')||document.querySelector('.auth-form');if(!el)return;el.dataset.designLayout=d.layout;el.style.setProperty('--design-columns',d.columns);el.style.setProperty('--design-mobile-columns',Math.min(2,d.columns));el.style.setProperty('--design-radius',d.radius+'px');let banner=el.querySelector(':scope > .interface-banner');if(!d.title&&!d.subtitle&&!d.image){banner?.remove();return;}if(!banner){banner=document.createElement('section');banner.className='interface-banner';el.prepend(banner);}const sig=JSON.stringify(d);if(banner.dataset.signature!==sig){banner.dataset.signature=sig;banner.innerHTML=`${d.image?`<img src="${esc(d.image)}" alt="صورة الواجهة">`:''}<div>${d.title?`<h2>${esc(d.title)}</h2>`:''}${d.subtitle?`<p>${esc(d.subtitle)}</p>`:''}</div>`;}}
+function paintInterface(){
+ const key=user?user.role+'.'+page:'Login';
+ const d=interfaceDesigns[key]||interfaceDesigns['All'];
+ const r=document.documentElement;
+ if(d){
+  if(d.primary)r.style.setProperty('--green',d.primary);
+  if(d.font&&d.font!=='Inherit')r.style.fontFamily=storeFonts[d.font]||storeFonts.Tahoma;
+  if(d.backgroundImage){
+   const op = typeof d.backgroundOpacity === 'number' ? d.backgroundOpacity : 0.78;
+   document.body.style.setProperty('background-image', `linear-gradient(rgba(3, 23, 17, ${op}), rgba(2, 17, 13, ${Math.min(0.96, op + 0.08)})), url("${d.backgroundImage}")`, 'important');
+   document.body.style.setProperty('background-size', 'cover', 'important');
+   document.body.style.setProperty('background-position', 'center', 'important');
+  } else {
+   document.body.style.removeProperty('background-image');
+  }
+  r.style.setProperty('--vip-glass-blur', (d.glassBlur ?? 16) + 'px');
+ } else {
+  document.body.style.removeProperty('background-image');
+ }
+ const el=$('#view')||document.querySelector('.auth-form');if(!el||!d)return;
+ el.dataset.designLayout=d.layout||'Standard';
+ el.style.setProperty('--design-columns',d.columns||2);
+ el.style.setProperty('--design-mobile-columns',Math.min(2,d.columns||2));
+ el.style.setProperty('--design-radius',(d.radius??16)+'px');
+ let banner=el.querySelector(':scope > .interface-banner');
+ if(!d.title&&!d.subtitle&&!d.image){banner?.remove();return;}
+ if(!banner){banner=document.createElement('section');banner.className='interface-banner';el.prepend(banner);}
+ const sig=JSON.stringify({t:d.title,s:d.subtitle,i:d.image});
+ if(banner.dataset.signature!==sig){banner.dataset.signature=sig;banner.innerHTML=`${d.image?`<img src="${esc(d.image)}" alt="صورة الواجهة">`:`''`}<div>${d.title?`<h2>${esc(d.title)}</h2>`:`''`}${d.subtitle?`<p>${esc(d.subtitle)}</p>`:`''`}</div>`;}
+}
+
+function interfaceDesignEditor(selectedKey='All'){
+ const cur = { ...designDefaults, ...(interfaceDesigns[selectedKey] || {}) };
+ designImage = cur.image || '';
+ designBgImage = cur.backgroundImage || '';
+ modal('🎨 تصميم الشاشات المتقدم والخلفيات الشفافة', `
+ <form class="form" data-form="interface-design">
+  <label>اختر الشاشة المراد تصميمها
+   <select name="key" id="design-screen-sel">
+    ${Object.entries(designScreens).map(([k,v])=>`<option value="${k}" ${k===selectedKey?'selected':''}>${esc(v)}</option>`).join('')}
+   </select>
+  </label>
+  <div class="row">
+   <label>عنوان ترحيبي بالواجهة<input name="title" maxlength="80" value="${esc(cur.title)}" placeholder="اختياري"></label>
+   <label>وصف مختصر<input name="subtitle" maxlength="240" value="${esc(cur.subtitle)}" placeholder="اختياري"></label>
+  </div>
+  <div class="row">
+   <label>توزيع البطاقات<select name="layout">${[['Standard','متوازن'],['Compact','مضغوط'],['Spacious','واسع فاخر']].map(([v,t])=>`<option value="${v}" ${cur.layout===v?'selected':''}>${t}</option>`).join('')}</select></label>
+   <label>الخط<select name="font">${['Inherit','Tahoma','Arial','System','Serif'].map(f=>`<option value="${f}" ${cur.font===f?'selected':''}>${f==='Inherit'?'افتراضي المتجر':f}</option>`).join('')}</select></label>
+  </div>
+  <div class="row">
+   <label>عدد الأعمدة (1-4)<input name="columns" type="number" min="1" max="4" value="${cur.columns||2}"></label>
+   <label>استدارة الزوايا (0-28px)<input name="radius" type="number" min="0" max="28" value="${cur.radius??16}"></label>
+  </div>
+  <div class="row">
+   <label>شفافية التعتيم فوق الخلفية (${Math.round((cur.backgroundOpacity??0.78)*100)}%)<input name="backgroundOpacity" type="range" min="0.2" max="0.95" step="0.05" value="${cur.backgroundOpacity??0.78}"></label>
+   <label>تضبيب الزجاج الشفاف (${cur.glassBlur??16}px)<input name="glassBlur" type="range" min="0" max="28" step="2" value="${cur.glassBlur??16}"></label>
+  </div>
+  <div class="panel" style="padding:12px">
+   <strong style="color:#fef08a;font-size:13px;display:block;margin-bottom:8px">🖼️ مكتبة الخلفيات الفاخرة والشفافة (${curatedWallpapers.length} صورة مميزة):</strong>
+   <div class="design-gallery-grid">
+    <button type="button" class="design-wp-item ${!designBgImage?'active':''}" data-action="pick-design-bg" data-id="">
+     <div style="height:48px;display:grid;place-items:center;background:#031711;border-radius:8px;font-size:11px;color:#cbd5e1">بدون خلفية</div>
+     <small>افتراضي</small>
+    </button>
+    ${curatedWallpapers.map(w => `
+     <button type="button" class="design-wp-item ${designBgImage===w.url?'active':''}" data-action="pick-design-bg" data-id="${esc(w.url)}">
+      <img src="${esc(w.url)}" alt="${esc(w.name)}" loading="lazy">
+      <small>${esc(w.name)}</small>
+     </button>`).join('')}
+   </div>
+   <div style="margin-top:10px;display:grid;gap:8px">
+    <label>أو رابط صورة خلفية مخصّصة<input id="design-bg-url" name="backgroundImage" value="${esc(designBgImage)}" placeholder="https://..." dir="ltr"></label>
+    <label>أو رفع صورة خلفية من جهازك<input id="design-bg-file" type="file" accept="image/*"></label>
+   </div>
+  </div>
+  <button class="btn full" type="submit">💾 حفظ وتطبيق التصميم فوراً</button>
+  <div class="form-error" hidden></div>
+ </form>`);
+ const sel = document.getElementById('design-screen-sel');
+ if(sel) sel.onchange = () => interfaceDesignEditor(sel.value);
+ const bgFile = document.getElementById('design-bg-file');
+ if(bgFile) bgFile.onchange = async e => {
+  const file = e.target.files?.[0]; if(!file) return;
+  try {
+   const dUrl = await normalizeImage(file, 1400, 2000000);
+   designBgImage = dUrl;
+   const uIn = document.getElementById('design-bg-url');
+   if(uIn) uIn.value = dUrl;
+   toast('تم تجهيز صورة الخلفية الشفافة بنجاح');
+  } catch(err){ toast(err.message); }
+ };
+}
 async function decodeImageSource(file){
  if(window.createImageBitmap){try{return await createImageBitmap(file);}catch{}}
  return new Promise((resolve,reject)=>{const url=URL.createObjectURL(file);const img=new Image();img.onload=()=>{URL.revokeObjectURL(url);resolve({width:img.naturalWidth||img.width,height:img.naturalHeight||img.height,draw:(ctx,w,h)=>ctx.drawImage(img,0,0,w,h),close:()=>{}});};img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('تعذرت قراءة الصورة'));};img.src=url;});
@@ -162,6 +284,15 @@ function devicePermissions(){modal('تهيئة الكاميرا والمايك �
 async function chatAction(name,id){
  if(name==='order-chat'){await openChat('order',id);return true;}
  if(name==='ticket-chat'){await openChat('ticket',id);return true;}
+ if(name==='interface-design'){interfaceDesignEditor();return true;}
+ if(name==='pick-design-bg'){
+  designBgImage = id || '';
+  const uIn = document.getElementById('design-bg-url');
+  if(uIn) uIn.value = designBgImage;
+  document.querySelectorAll('.design-wp-item').forEach(b => b.classList.toggle('active', b.dataset.id === designBgImage));
+  toast(designBgImage ? 'تم اختيار صورة الخلفية — اضغط حفظ للتطبيق' : 'تمت إزالة الخلفية المخصصة');
+  return true;
+ }
  if(name==='chat-refresh'){await refreshChat();return true;}
  if(name==='chat-media'){await mediaChat(id);return true;}
  if(name==='chat-record'){await recordChat();return true;}
@@ -177,6 +308,30 @@ async function chatAction(name,id){
 }
 
 async function chatForm(kind,id,f,form){
+ if(kind==='interface-design'){
+  const key = f.key || 'All';
+  const payload = {
+   title: f.title || '',
+   subtitle: f.subtitle || '',
+   primary: '',
+   background: '',
+   ink: '',
+   font: f.font || 'Inherit',
+   image: designImage || '',
+   backgroundImage: (f.backgroundImage ?? designBgImage ?? '').trim(),
+   backgroundOpacity: Number(f.backgroundOpacity ?? 0.78),
+   glassBlur: Number(f.glassBlur ?? 16),
+   layout: f.layout || 'Standard',
+   columns: Number(f.columns || 2),
+   radius: Number(f.radius ?? 16)
+  };
+  await request('/designs/' + encodeURIComponent(key), 'PUT', payload);
+  await refreshDesigns();
+  closeModal();
+  paintInterface();
+  toast('تم حفظ وتطبيق تصميم الشاشة والخلفية الشفافة بنجاح!');
+  return true;
+ }
  if(kind==='chat-message'){
   const s=chatState;if(!s)throw new Error('أعد فتح المحادثة');
   if(s.recorder?.state==='recording'){s.recorder.stop();await new Promise(r=>setTimeout(r,300));}

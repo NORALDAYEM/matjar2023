@@ -234,6 +234,30 @@ function paintAppearance(){
   loadEl.innerHTML = `${esc(lTitle)}<span>${esc(lSub)}</span>`;
  }
  document.querySelectorAll('.notice-count').forEach(el=>{const n=noticeCache.filter(n=>!n.read).length;const text=n?String(n):'';if(el.textContent!==text)el.textContent=text;});
+ // تحديث أيقونة المتجر والملف التعريفي (Manifest) فوراً في المتصفح والتطبيقات المثبتة
+ const iconHref = a.logo || 'icon.svg';
+ if(window._lastAppliedIcon !== iconHref || window._lastAppliedTitle !== a.storeName){
+  window._lastAppliedIcon = iconHref;
+  window._lastAppliedTitle = a.storeName;
+  document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]').forEach(lnk => { lnk.href = iconHref; });
+  try {
+   const manifestObj = {
+    name: a.storeName || 'التسوق',
+    short_name: a.storeName || 'التسوق',
+    start_url: './',
+    display: 'standalone',
+    background_color: '#031711',
+    theme_color: a.primary || '#087e66',
+    icons: [{ src: iconHref, sizes: '192x192', type: iconHref.endsWith('.svg')?'image/svg+xml':'image/png' }, { src: iconHref, sizes: '512x512', type: iconHref.endsWith('.svg')?'image/svg+xml':'image/png' }]
+   };
+   const mLink = document.querySelector('link[rel="manifest"]');
+   if(mLink){
+    if(window._dynManifestUrl) URL.revokeObjectURL(window._dynManifestUrl);
+    window._dynManifestUrl = URL.createObjectURL(new Blob([JSON.stringify(manifestObj)], { type: 'application/manifest+json' }));
+    mLink.href = window._dynManifestUrl;
+   }
+  } catch(e){}
+ }
 }
 let paintQueued=false;new MutationObserver(()=>{if(paintQueued)return;paintQueued=true;setTimeout(()=>{paintQueued=false;paintAppearance();},0);}).observe(document.getElementById('app'),{childList:true,subtree:true});
 async function refreshAppearance(){try{storeAppearance={...defaultAppearance,...await request('/appearance')};paintAppearance();}catch{}}
@@ -270,6 +294,11 @@ async function executeInstantLiveSync() {
   isLiveSyncBusy = true;
   try {
     await updateNotices();
+    if(typeof refreshAppearance === 'function') await refreshAppearance();
+    if(typeof refreshDesigns === 'function') await refreshDesigns();
+    if(typeof refreshGovernance === 'function') await refreshGovernance();
+    if(typeof refreshCommerce === 'function') await refreshCommerce();
+    if(typeof refreshBanners === 'function') await refreshBanners();
     // إذا كان في لوحة التحكم أو الطلبات، تحديث الطلبات والمستخدمين فوراً
     if (typeof refresh === 'function' && ['home', 'orders', 'courier', 'history', 'users', 'staff'].includes(page)) {
       await refresh();
@@ -534,7 +563,7 @@ function staffEditor(id){
 }
 
 async function noticesCenter(){await updateNotices();modal('إشعاراتي',`<div class="stack"><p class="hint">الإشعارات مفعلة وتصلك مباشرة على شاشة هاتفك وقفل الشاشة عند وصول أي طلب أو رسالة جديدة.</p>${noticeCache.map(n=>`<article class="ticket-message ${n.read?'':'notice-unread'}"><h3>${esc(n.title)}</h3><p>${esc(n.message)}</p><small>${new Date(n.at).toLocaleString('ar-SA')}</small>${n.read?'<small> · مقروء</small>':`<button class="btn small secondary" data-action="read-notice" data-id="${esc(n.id)}">تحديد كمقروء</button>`}</article>`).join('')||'<p class="hint">لا توجد إشعارات لك بعد.</p>'}<div class="inline"><button class="btn small" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="test-phone-notification">📲 تجربة إشعار على شاشة الجوال الآن</button><button class="btn small secondary" data-action="notices">تحديث القائمة</button></div></div>`);}
-async function composeNotice(){const sent=await request('/notifications/sent');modal('إرسال إشعارات العملاء والمناديب',`<div class="stack"><form class="form" data-form="compose-notice"><label>المستلمون<select name="audience"><option value="Customer">جميع العملاء</option><option value="Courier">جميع مندوبي التوصيل</option><option value="Merchant">جميع التجار</option><option value="All">جميع الحسابات الفعالة</option>${dashboard.users?.length?'<option value="User">حساب محدد</option>':''}</select></label>${dashboard.users?.length?`<label>الحساب عند اختيار «حساب محدد»<select name="userId">${dashboard.users.filter(u=>u.active).map(u=>`<option value="${esc(u.id)}">${esc(u.name)} · ${roles[u.role]}</option>`).join('')}</select></label>`:''}<label>عنوان الإشعار<input name="title" required minlength="2" maxlength="100"></label><label>الرسالة<textarea name="message" required minlength="2" maxlength="1000"></textarea></label><p class="hint">يُرسل فورًا إلى صندوق الإشعارات داخل الحسابات المختارة. لا يتضمن إرسال SMS أو بريد أو تنبيه والهاتف مغلق.</p><button class="btn" type="submit">إرسال الإشعار الآن</button><div class="form-error" hidden></div></form><h3>سجل الإرسال</h3>${sent.map(n=>`<article class="ticket-message"><strong>${esc(n.title)}</strong><p>${esc(n.message)}</p><small>${({Customer:'العملاء',Courier:'المناديب',Merchant:'التجار',All:'الجميع',User:'حساب محدد'})[n.audience]} · ${n.sentCount} مستلم · ${n.readCount} قراءة · ${new Date(n.at).toLocaleString('ar-SA')}</small></article>`).join('')||'<p class="hint">لم ترسل رسائل بعد.</p>'}</div>`);}
+async function composeNotice(){const sent=await request('/notifications/sent');modal('إرسال إشعارات العملاء والمناديب',`<div class="stack"><form class="form" data-form="compose-notice"><label>المستلمون<select name="audience"><option value="Customer">جميع العملاء</option><option value="Courier">جميع مندوبي التوصيل</option><option value="Merchant">جميع التجار</option><option value="All">جميع الحسابات الفعالة</option><option value="Public">📲 جميع التطبيقات المثبتة (حتى بدون تسجيل دخول)</option>${dashboard.users?.length?'<option value="User">حساب محدد</option>':''}</select></label>${dashboard.users?.length?`<label>الحساب عند اختيار «حساب محدد»<select name="userId">${dashboard.users.filter(u=>u.active).map(u=>`<option value="${esc(u.id)}">${esc(u.name)} · ${roles[u.role]}</option>`).join('')}</select></label>`:''}<label>عنوان الإشعار<input name="title" required minlength="2" maxlength="100"></label><label>الرسالة<textarea name="message" required minlength="2" maxlength="1000"></textarea></label><p class="hint">يُرسل فورًا إلى صندوق الإشعارات داخل الحسابات المختارة. لا يتضمن إرسال SMS أو بريد أو تنبيه والهاتف مغلق.</p><button class="btn" type="submit">إرسال الإشعار الآن</button><div class="form-error" hidden></div></form><h3>سجل الإرسال</h3>${sent.map(n=>`<article class="ticket-message"><strong>${esc(n.title)}</strong><p>${esc(n.message)}</p><small>${({Customer:'العملاء',Courier:'المناديب',Merchant:'التجار',All:'الجميع',Public:'التطبيقات المثبتة',User:'حساب محدد'})[n.audience]} · ${n.sentCount} مستلم · ${n.readCount} قراءة · ${new Date(n.at).toLocaleString('ar-SA')}</small></article>`).join('')||'<p class="hint">لم ترسل رسائل بعد.</p>'}</div>`);}
 
 async function appearanceAction(name,id){
  if(name==='appearance'){appearanceEditor();return true;}
@@ -612,3 +641,34 @@ function appearanceDemo(path,method,body){
  if(path.startsWith('/notifications/')&&path.endsWith('/read')){const n=d.notifications.find(n=>n.id===path.split('/')[2]);if(!n.readBy.includes(user.id))n.readBy.push(user.id);return save({ok:true});}
  return undefined;
 }
+
+
+/* ========================================================
+   Public Installed-App Notifications (Even Before Login)
+   ======================================================== */
+const seenPublicNoticeIds = new Set(JSON.parse(localStorage.getItem('ts-seen-public-notices') || '[]'));
+let publicNoticeInitialized = seenPublicNoticeIds.size > 0;
+async function pollPublicInstalledNotices(){
+ if(!apiBase) return;
+ try {
+  const res = await fetch(apiBase + '/api/notifications/public', { cache: 'no-store' });
+  if(!res.ok) return;
+  const list = await res.json();
+  if(!Array.isArray(list)) return;
+  let changed = false;
+  for(const n of list){
+   if(!seenPublicNoticeIds.has(n.id)){
+    seenPublicNoticeIds.add(n.id);
+    changed = true;
+    if(publicNoticeInitialized){
+     if(typeof triggerMobileNotification === 'function') triggerMobileNotification(n.title, n.message);
+     if(typeof toast === 'function') toast(`🔔 ${n.title}: ${n.message}`);
+    }
+   }
+  }
+  publicNoticeInitialized = true;
+  if(changed) localStorage.setItem('ts-seen-public-notices', JSON.stringify([...seenPublicNoticeIds].slice(-80)));
+ } catch(e){}
+}
+setInterval(() => { if(!document.hidden) pollPublicInstalledNotices(); }, 8000);
+setTimeout(pollPublicInstalledNotices, 2500);

