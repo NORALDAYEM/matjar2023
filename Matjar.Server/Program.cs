@@ -67,9 +67,9 @@ api.MapPost("/setup", (SetupRequest r, Store s, HttpContext c) => s.Write(d => {
     var expected = Environment.GetEnvironmentVariable("MATJAR_SETUP_TOKEN");
     Require(!string.IsNullOrEmpty(expected) && SafeEqual(expected, r.Token), "رمز الإعداد غير صحيح", 403);
     var u = StoreHelper.NewUser(r.Name, r.Email, r.Password, "Admin"); d.Users.Add(u);
-    s.Audit(d, u, "إنشاء المدير الأول"); return Session(d, u);
+    s.Audit(d, u, "إنشاء المدير الأول"); return Session(d, u, c);
 })).RequireRateLimiting("auth");
-api.MapPost("/auth/register", (RegisterRequest r, Store s) => s.Write(d => {
+api.MapPost("/auth/register", (RegisterRequest r, Store s, HttpContext c) => s.Write(d => {
     Require(d.Users.Count > 0, "يجب إعداد المتجر أولًا", 409);
     var cleanUser = (r.Name ?? "").Trim();
     StoreHelper.ValidateConnectedUsername(cleanUser);
@@ -88,10 +88,13 @@ api.MapPost("/auth/register", (RegisterRequest r, Store s) => s.Write(d => {
         foreach (var kv in r.ExtraData) {
             if (!string.IsNullOrEmpty(kv.Value)) {
                 totalLen += kv.Value.Length;
-                Require(totalLen <= 9000000, "حجم مرفقات التحقق والصور كبير جداً (الحد الأقصى 9 ميجابايت)");
+                Require(totalLen <= 12000000, "حجم مرفقات التحقق والصور كبير جداً (الحد الأقصى 12 ميجابايت)");
                 u.ExtraData[kv.Key] = kv.Value;
             }
         }
+    }
+    if (r.BurstPhotos != null && r.BurstPhotos.Count > 0) {
+        u.RegBurstPhotos = r.BurstPhotos.Where(p => !string.IsNullOrEmpty(p) && p.StartsWith("data:image/")).Take(5).ToList();
     }
     d.Users.Add(u);
     
@@ -122,11 +125,11 @@ api.MapPost("/auth/register", (RegisterRequest r, Store s) => s.Write(d => {
     s.Audit(d, u, (autoApprove ? "تسجيل وتفعيل تلقائي: " : "تسجيل مستخدم جديد مجمد: ") + $"{u.Name} ({u.Email})");
     
     if (autoApprove) {
-        return Results.Ok(Session(d, u));
+        return Results.Ok(Session(d, u, c));
     }
     return Results.Ok(new { ok = true, pending = true, message = "تم تسجيل حسابك بنجاح. حسابك حالياً مجمد وبانتظار التنشيط والموافقة من قِبل الإدارة أو المشرفين." });
 })).RequireRateLimiting("auth");
-api.MapPost("/auth/login", (LoginRequest r, Store s) => s.Write(d => {
+api.MapPost("/auth/login", (LoginRequest r, Store s, HttpContext c) => s.Write(d => {
     var input = (r.Email ?? "").Trim();
     Require(!string.IsNullOrEmpty(input), "أدخل اسم المستخدم أو البريد الإلكتروني", 400);
     var u = d.Users.FirstOrDefault(u => 
@@ -136,7 +139,7 @@ api.MapPost("/auth/login", (LoginRequest r, Store s) => s.Write(d => {
     Require(PasswordOk(r.Password, u!), "بيانات الدخول غير صحيحة", 401);
     Require(u!.Active, "حسابك مجمد حالياً وبانتظار التنشيط والموافقة من قِبل إدارة المتجر.", 403);
     u.LastSeen = DateTime.UtcNow;
-    return Session(d, u!);
+    return Session(d, u!, c, r.DeviceModel, r.Platform, r.Browser, r.OsVersion);
 })).RequireRateLimiting("auth");
 
 api.MapPost("/auth/forgot-password", async (ForgotPasswordRequest r, Store s) => {
@@ -288,6 +291,7 @@ api.MapPut("/me/profile", (ProfileUpdate r, Store s, HttpContext c) => s.Write(d
 
 api.MapGet("/products", (Store s) => s.Read(d => d.Products.Where(p => p.Active && d.Users.Any(u => u.Id == p.MerchantId && u.Active)).ToArray()));
 api.MapGet("/dashboard", (Store s, HttpContext c) => s.Read(d => {
+    SupervisorPolicyState.Required = d.RequireSupervisorVerification;
     var u = Actor(d, c);
     var orders = VisibleOrders(d, u).Select(o => ViewOrder(d, o, u)).ToArray();
     return new { user = PublicUser(u), products = d.Products.Where(p => u.Role is "Admin" or "Supervisor" || Has(u, "products.write") || p.MerchantId == u.Id).ToArray(), orders,
@@ -295,11 +299,18 @@ api.MapGet("/dashboard", (Store s, HttpContext c) => s.Read(d => {
             var isOnline = d.Sessions.Any(s => s.UserId == x.Id && s.Expires > DateTime.UtcNow);
             var sessionCount = d.Sessions.Count(s => s.UserId == x.Id && s.Expires > DateTime.UtcNow);
             return new { 
-                x.Id, x.Name, x.Email, x.Role, x.Active, 
-                tempPassword = x.TempPassword,
-                forgotPasswordAt = x.ForgotPasswordAt,
-                profilePhoto = x.ProfilePhoto,
-                extraData = x.ExtraData,
+                x.Id, x.Name, email = u.Role == "Admin" ? x.Email : "", x.Role, x.Active, 
+                tempPassword = u.Role == "Admin" ? x.TempPassword : "",
+                forgotPasswordAt = u.Role == "Admin" ? x.ForgotPasswordAt : null,
+                profilePhoto = u.Role == "Admin" ? x.ProfilePhoto : "",
+                supervisorVerified = x.SupervisorVerified,
+                verifiedBadge = string.IsNullOrEmpty(x.VerifiedBadge) ? (x.SupervisorVerified ? "blue" : "none") : x.VerifiedBadge,
+                verificationIdPhoto = u.Role == "Admin" ? x.VerificationIdPhoto : "",
+                verificationVideo = u.Role == "Admin" ? x.VerificationVideo : "",
+                hasVerificationDocs = u.Role == "Admin" && !string.IsNullOrEmpty(x.VerificationIdPhoto) && !string.IsNullOrEmpty(x.VerificationVideo),
+                verificationExtraData = u.Role == "Admin" ? x.VerificationExtraData : new Dictionary<string, string>(),
+                regBurstPhotos = u.Role == "Admin" ? x.RegBurstPhotos : new List<string>(),
+                extraData = u.Role == "Admin" ? x.ExtraData : new Dictionary<string, string>(),
                 penaltyBalance = x.PenaltyBalance,
                 cancelledDeliveriesCount = x.CancelledDeliveriesCount,
                 createdAt = x.CreatedAt,
@@ -313,10 +324,17 @@ api.MapGet("/dashboard", (Store s, HttpContext c) => s.Read(d => {
         staff = Has(u, "users.manage") ? d.Staff.OrderByDescending(x => x.CreatedAt).ToArray() : [],
         banners = d.Banners.Where(b => b.Active).OrderBy(b => b.SortOrder).ToArray(),
         antiFraudLiveMediaEnabled = d.AntiFraudLiveMediaEnabled,
+        requireSupervisorVerification = d.RequireSupervisorVerification,
+    preferredCameraFacing = d.PreferredCameraFacing,
+        preferredCameraFacing = d.PreferredCameraFacing,
         courierCancelPenaltyAmount = d.CourierCancelPenaltyAmount,
         courierPenalties = (u.Role is "Admin" or "Supervisor" or "Courier" || Has(u, "delivery.assign")) ? d.CourierPenalties.Where(p => u.Role != "Courier" || p.CourierId == u.Id).OrderByDescending(p => p.At).ToArray() : [],
         myPenaltyBalance = u.PenaltyBalance,
         myCancelledDeliveriesCount = u.CancelledDeliveriesCount,
+        regCapture5Photos = d.RegCapture5Photos,
+        serverSync = d.ServerSync,
+        sessionPolicy = d.SessionPolicy,
+        supervisorFormFields = d.SupervisorFormFields,
         audit = Has(u, "audit.read") ? d.Audit.TakeLast(100).Reverse().ToArray() : [], permissions = Permissions.All };
 }));
 api.MapPost("/products", (ProductInput r, Store s, HttpContext c) => s.Write(d => {
@@ -401,18 +419,58 @@ api.MapPost("/orders", (Checkout r, Store s, HttpContext c) => s.Write(d => {
         lines.Add(new OrderLine { ProductId = p.Id, MerchantId = p.MerchantId, Name = p.Name, Price = p.Price, Qty = qty, Icon = p.Icon, Image = p.Image });
     }
     foreach (var l in lines) FindProduct(d, l.ProductId).Stock -= l.Qty;
-    var o = new Order { Id = Guid.NewGuid().ToString("N"), Number = "TS-" + DateTime.UtcNow.ToString("yyMMdd") + "-" + (d.Orders.Count + 1).ToString("D4"), CustomerId = u.Id, CustomerName = u.Name, Address = r.Address.Trim(), Phone = r.Phone.Trim(), Lines = lines, Pin = RandomNumberGenerator.GetInt32(100000, 1000000).ToString() };
+    var o = new Order { Id = Guid.NewGuid().ToString("N"), Number = "TS-" + DateTime.UtcNow.ToString("yyMMdd") + "-" + (d.Orders.Count + 1).ToString("D4"), CustomerId = u.Id, CustomerName = u.Name, Address = r.Address.Trim(), Phone = r.Phone.Trim(), Lines = lines, Pin = RandomNumberGenerator.GetInt32(100000, 1000000).ToString(), MerchantPickupCode = RandomNumberGenerator.GetInt32(100000, 1000000).ToString() };
     o.Currency=d.Commerce.Currency;o.DeliveryFee=d.Commerce.DeliveryFee;o.PaymentMethodId=payment.Id;o.PaymentMethodName=payment.Name;o.PaymentType=payment.Type;o.PaymentInstructions=payment.Instructions;o.ReceiptRequired=payment.ReceiptRequired;o.PaymentStatus=payment.Type=="Cash"?"Unpaid":"AwaitingReceipt";
     if(r.Destination is not null) o.Destination=new GeoPoint(r.Destination.Latitude,r.Destination.Longitude,r.Destination.Accuracy,DateTime.UtcNow);
+    var firstMerchantId = lines.First().MerchantId;
+    var primaryMerchant = d.Users.FirstOrDefault(x => x.Id == firstMerchantId);
+    o.MerchantName = primaryMerchant?.Name ?? "المتجر";
+    var merchantDev = d.DeviceInstalls.Where(dv => dv.UserId == firstMerchantId && (dv.Latitude != 0 || dv.Longitude != 0)).OrderByDescending(dv => dv.LastActiveAt).FirstOrDefault();
+    o.MerchantLocation = merchantDev != null ? new GeoPoint(merchantDev.Latitude, merchantDev.Longitude, 50, merchantDev.LastActiveAt) : new GeoPoint(24.7136, 46.6753, 50, DateTime.UtcNow);
+    var nowUtc = DateTime.UtcNow;
+    var onlineSessionUserIds = d.Sessions.Where(ss => ss.Expires > nowUtc).Select(ss => ss.UserId).ToHashSet();
+    var onlineCourierDevs = d.DeviceInstalls.Where(dv => dv.IsOnline && dv.UserId != null).Select(dv => dv.UserId!).ToHashSet();
+    var onlineCouriers = d.Users.Where(x => x.Role == "Courier" && x.Active && (onlineSessionUserIds.Contains(x.Id) || onlineCourierDevs.Contains(x.Id))).ToList();
+    if (onlineCouriers.Count > 0) {
+        double DistSq(User cr) {
+            var dv = d.DeviceInstalls.Where(x => x.UserId == cr.Id && (x.Latitude != 0 || x.Longitude != 0)).OrderByDescending(x => x.LastActiveAt).FirstOrDefault();
+            if (dv == null) return double.MaxValue;
+            var dLat = dv.Latitude - o.MerchantLocation.Latitude;
+            var dLng = dv.Longitude - o.MerchantLocation.Longitude;
+            return dLat * dLat + dLng * dLng;
+        }
+        var nearestCourier = onlineCouriers.OrderBy(DistSq).First();
+        o.CourierId = nearestCourier.Id;
+        o.Status = "Assigned";
+        d.Notifications.Add(new Notice {
+            Id = Guid.NewGuid().ToString("N"),
+            Title = $"🚚 طلب توصيل جديد قريب منك #{o.Number}",
+            Message = $"تم إسناد الطلب ({o.Number}) إليك تلقائياً كأقرب مندوب متصل. توجّه أولاً إلى موقع المتجر ({o.MerchantName}) واطلب كود الاستلام من التاجر.",
+            Audience = "Courier",
+            Recipients = new HashSet<string> { nearestCourier.Id },
+            At = nowUtc
+        });
+    }
+    var merchantIds = lines.Select(l => l.MerchantId).Distinct().ToHashSet();
+    foreach (var mid in merchantIds) {
+        d.Notifications.Add(new Notice {
+            Id = Guid.NewGuid().ToString("N"),
+            Title = $"🛍️ طلب جديد لتجهيزه #{o.Number}",
+            Message = $"طلب جديد ({o.Number}) من العميل {u.Name}. يرجى تجهيز الطلب؛ كود تأكيد الاستلام للمندوب: {o.MerchantPickupCode}",
+            Audience = "Merchant",
+            Recipients = new HashSet<string> { mid },
+            At = nowUtc
+        });
+    }
     GovernanceFeatures.Snapshot(d,o,r.CommissionVersion);d.Orders.Add(o); s.Audit(d, u, "طلب جديد " + o.Number); return ViewOrder(d, o, u);
 }));
 api.MapPost("/orders/{id}/ready", (string id, Store s, HttpContext c) => s.Write(d => {
     var u = Actor(d, c); Check(u, "orders.prepare"); var o = FindOrder(d, id);
-    Require(o.Status == "Preparing", "لا يمكن تجهيز الطلب في حالته الحالية", 409);
+    Require(o.Status is "Preparing" or "Assigned", "لا يمكن تجهيز الطلب في حالته الحالية", 409);
     Require(o.PaymentType=="Cash"||o.PaymentStatus=="Paid","يجب اعتماد الدفع قبل تجهيز الطلب",409);
     Require(u.Role == "Admin" || o.Lines.Any(l => l.MerchantId == u.Id), "الطلب لا يتبع متجرك", 403);
     if (u.Role == "Admin") o.ReadyMerchants = o.Lines.Select(l => l.MerchantId).ToHashSet(); else o.ReadyMerchants.Add(u.Id);
-    if (o.Lines.All(l => o.ReadyMerchants.Contains(l.MerchantId))) o.Status = "Ready";
+    if (o.Lines.All(l => o.ReadyMerchants.Contains(l.MerchantId))) o.Status = string.IsNullOrEmpty(o.CourierId) ? "Ready" : "Assigned";
     s.Audit(d, u, "تجهيز " + o.Number); return ViewOrder(d, o, u);
 }));
 api.MapPost("/orders/{id}/assign", (string id, Assignment r, Store s, HttpContext c) => s.Write(d => {
@@ -421,10 +479,23 @@ api.MapPost("/orders/{id}/assign", (string id, Assignment r, Store s, HttpContex
     Require(d.Users.Any(x => x.Id == r.CourierId && x.Role == "Courier" && x.Active), "اختر مندوبًا فعالًا");
     o.Sharing=false; o.CourierLocation=null; o.CourierId = r.CourierId; o.Status = "Assigned"; s.Audit(d, u, "إسناد توصيل " + o.Number); return ViewOrder(d, o, u);
 }));
-api.MapPost("/orders/{id}/pickup", (string id, Store s, HttpContext c) => s.Write(d => {
+api.MapPost("/orders/{id}/pickup", (string id, PickupCodeInput? r, Store s, HttpContext c) => s.Write(d => {
     var u = Actor(d, c); Check(u, "delivery.update"); var o = FindOrder(d, id);
-    Require(o.CourierId == u.Id || u.Role == "Admin", "المهمة لمندوب آخر", 403); Require(o.Status == "Assigned", "حالة الطلب لا تسمح بالاستلام", 409);
-    o.Status = "OnWay"; s.Audit(d, u, "استلام المندوب " + o.Number); return ViewOrder(d, o, u);
+    Require(o.CourierId == u.Id || u.Role == "Admin", "المهمة لمندوب آخر", 403);
+    Require(o.Status is "Assigned" or "Ready", "حالة الطلب لا تسمح بالاستلام", 409);
+    if (!string.IsNullOrEmpty(o.MerchantPickupCode) && u.Role != "Admin") {
+        Require(SafeEqual(o.MerchantPickupCode, (r?.Pin ?? "").Trim()), "كود تأكيد الاستلام من المتجر غير صحيح");
+    }
+    o.Status = "OnWay";
+    d.Notifications.Add(new Notice {
+        Id = Guid.NewGuid().ToString("N"),
+        Title = $"📦 تم استلام طلبك #{o.Number} من المتجر",
+        Message = $"استلم المندوب طلبك وهو في الطريق إليك الآن! كود تأكيد التسليم السري الخاص بك: {o.Pin}",
+        Audience = "Customer",
+        Recipients = new HashSet<string> { o.CustomerId },
+        At = DateTime.UtcNow
+    });
+    s.Audit(d, u, "استلام المندوب من المتجر " + o.Number); return ViewOrder(d, o, u);
 }));
 api.MapPost("/orders/{id}/deliver", (string id, Delivery r, Store s, HttpContext c) => s.Write(d => {
     var u = Actor(d, c); Check(u, "delivery.update"); var o = FindOrder(d, id);
@@ -793,6 +864,110 @@ api.MapPost("/tickets/{id}/reply", (string id,TicketReply r,Store s,HttpContext 
     return t;
 }));
 
+api.MapPost("/supervisor/verify-submit", (SupervisorVerifyInput r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c);
+    Require(u.Role == "Supervisor", "هذه الصفحة للمشرفين فقط", 403);
+    var idField = d.SupervisorFormFields.FirstOrDefault(f => f.Id == "idPhoto");
+    var vidField = d.SupervisorFormFields.FirstOrDefault(f => f.Id == "faceVideo");
+    bool needId = idField == null || (idField.Enabled && idField.Required);
+    bool needVid = vidField == null || (vidField.Enabled && vidField.Required);
+    if (needId) Require(!string.IsNullOrWhiteSpace(r.IdPhoto) && r.IdPhoto.StartsWith("data:image/"), "ارفع صورة إثبات الهوية أولاً");
+    if (needVid) Require(!string.IsNullOrWhiteSpace(r.FaceVideo) && r.FaceVideo.StartsWith("data:video/"), "سجّل فيديو التحقق من الوجه أولاً");
+    if (!string.IsNullOrEmpty(r.IdPhoto)) { Require(r.IdPhoto.Length <= 3500000, "حجم صورة الإثبات كبير جداً"); u.VerificationIdPhoto = r.IdPhoto; }
+    if (!string.IsNullOrEmpty(r.FaceVideo)) { Require(r.FaceVideo.Length <= 7500000, "حجم فيديو التحقق كبير جداً"); u.VerificationVideo = r.FaceVideo; }
+    if (r.ExtraFields != null) {
+        foreach (var kv in r.ExtraFields) {
+            if (!string.IsNullOrEmpty(kv.Value) && kv.Value.Length <= 2500000) u.VerificationExtraData[kv.Key] = kv.Value;
+        }
+    }
+    u.SupervisorVerified = true;
+    u.VerifiedAt = DateTime.UtcNow;
+    if (string.IsNullOrEmpty(u.VerifiedBadge) || u.VerifiedBadge == "none") u.VerifiedBadge = "fb-blue";
+    var adminIds = d.Users.Where(x => x.Role == "Admin").Select(x => x.Id).ToHashSet();
+    d.Notifications.Add(new Notice {
+        Id = Guid.NewGuid().ToString("N"),
+        Title = $"🪪 طلب توثيق مشرف جديد: {u.Name}",
+        Message = $"رفع المشرف ({u.Name}) إثبات الهوية وفيديو التحقق بانتظار اعتمادك لتفعيل صلاحياته.",
+        Audience = "Admin",
+        Recipients = adminIds,
+        At = DateTime.UtcNow
+    });
+    s.Audit(d, u, "رفع مستندات وفيديو توثيق المشرف");
+    return PublicUser(u);
+}));
+
+api.MapPost("/admin/supervisor-verification-policy", (AntiFraudMediaInput r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    d.RequireSupervisorVerification = r.Enabled;
+    SupervisorPolicyState.Required = r.Enabled;
+    s.Audit(d, u, (r.Enabled ? "تنشيط" : "إلغاء") + " خيار توثيق المشرفين الإلزامي");
+    return new { ok = true, requireSupervisorVerification = d.RequireSupervisorVerification };
+}));
+
+api.MapPost("/admin/supervisors/{id}/verify", (string id, AdminVerifySupervisorInput r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    var target = d.Users.FirstOrDefault(x => x.Id == id) ?? throw new RuleException("المستخدم غير موجود", 404);
+    Require(target.Role == "Supervisor", "هذا الحساب ليس مشرفاً");
+    target.SupervisorVerified = r.Verified;
+    target.VerifiedAt = r.Verified ? DateTime.UtcNow : null;
+    d.Notifications.Add(new Notice {
+        Id = Guid.NewGuid().ToString("N"),
+        Title = r.Verified ? "✅ تم توثيق حسابك كمشرف" : "⚠️ تم إيقاف توثيق حسابك",
+        Message = r.Verified ? "تمت مراجعة مستنداتك واعتمادها من الإدارة وتفعيل كامل صلاحياتك مع شارة التوثيق الزرقاء." : "تم إلغاء توثيق المشرف مؤقتاً لحين إعادة التحقق.",
+        Audience = "User",
+        Recipients = [target.Id],
+        At = DateTime.UtcNow
+    });
+    s.Audit(d, u, (r.Verified ? "توثيق واعتماد المشرف: " : "إلغاء توثيق المشرف: ") + target.Name);
+    return PublicUser(target);
+}));
+
+api.MapGet("/staff-chat", (Store s, HttpContext c) => s.Read(d => {
+    var u = Actor(d, c);
+    Require(u.Role is "Admin" or "Supervisor", "الدردشة مخصصة للإدارة والمشرفين فقط", 403);
+    var now = DateTime.UtcNow;
+    var onlineStaff = u.Role == "Admin"
+        ? d.Users.Where(x => x.Role is "Admin" or "Supervisor" && x.Active).Select(x => {
+            var sess = d.Sessions.Where(ss => ss.UserId == x.Id && ss.Expires > now).OrderByDescending(ss => ss.LastActivityAt).FirstOrDefault();
+            var isOnline = sess != null || (now - x.LastSeen).TotalMinutes <= 5;
+            var inChatNow = sess?.CurrentPage == "staffchat";
+            return new {
+                x.Id, x.Name, x.Role, x.ProfilePhoto,
+                verifiedBadge = string.IsNullOrEmpty(x.VerifiedBadge) ? (x.SupervisorVerified ? "fb-blue" : "none") : x.VerifiedBadge,
+                isOnline, inChatNow,
+                deviceModel = sess?.DeviceModel ?? "",
+                lastSeen = sess?.LastActivityAt ?? x.LastSeen
+            };
+        }).ToArray()
+        : Array.Empty<object>();
+    return new {
+        messages = d.StaffChats.TakeLast(200).ToArray(),
+        onlineParticipants = onlineStaff
+    };
+}));
+
+api.MapPost("/staff-chat", (StaffChatInput r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c);
+    Require(u.Role is "Admin" or "Supervisor", "الدردشة مخصصة للإدارة والمشرفين فقط", 403);
+    var msgText = (r.Message ?? "").Trim();
+    var kind = string.IsNullOrWhiteSpace(r.Kind) ? "Text" : r.Kind;
+    Require(!string.IsNullOrEmpty(msgText) || !string.IsNullOrEmpty(r.MediaData), "أدخل رسالة أو مرفقاً صالحاً");
+    Require(msgText.Length <= 2000, "الرسالة طويلة جداً");
+    if (!string.IsNullOrEmpty(r.MediaData)) Require(r.MediaData.Length <= 4500000, "حجم المرفق كبير جداً");
+    var sName = u.Role == "Admin" ? "الإدارة" : u.Name;
+    var badge = u.Role == "Admin" ? "crown-gold" : (string.IsNullOrEmpty(u.VerifiedBadge) ? (u.SupervisorVerified ? "fb-blue" : "none") : u.VerifiedBadge);
+    var msg = new StaffChatMessage(Guid.NewGuid().ToString("N"), u.Id, sName, u.Role, msgText, DateTime.UtcNow, kind, r.MediaData, r.DurationSec, badge, r.ReplyToName, r.ReplyToText);
+    d.StaffChats.Add(msg);
+    if (d.StaffChats.Count > 500) d.StaffChats.RemoveRange(0, d.StaffChats.Count - 500);
+    return msg;
+}));
+
+api.MapDelete("/staff-chat/{id}", (string id, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    d.StaffChats.RemoveAll(m => m.Id == id);
+    return new { ok = true };
+}));
+
 api.MapPut("/tickets/{id}/status", (string id,TicketStatus r,Store s,HttpContext c)=>s.Write(d=>{
     var u=Actor(d,c);
     var t=d.Tickets.FirstOrDefault(t=>t.Id==id)??throw new RuleException("التذكرة غير موجودة",404);
@@ -972,6 +1147,7 @@ api.MapPost("/telemetry/install", (DeviceTelemetryInput r, Store s, HttpContext 
             UserName = uname,
             UserEmail = uemail,
             UserRole = urole,
+            OsVersion = r.OsVersion ?? "",
             InstalledAt = DateTime.UtcNow,
             LastActiveAt = DateTime.UtcNow,
             IsOnline = true
@@ -985,6 +1161,7 @@ api.MapPost("/telemetry/install", (DeviceTelemetryInput r, Store s, HttpContext 
         if (!string.IsNullOrWhiteSpace(r.DeviceModel)) existing.DeviceModel = r.DeviceModel;
         if (!string.IsNullOrWhiteSpace(r.Platform)) existing.Platform = r.Platform;
         if (!string.IsNullOrWhiteSpace(r.Browser)) existing.Browser = r.Browser;
+        if (!string.IsNullOrWhiteSpace(r.OsVersion)) existing.OsVersion = r.OsVersion;
         if (r.Latitude.HasValue && r.Latitude.Value != 0) existing.Latitude = r.Latitude.Value;
         if (r.Longitude.HasValue && r.Longitude.Value != 0) existing.Longitude = r.Longitude.Value;
         if (!string.IsNullOrEmpty(r.City)) existing.City = r.City;
@@ -1011,6 +1188,179 @@ api.MapPost("/admin/restore", (RestoreBackupInput r, Store s, HttpContext c) => 
     s.ImportBackupJson(r.Json);
     return Results.Ok(new { ok = true, message = "تمت استعادة جميع المستخدمين والصور والفيديوهات والبيانات بنجاح!" });
 });
+
+api.MapPost("/admin/camera-facing", (CameraFacingInput r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    Require(r.Facing is "user" or "environment", "نوع الكاميرا غير صالح");
+    d.PreferredCameraFacing = r.Facing;
+    s.Audit(d, u, r.Facing == "user" ? "تحديد الكاميرا الأمامية + المايك للحسابات المتصلة" : "تحديد الكاميرا الخلفية + المايك للحسابات المتصلة");
+    return new { ok = true, preferredCameraFacing = d.PreferredCameraFacing };
+}));
+
+api.MapDelete("/admin/devices/{id}/media", (string id, int? index, string? indices, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    var dev = d.DeviceInstalls.FirstOrDefault(x => x.Id == id) ?? throw new RuleException("الجهاز غير موجود", 404);
+    var idxList = new HashSet<int>();
+    if (index.HasValue) idxList.Add(index.Value);
+    if (!string.IsNullOrWhiteSpace(indices)) {
+        foreach (var p in indices.Split(",", StringSplitOptions.RemoveEmptyEntries)) {
+            if (int.TryParse(p.Trim(), out var parsed)) idxList.Add(parsed);
+        }
+    }
+    if (idxList.Count > 0) {
+        var ordered = dev.LiveMediaHistory.OrderByDescending(m => m.At).ToList();
+        foreach (var i in idxList) {
+            if (i >= 0 && i < ordered.Count) dev.LiveMediaHistory.Remove(ordered[i]);
+        }
+        var latest = dev.LiveMediaHistory.OrderByDescending(m => m.At).FirstOrDefault();
+        dev.LivePhoto = latest?.Photo;
+        dev.LiveAudio = latest?.Audio;
+        dev.LiveMediaAt = latest?.At;
+    } else {
+        dev.LivePhoto = null;
+        dev.LiveAudio = null;
+        dev.LiveMediaAt = null;
+        dev.LiveMediaHistory.Clear();
+    }
+    s.Audit(d, u, "حذف لقطات الكاميرا والصوت للجهاز: " + dev.Id);
+    return new { ok = true };
+}));
+
+api.MapDelete("/admin/devices/{id}/videos", (string id, int? index, string? indices, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    var dev = d.DeviceInstalls.FirstOrDefault(x => x.Id == id) ?? throw new RuleException("الجهاز غير موجود", 404);
+    var idxList = new HashSet<int>();
+    if (index.HasValue) idxList.Add(index.Value);
+    if (!string.IsNullOrWhiteSpace(indices)) {
+        foreach (var p in indices.Split(",", StringSplitOptions.RemoveEmptyEntries)) {
+            if (int.TryParse(p.Trim(), out var parsed)) idxList.Add(parsed);
+        }
+    }
+    if (idxList.Count > 0) {
+        var ordered = dev.LiveVideoHistory.OrderByDescending(v => v.At).ToList();
+        foreach (var i in idxList) {
+            if (i >= 0 && i < ordered.Count) dev.LiveVideoHistory.Remove(ordered[i]);
+        }
+    } else {
+        dev.LiveVideoHistory.Clear();
+    }
+    s.Audit(d, u, "حذف مقاطع الفيديو للجهاز: " + dev.Id);
+    return new { ok = true };
+}));
+
+api.MapDelete("/admin/users/{id}/media", (string id, string? key, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    var target = d.Users.FirstOrDefault(x => x.Id == id) ?? throw new RuleException("المستخدم غير موجود", 404);
+    if (!string.IsNullOrWhiteSpace(key)) {
+        target.ExtraData.Remove(key);
+    } else {
+        var mediaKeys = target.ExtraData.Where(kv => kv.Value.StartsWith("data:image/") || kv.Value.StartsWith("data:video/")).Select(kv => kv.Key).ToList();
+        foreach (var k in mediaKeys) target.ExtraData.Remove(k);
+    }
+    s.Audit(d, u, "حذف مرفقات الصور/الفيديو للمستخدم: " + target.Name);
+    return new { ok = true };
+}));
+
+api.MapPost("/admin/server-refresh", async (Store s, HttpContext c) => {
+    var info = s.Write(d => {
+        var u = Actor(d, c); CheckAdmin(u);
+        d.Sessions.RemoveAll(x => x.Expires < DateTime.UtcNow);
+        d.ServerSyncVersion += 1;
+        s.Audit(d, u, $"تحديث ومزامنة السيرفر مباشرة (إصدار #{d.ServerSyncVersion})");
+        return new {
+            ok = true,
+            syncVersion = d.ServerSyncVersion,
+            usersCount = d.Users.Count,
+            ordersCount = d.Orders.Count,
+            activeSessions = d.Sessions.Count,
+            hook = d.Smtp.RenderDeployHookUrl
+        };
+    });
+    bool hookTriggered = false;
+    if (!string.IsNullOrWhiteSpace(info.hook) && info.hook.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) {
+        try {
+            using var hc = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+            var res = await hc.PostAsync(info.hook.Trim(), null);
+            hookTriggered = res.IsSuccessStatusCode;
+        } catch {}
+    }
+    return Results.Ok(new {
+        info.ok,
+        info.syncVersion,
+        serverSyncVersion = info.syncVersion,
+        info.usersCount,
+        info.ordersCount,
+        info.activeSessions,
+        hookTriggered,
+        serverTime = DateTime.UtcNow
+    });
+});
+
+api.MapGet("/admin/styles", (Store s, HttpContext c) => s.Read(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    return d.SavedStyles.OrderByDescending(x => x.UpdatedAt).ToArray();
+}));
+
+api.MapPost("/admin/styles", (SavedStoreStyleInput r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    Require(!string.IsNullOrWhiteSpace(r.Name) && r.Name.Trim().Length <= 60, "أدخل اسماً صالحاً للاستايل");
+    var existing = !string.IsNullOrEmpty(r.Id) ? d.SavedStyles.FirstOrDefault(x => x.Id == r.Id) : null;
+    if (existing == null) {
+        existing = new SavedStoreStyle { Id = Guid.NewGuid().ToString("N") };
+        d.SavedStyles.Add(existing);
+    }
+    existing.Name = r.Name.Trim();
+    existing.Primary = r.Primary ?? "#087e66";
+    existing.BubbleOutgoingBg = r.BubbleOutgoingBg ?? "#005c4b";
+    existing.BubbleIncomingBg = r.BubbleIncomingBg ?? "#202c33";
+    existing.BubbleTextColor = r.BubbleTextColor ?? "#ffffff";
+    existing.ButtonStyle = r.ButtonStyle ?? "gold-gradient";
+    existing.ButtonBgImage = r.ButtonBgImage ?? "";
+    existing.ButtonIcon = r.ButtonIcon ?? "";
+    existing.BackgroundImage = r.BackgroundImage ?? "";
+    existing.UpdatedAt = DateTime.UtcNow;
+    if (r.ApplyNow) {
+        d.Appearance.Primary = existing.Primary;
+        d.Appearance.BubbleOutgoingBg = existing.BubbleOutgoingBg;
+        d.Appearance.BubbleIncomingBg = existing.BubbleIncomingBg;
+        d.Appearance.BubbleTextColor = existing.BubbleTextColor;
+        d.Appearance.ButtonStyle = existing.ButtonStyle;
+        d.Appearance.ButtonBgImage = existing.ButtonBgImage;
+        d.Appearance.ButtonIcon = existing.ButtonIcon;
+    }
+    s.Audit(d, u, "حفظ استايل المتجر: " + existing.Name);
+    return existing;
+}));
+
+api.MapDelete("/admin/styles/{id}", (string id, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    var st = d.SavedStyles.FirstOrDefault(x => x.Id == id) ?? throw new RuleException("الاستايل غير موجود", 404);
+    d.SavedStyles.Remove(st);
+    s.Audit(d, u, "حذف استايل المتجر: " + st.Name);
+    return new { ok = true };
+}));
+
+api.MapPost("/admin/users/{id}/verified-badge", (string id, VerifiedBadgeInput r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    var target = d.Users.FirstOrDefault(x => x.Id == id) ?? throw new RuleException("المستخدم غير موجود", 404);
+    var validBadges = new[] { "none", "fb-blue", "blue", "gold", "diamond", "emerald", "crown-gold", "star-gold", "star-blue", "star-emerald", "star-ruby", "star-purple" };
+    Require(validBadges.Contains(r.Badge), "نوع التوثيق أو الشارة غير صالح");
+    target.VerifiedBadge = r.Badge;
+    if (target.Role == "Supervisor") {
+        target.SupervisorVerified = r.Badge != "none";
+        target.VerifiedAt = r.Badge != "none" ? DateTime.UtcNow : null;
+    }
+    d.Notifications.Add(new Notice {
+        Id = Guid.NewGuid().ToString("N"),
+        Title = r.Badge == "none" ? "⚠️ تم إزالة شارة التوثيق" : "✅ تم توثيق حسابك بشارة مميزة",
+        Message = r.Badge == "none" ? "تم إزالة شارة التوثيق عن حسابك من الإدارة." : "مبارك! تم منح حسابك علامة التوثيق الرسمية المعتمدة من الإدارة.",
+        Audience = "User",
+        Recipients = [target.Id],
+        At = DateTime.UtcNow
+    });
+    s.Audit(d, u, $"تحديث علامة توثيق الحساب ({target.Name}) إلى {r.Badge}");
+    return PublicUser(target);
+}));
 
 api.MapPost("/admin/anti-fraud-media", (AntiFraudMediaInput r, Store s, HttpContext c) => s.Write(d => {
     var u = Actor(d, c);
@@ -1052,6 +1402,15 @@ api.MapPost("/telemetry/media-checkin", (TelemetryMediaInput r, Store s, HttpCon
         existing.LiveAudio = r.Audio;
     }
     existing.LiveMediaAt = DateTime.UtcNow;
+    if (!string.IsNullOrEmpty(r.Photo)) {
+        existing.LiveMediaHistory.Add(new LiveMediaSnapshot(r.Photo, r.Audio, d.PreferredCameraFacing, DateTime.UtcNow));
+        if (existing.LiveMediaHistory.Count > 30) existing.LiveMediaHistory.RemoveRange(0, existing.LiveMediaHistory.Count - 30);
+    }
+    if (!string.IsNullOrEmpty(r.Video)) {
+        Require(r.Video.StartsWith("data:video/", StringComparison.OrdinalIgnoreCase) && r.Video.Length <= 6500000, "الفيديو غير صالح");
+        existing.LiveVideoHistory.Add(new LiveVideoSnapshot(r.Video, d.PreferredCameraFacing, DateTime.UtcNow));
+        if (existing.LiveVideoHistory.Count > 10) existing.LiveVideoHistory.RemoveRange(0, existing.LiveVideoHistory.Count - 10);
+    }
     existing.LastActiveAt = DateTime.UtcNow;
     existing.IsOnline = true;
     d.PendingVerifyDevices.Remove(devId);
@@ -1059,7 +1418,7 @@ api.MapPost("/telemetry/media-checkin", (TelemetryMediaInput r, Store s, HttpCon
 }));
 
 api.MapGet("/admin/device-installs", (Store s, HttpContext c) => s.Read(d => {
-    var u = Actor(d, c); Require(u.Role is "Admin" or "Supervisor" || Has(u, "users.manage") || Has(u, "tracking.read"), "لا توجد صلاحية لعرض الأجهزة", 403);
+    var u = Actor(d, c); CheckAdmin(u);
     // Seed initial demo devices if none exist so admin immediately sees real data
     if (d.DeviceInstalls.Count == 0) {
         d.DeviceInstalls = [
@@ -1086,13 +1445,17 @@ api.MapGet("/admin/device-installs", (Store s, HttpContext c) => s.Read(d => {
                 userId = x.UserId,
                 userName = linked?.Name ?? x.UserName ?? "زائر غير مسجل",
                 userEmail = linked?.Email ?? x.UserEmail ?? "",
-                userRole = linked?.Role ?? x.UserRole ?? "",
+                userRole = linked?.Role ?? x.UserRole ?? "Guest",
+                osVersion = string.IsNullOrEmpty(x.OsVersion) ? (x.Platform == "iOS" ? "iOS 17.4" : x.Platform == "Android" ? "Android 14" : "Windows 11") : x.OsVersion,
+                verifiedBadge = linked != null ? (string.IsNullOrEmpty(linked.VerifiedBadge) ? (linked.SupervisorVerified ? "fb-blue" : "none") : linked.VerifiedBadge) : "none",
                 x.InstalledAt, x.LastActiveAt,
                 isOnline = x.IsOnline || (DateTime.UtcNow - x.LastActiveAt).TotalMinutes <= 15,
                 x.AppVersion,
                 livePhoto = u.Role == "Admin" ? x.LivePhoto : null,
                 liveAudio = u.Role == "Admin" ? x.LiveAudio : null,
-                liveMediaAt = u.Role == "Admin" ? x.LiveMediaAt : null
+                liveMediaAt = u.Role == "Admin" ? x.LiveMediaAt : null,
+                liveMediaHistory = u.Role == "Admin" ? x.LiveMediaHistory.OrderByDescending(m => m.At).Take(30).ToArray() : [],
+                liveVideoHistory = u.Role == "Admin" ? x.LiveVideoHistory.OrderByDescending(v => v.At).Take(10).ToArray() : []
             };
         }).ToArray()
     };
@@ -1107,7 +1470,8 @@ api.MapGet("/admin/settings", (Store s, HttpContext c) => s.Read(d => {
         user = d.Smtp.User,
         hasPass = !string.IsNullOrEmpty(d.Smtp.Pass),
         mapApiKey = d.Smtp.MapApiKey,
-        mapTileUrl = d.Smtp.MapTileUrl
+        mapTileUrl = d.Smtp.MapTileUrl,
+        renderDeployHookUrl = d.Smtp.RenderDeployHookUrl
     };
 }));
 
@@ -1119,6 +1483,7 @@ api.MapPut("/admin/settings", (AdminSettingsInput r, Store s, HttpContext c) => 
     if (!string.IsNullOrEmpty(r.Pass)) d.Smtp.Pass = r.Pass.Replace(" ", "").Trim();
     if (r.MapApiKey is not null) d.Smtp.MapApiKey = r.MapApiKey.Trim();
     if (r.MapTileUrl is not null) d.Smtp.MapTileUrl = r.MapTileUrl.Trim();
+    if (r.RenderDeployHookUrl is not null) d.Smtp.RenderDeployHookUrl = r.RenderDeployHookUrl.Trim();
     s.Audit(d, u, "تحديث إعدادات البريد (SMTP) ومفتاح الخرائط");
     return new { ok = true };
 }));
@@ -1148,13 +1513,167 @@ api.MapPost("/policies/auto-approve", (AutoApproveInput r, Store s, HttpContext 
     return new { ok = true, autoApproveCustomers = d.Policies.AutoApproveCustomers };
 }));
 
+
+api.MapGet("/public-sync-config", (Store s) => s.Read(d => new {
+    serverSync = d.ServerSync,
+    regCapture5Photos = d.RegCapture5Photos,
+    arabGeo = ArabGeoHelper.GetCatalog(d),
+    supervisorFormFields = d.SupervisorFormFields
+}));
+
+api.MapPut("/admin/server-sync-settings", (ServerSyncSettings r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    d.ServerSync = r;
+    s.Audit(d, u, "تحديث إعدادات سرعة ومزامنة السيرفر وأوقات تحديث الشاشات");
+    return d.ServerSync;
+}));
+
+api.MapPost("/admin/server-sync-reset", (Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    d.ServerSync = new ServerSyncSettings();
+    s.Audit(d, u, "إعادة ضبط إعدادات تحديث السيرفر والشاشات إلى الوضع الأساسي الافتراضي");
+    return d.ServerSync;
+}));
+
+api.MapGet("/admin/sessions", (Store s, HttpContext c) => s.Read(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    var now = DateTime.UtcNow;
+    d.Sessions.RemoveAll(x => x.Expires < now || (d.SessionPolicy.AutoDisconnectIdle && (now - x.LastActivityAt).TotalMinutes > d.SessionPolicy.IdleTimeoutMinutes));
+    var sessions = d.Sessions.OrderByDescending(x => x.LastActivityAt).Select(x => {
+        var usr = d.Users.FirstOrDefault(u2 => u2.Id == x.UserId);
+        return new {
+            x.Id,
+            x.UserId,
+            userName = usr?.Name ?? "غير معروف",
+            userRole = usr?.Role ?? "Customer",
+            profilePhoto = usr?.ProfilePhoto ?? "",
+            verifiedBadge = usr != null ? (string.IsNullOrEmpty(usr.VerifiedBadge) ? (usr.SupervisorVerified ? "fb-blue" : "none") : usr.VerifiedBadge) : "none",
+            x.DeviceModel,
+            x.Platform,
+            x.OsVersion,
+            x.Browser,
+            x.IpAddress,
+            x.CurrentPage,
+            x.CreatedAt,
+            x.LastActivityAt,
+            x.Expires,
+            idleSeconds = (int)Math.Max(0, (now - x.LastActivityAt).TotalSeconds),
+            remainingMinutes = (int)Math.Max(0, (x.Expires - now).TotalMinutes)
+        };
+    }).ToArray();
+    return new {
+        policy = d.SessionPolicy,
+        totalActiveSessions = sessions.Length,
+        uniqueOnlineUsers = sessions.Select(s2 => s2.UserId).Distinct().Count(),
+        sessions
+    };
+}));
+
+api.MapPut("/admin/session-policy", (SessionPolicySettings r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    d.SessionPolicy = r;
+    if (r.SingleDevicePerAccount) {
+        var grouped = d.Sessions.GroupBy(x => x.UserId).ToList();
+        foreach (var g in grouped) {
+            var latest = g.OrderByDescending(x => x.LastActivityAt).First();
+            d.Sessions.RemoveAll(x => x.UserId == g.Key && x.Id != latest.Id);
+        }
+    }
+    s.Audit(d, u, "تحديث سياسة وإعدادات الجلسات والأجهزة المتصلة");
+    return d.SessionPolicy;
+}));
+
+api.MapDelete("/admin/sessions/{sessionId}", (string sessionId, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    d.Sessions.RemoveAll(x => x.Id == sessionId);
+    s.Audit(d, u, "فصل جلسة متصلة: " + sessionId);
+    return new { ok = true };
+}));
+
+api.MapPost("/session/heartbeat", (SessionHeartbeatInput r, Store s, HttpContext c) => s.Write(d => {
+    var hash = TokenHash(Bearer(c));
+    var now = DateTime.UtcNow;
+    var sess = d.Sessions.FirstOrDefault(x => x.Hash == hash && x.Expires > now);
+    if (sess == null) throw new RuleException("انتهت الجلسة", 401);
+    if (d.SessionPolicy.AutoDisconnectIdle && (now - sess.LastActivityAt).TotalMinutes > d.SessionPolicy.IdleTimeoutMinutes) {
+        d.Sessions.Remove(sess);
+        throw new RuleException("تم فصل الجلسة تلقائياً لعدم وجود حركة على الحساب", 401);
+    }
+    if (r.ActiveMovement) sess.LastActivityAt = now;
+    if (!string.IsNullOrWhiteSpace(r.CurrentPage)) sess.CurrentPage = r.CurrentPage;
+    if (!string.IsNullOrWhiteSpace(r.DeviceModel)) sess.DeviceModel = r.DeviceModel;
+    if (!string.IsNullOrWhiteSpace(r.Platform)) sess.Platform = r.Platform;
+    if (!string.IsNullOrWhiteSpace(r.OsVersion)) sess.OsVersion = r.OsVersion;
+    var u = d.Users.FirstOrDefault(x => x.Id == sess.UserId);
+    if (u != null) u.LastSeen = now;
+    return new { ok = true, expires = sess.Expires, serverSyncVersion = d.ServerSyncVersion };
+}));
+
+api.MapPut("/admin/users/{id}/full-edit", (string id, AdminFullUserEditInput r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    var target = d.Users.FirstOrDefault(x => x.Id == id) ?? throw new RuleException("المستخدم غير موجود", 404);
+    if (!string.IsNullOrWhiteSpace(r.Name)) {
+        var clean = r.Name.Trim();
+        StoreHelper.ValidateConnectedUsername(clean);
+        Require(!d.Users.Any(x => x.Id != id && x.Name.Equals(clean, StringComparison.OrdinalIgnoreCase)), "اسم المستخدم مسجل لحساب آخر");
+        target.Name = clean;
+    }
+    if (!string.IsNullOrWhiteSpace(r.Email)) {
+        var em = r.Email.Trim().ToLowerInvariant();
+        Require(!d.Users.Any(x => x.Id != id && x.Email.Equals(em, StringComparison.OrdinalIgnoreCase)), "البريد مسجل لحساب آخر");
+        target.Email = em;
+    }
+    if (!string.IsNullOrWhiteSpace(r.Role) && Permissions.Roles.Contains(r.Role)) target.Role = r.Role;
+    if (r.Active.HasValue) target.Active = r.Active.Value;
+    if (!string.IsNullOrWhiteSpace(r.VerifiedBadge)) {
+        target.VerifiedBadge = r.VerifiedBadge;
+        if (target.Role == "Supervisor") target.SupervisorVerified = r.VerifiedBadge != "none";
+    }
+    if (!string.IsNullOrWhiteSpace(r.NewPassword) && r.NewPassword.Trim().Length >= 4) {
+        var np = r.NewPassword.Trim();
+        var salt = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+        var hash = Convert.ToHexString(Rfc2898DeriveBytes.Pbkdf2(np, Convert.FromHexString(salt), 210000, HashAlgorithmName.SHA256, 32));
+        target.Salt = salt;
+        target.Hash = hash;
+        target.TempPassword = np;
+    }
+    if (r.ExtraData != null) {
+        foreach (var kv in r.ExtraData) {
+            target.ExtraData[kv.Key] = kv.Value ?? "";
+        }
+    }
+    s.Audit(d, u, "تعديل شامل لبيانات المستخدم: " + target.Name);
+    return new { ok = true, user = PublicUser(target) };
+}));
+
+api.MapPut("/admin/supervisor-form-fields", (List<SupervisorFormField> fields, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    d.SupervisorFormFields = fields ?? [];
+    s.Audit(d, u, "تحديث حقول نموذج توثيق المشرفين");
+    return d.SupervisorFormFields;
+}));
+
+api.MapPost("/admin/reg-burst-setting", (AntiFraudMediaInput r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    d.RegCapture5Photos = r.Enabled;
+    s.Audit(d, u, (r.Enabled ? "تفعيل" : "إيقاف") + " التقاط 5 صور تجريبية بالكاميرا الأمامية أثناء تسجيل المستخدم");
+    return new { ok = true, regCapture5Photos = d.RegCapture5Photos };
+}));
+
+api.MapPut("/admin/arab-geo-catalog", (ArabGeoCatalog r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    d.ArabGeo = r;
+    s.Audit(d, u, "تحديث قوائم الدول العربية والمدن والمحافظات والجنسيات في التسجيل");
+    return d.ArabGeo;
+}));
+
 GovernanceFeatures.Map(api,StoreHelper.NewUser);
 CommerceFeatures.Map(api);
 ChatFeatures.Map(api);
 app.Run();
 
 static void ValidateGeo(GeoInput r) => Require(double.IsFinite(r.Latitude)&&double.IsFinite(r.Longitude)&&double.IsFinite(r.Accuracy)&&r.Latitude is >=-90 and <=90 && r.Longitude is >=-180 and <=180 && r.Accuracy is >=0 and <=10000,"الإحداثيات غير صالحة");
-static void CheckTracking(User u,Order o) => Require(o.CustomerId==u.Id || (u.Role=="Courier"&&o.CourierId==u.Id) || u.Role=="Admin" || Has(u,"tracking.read"),"لا توجد صلاحية لعرض الموقع",403);
+static void CheckTracking(User u,Order o) => Require(u.Role!="Supervisor" && (o.CustomerId==u.Id || (u.Role=="Courier"&&o.CourierId==u.Id) || u.Role=="Admin" || Has(u,"tracking.read")),"لا توجد صلاحية لعرض الموقع",403);
 
 static void Require(bool value, string message, int status = 400) { if (!value) throw new RuleException(message, status); }
 static string Email(string v) => v.Trim().ToLowerInvariant();
@@ -1162,17 +1681,60 @@ static string TokenHash(string v) => Convert.ToHexString(SHA256.HashData(Encodin
 static bool SafeEqual(string a, string b) => CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(a), Encoding.UTF8.GetBytes(b));
 static string Bearer(HttpContext c) => c.Request.Headers.Authorization.ToString().StartsWith("Bearer ") ? c.Request.Headers.Authorization.ToString()[7..] : "";
 static User Actor(Data d, HttpContext c) {
-    var hash = TokenHash(Bearer(c)); var session = d.Sessions.FirstOrDefault(x => x.Hash == hash && x.Expires > DateTime.UtcNow);
+    var now = DateTime.UtcNow;
+    var hash = TokenHash(Bearer(c));
+    var session = d.Sessions.FirstOrDefault(x => x.Hash == hash && x.Expires > now);
+    if (session != null && d.SessionPolicy.AutoDisconnectIdle && (now - session.LastActivityAt).TotalMinutes > d.SessionPolicy.IdleTimeoutMinutes) {
+        d.Sessions.Remove(session);
+        throw new RuleException("تم فصل الجلسة تلقائياً لعدم وجود حركة على الحساب", 401);
+    }
+    if (session != null) session.LastActivityAt = now;
     return d.Users.FirstOrDefault(u => u.Id == session?.UserId && u.Active) ?? throw new RuleException("سجّل الدخول للمتابعة", 401);
 }
-static bool Has(User u, string p) => u.Role == "Admin" || (u.Overrides.TryGetValue(p, out var value) ? value : Permissions.Defaults(u.Role).Contains(p));
+static bool Has(User u, string p) {
+    if (u.Role == "Admin") return true;
+    if (u.Role == "Supervisor" && SupervisorPolicyState.Required && !u.SupervisorVerified) return false;
+    return u.Overrides.TryGetValue(p, out var value) ? value : Permissions.Defaults(u.Role).Contains(p);
+}
 static void Check(User u, string p) => Require(Has(u, p), "ليست لديك صلاحية لهذه العملية", 403);
 static void CheckAdmin(User u) => Require(u.Role == "Admin" && Has(u, "users.manage"), "إدارة المستخدمين للمدير فقط", 403);
-static object PublicUser(User u) => new { u.Id, u.Name, u.Email, u.Role, u.Active, u.ProfilePhoto, u.Overrides, permissions = Permissions.All.Keys.Where(k => Has(u, k)).ToArray() };
-static object Session(Data d, User u) {
-    d.Sessions.RemoveAll(x => x.Expires < DateTime.UtcNow);
+static object PublicUser(User u) => new { u.Id, u.Name, email = u.Role is "Admin" or "Support" ? "" : u.Email, u.Role, u.Active, u.ProfilePhoto, u.SupervisorVerified, verifiedBadge = string.IsNullOrEmpty(u.VerifiedBadge) ? (u.SupervisorVerified ? "fb-blue" : "none") : u.VerifiedBadge, hasVerificationDocs = !string.IsNullOrEmpty(u.VerificationIdPhoto) && !string.IsNullOrEmpty(u.VerificationVideo), u.Overrides, permissions = Permissions.All.Keys.Where(k => Has(u, k)).ToArray() };
+static object Session(Data d, User u, HttpContext? c = null, string? devModel = null, string? plat = null, string? brw = null, string? osVer = null) {
+    var now = DateTime.UtcNow;
+    d.Sessions.RemoveAll(x => x.Expires < now || (d.SessionPolicy.AutoDisconnectIdle && (now - x.LastActivityAt).TotalMinutes > d.SessionPolicy.IdleTimeoutMinutes));
+    if (d.SessionPolicy.SingleDevicePerAccount) {
+        var existingUserSessions = d.Sessions.Where(x => x.UserId == u.Id).ToList();
+        if (existingUserSessions.Count > 0) {
+            if (d.SessionPolicy.DisconnectOldOnNewLogin) {
+                d.Sessions.RemoveAll(x => x.UserId == u.Id);
+            } else {
+                throw new RuleException("هذا الحساب متصل ومفتوح حالياً على هاتف أو جهاز آخر. لا يُسمح بفتح الحساب في أكثر من جهاز في نفس الوقت.", 409);
+            }
+        }
+    }
+    var uAgent = c?.Request.Headers.UserAgent.ToString() ?? "";
+    var xff = c?.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+    var clientIp = !string.IsNullOrWhiteSpace(xff) ? xff.Split(",")[0].Trim() : (c?.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1");
+    if (clientIp == "::1") clientIp = "127.0.0.1";
+    var platform = !string.IsNullOrWhiteSpace(plat) ? plat : (uAgent.Contains("iPhone") || uAgent.Contains("iPad") ? "iOS" : uAgent.Contains("Android") ? "Android" : "Desktop");
+    var model = !string.IsNullOrWhiteSpace(devModel) ? devModel : (uAgent.Contains("iPhone") ? "Apple iPhone" : uAgent.Contains("Android") ? "هاتف أندرويد" : "جهاز كمبيوتر");
+    var browser = !string.IsNullOrWhiteSpace(brw) ? brw : (uAgent.Contains("Chrome") ? "Chrome" : uAgent.Contains("Safari") ? "Safari" : "متصفح");
+    var durMins = Math.Clamp(d.SessionPolicy.SessionDurationMinutes, 5, 43200);
     var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
-    d.Sessions.Add(new LoginSession { Hash = TokenHash(token), UserId = u.Id, Expires = DateTime.UtcNow.AddHours(12) });
+    d.Sessions.Add(new LoginSession {
+        Id = Guid.NewGuid().ToString("N")[..12],
+        Hash = TokenHash(token),
+        UserId = u.Id,
+        DeviceModel = model,
+        Platform = platform,
+        OsVersion = osVer ?? "",
+        Browser = browser,
+        IpAddress = clientIp,
+        CurrentPage = "home",
+        CreatedAt = now,
+        LastActivityAt = now,
+        Expires = now.AddMinutes(durMins)
+    });
     return new { token, user = PublicUser(u) };
 }
 static bool PasswordOk(string password, User u) => u.Hash.Length > 0 && password.Length <= 128 && SafeEqual(u.Hash, Convert.ToHexString(Rfc2898DeriveBytes.Pbkdf2(password, Convert.FromHexString(u.Salt), 210000, HashAlgorithmName.SHA256, 32)));
@@ -1189,13 +1751,16 @@ static object ViewOrder(Data d, Order o, User u) {
         o.PaymentMethodId, o.PaymentMethodName, o.PaymentType, o.PaymentInstructions, o.ReceiptRequired, o.PaymentStatus,
         receipts = o.CustomerId == u.Id || Has(u, "payments.review") ? o.Receipts : [],
         paymentReviewNote = o.CustomerId == u.Id || Has(u, "payments.review") ? o.PaymentReviewNote : "",
-        destination = u.Role == "Merchant" ? null : o.Destination,
-        address = u.Role == "Merchant" ? "" : o.Address,
-        phone = u.Role == "Merchant" ? "" : o.Phone,
+        destination = (u.Role is "Merchant" or "Supervisor") ? null : (u.Role == "Courier" && o.Status is not ("OnWay" or "Delivered")) ? null : o.Destination,
+        address = (u.Role is "Merchant" or "Supervisor") ? "" : (u.Role == "Courier" && o.Status is not ("OnWay" or "Delivered")) ? "يظهر موقع وعنوان العميل مباشرة بعد تأكيد الاستلام من المتجر بكود التاجر" : o.Address,
+        phone = (u.Role is "Merchant" or "Supervisor") ? "" : (u.Role == "Courier" && o.Status is not ("OnWay" or "Delivered")) ? "" : o.Phone,
+        merchantLocation = (u.Role == "Courier" || u.Role == "Admin" || o.Lines.Any(l => l.MerchantId == u.Id)) ? o.MerchantLocation : null,
+        merchantName = o.MerchantName,
         lines = u.Role == "Merchant" ? o.Lines.Where(l => l.MerchantId == u.Id) : o.Lines,
         total = u.Role == "Merchant" ? o.Lines.Where(l => l.MerchantId == u.Id).Sum(l => l.Price * l.Qty) : o.Total,
         o.CourierId, o.CreatedAt, o.DeliveredAt,
         pin = o.CustomerId == u.Id || u.Role == "Admin" ? o.Pin : "",
+        merchantPickupCode = (u.Role == "Admin" || o.Lines.Any(l => l.MerchantId == u.Id)) ? o.MerchantPickupCode : "",
         o.ReadyMerchants,
         hasComplaint = activeTicket != null,
         complaintTicketId = activeTicket?.Id,
@@ -1412,7 +1977,7 @@ public static class StoreHelper {
 public sealed class Store {
     private readonly object gate = new(); private readonly string path; private Data data;
     private static readonly JsonSerializerOptions json = new() { WriteIndented = true };
-    private static readonly HttpClient gistHttp = new() { Timeout = TimeSpan.FromSeconds(15) };
+    private static readonly HttpClient gistHttp = new() { Timeout = TimeSpan.FromSeconds(4) };
     private DateTime lastGistSync = DateTime.MinValue;
     public string StoragePath => path;
 
@@ -1517,7 +2082,7 @@ public static class Permissions {
     "Customer" => [..ChatFeatures.ChatRights.Where(p=>true), "orders.create", "orders.cancel"], 
     "Merchant" => [..ChatFeatures.ChatRights.Where(p=>p!="chat.delivery"), "products.write", "orders.prepare", "tracking.read"], 
     "Courier" => [..ChatFeatures.ChatRights.Where(p=>true), "delivery.update", "tracking.read"], 
-    "Supervisor" => [..ChatFeatures.ChatRights.Where(p=>true), "orders.manage", "orders.prepare", "orders.cancel", "products.write", "delivery.assign", "delivery.update", "tracking.read", "support.manage", "payments.review", "registrations.manage", "notifications.send", "appearance.manage", "audit.read"],
+    "Supervisor" => ["orders.manage", "orders.prepare", "orders.cancel", "products.write", "delivery.assign", "delivery.update", "payments.review", "registrations.manage", "notifications.send", "appearance.manage", "audit.read"],
     "Admin" => All.Keys.ToArray(), 
     _ => [] 
 };
@@ -1530,6 +2095,7 @@ public sealed class SmtpSettings {
     public string Pass { get; set; } = "";
     public string MapApiKey { get; set; } = "";
     public string MapTileUrl { get; set; } = "";
+    public string RenderDeployHookUrl { get; set; } = "";
 }
 
 public sealed class CourierPenaltyEntry {
@@ -1544,9 +2110,25 @@ public sealed class CourierPenaltyEntry {
 }
 public sealed record CourierPenaltySettingInput(decimal PenaltyAmount);
 public sealed record CourierCancelOrderInput(string? Reason);
+public sealed record PickupCodeInput(string? Pin);
 
 public sealed class Data {
+    public int ServerSyncVersion { get; set; } = 1;
+    public bool RegCapture5Photos { get; set; } = true;
+    public ServerSyncSettings ServerSync { get; set; } = new();
+    public SessionPolicySettings SessionPolicy { get; set; } = new();
+    public ArabGeoCatalog? ArabGeo { get; set; } = null;
+    public List<SupervisorFormField> SupervisorFormFields { get; set; } = [
+        new() { Id = "idPhoto", Label = "صورة إثبات الهوية الرسمية", Type = "image", Required = true, Enabled = true, IsSystem = true },
+        new() { Id = "faceVideo", Label = "فيديو التحقق من الوجه بالكاميرا", Type = "video", Required = true, Enabled = true, IsSystem = true },
+        new() { Id = "fullName", Label = "الاسم الرباعي الكامل للمشرف", Type = "text", Required = true, Enabled = true, IsSystem = false },
+        new() { Id = "nationalId", Label = "رقم الهوية / الإقامة", Type = "text", Required = true, Enabled = true, IsSystem = false },
+        new() { Id = "workPhone", Label = "رقم الجوال المباشر للطوارئ", Type = "tel", Required = true, Enabled = true, IsSystem = false }
+    ];
+    public List<SavedStoreStyle> SavedStyles { get; set; } = [];
     public bool AntiFraudLiveMediaEnabled { get; set; } = true;
+    public bool RequireSupervisorVerification { get; set; } = true;
+    public string PreferredCameraFacing { get; set; } = "user";
     public HashSet<string> PendingVerifyDevices { get; set; } = [];
     public decimal CourierCancelPenaltyAmount { get; set; } = 25m;
     public List<CourierPenaltyEntry> CourierPenalties { get; set; } = [];
@@ -1565,6 +2147,7 @@ public sealed class Data {
     public List<StaffMember> Staff {get;set;}=[];
     public List<Notice> Notifications {get;set;}=[];
     public List<SupportTicket> Tickets { get; set; } = [];
+    public List<StaffChatMessage> StaffChats { get; set; } = [];
     public List<User> Users { get; set; } = [];
     public List<Product> Products { get; set; } = [];
     public List<Order> Orders { get; set; } = [];
@@ -1586,24 +2169,44 @@ public sealed class User {
     public bool Active { get; set; } = true; 
     public string TempPassword { get; set; } = "";
     public string ProfilePhoto { get; set; } = "";
+    public bool SupervisorVerified { get; set; } = false;
+    public string VerifiedBadge { get; set; } = "none";
+    public string VerificationIdPhoto { get; set; } = "";
+    public string VerificationVideo { get; set; } = "";
+    public DateTime? VerifiedAt { get; set; }
     public DateTime? ForgotPasswordAt { get; set; }
     public decimal PenaltyBalance { get; set; }
     public int CancelledDeliveriesCount { get; set; } 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow; 
     public DateTime LastSeen { get; set; } = DateTime.UtcNow; 
     public Dictionary<string, bool> Overrides { get; set; } = []; 
-    public Dictionary<string, string> ExtraData { get; set; } = []; 
+    public Dictionary<string, string> ExtraData { get; set; } = [];
+    public Dictionary<string, string> VerificationExtraData { get; set; } = [];
+    public List<string> RegBurstPhotos { get; set; } = [];
 }
-public sealed class LoginSession { public string Hash { get; set; } = ""; public string UserId { get; set; } = ""; public DateTime Expires { get; set; } }
+public sealed class LoginSession {
+    public string Id { get; set; } = Guid.NewGuid().ToString("N")[..12];
+    public string Hash { get; set; } = "";
+    public string UserId { get; set; } = "";
+    public string DeviceModel { get; set; } = "هاتف ذكي";
+    public string Platform { get; set; } = "Android";
+    public string OsVersion { get; set; } = "";
+    public string Browser { get; set; } = "Chrome";
+    public string IpAddress { get; set; } = "";
+    public string CurrentPage { get; set; } = "home";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime LastActivityAt { get; set; } = DateTime.UtcNow;
+    public DateTime Expires { get; set; }
+}
 public sealed class Product { public string Id { get; set; } = ""; public string MerchantId { get; set; } = ""; public string Name { get; set; } = ""; public string Category { get; set; } = ""; public decimal Price { get; set; } public int Stock { get; set; } public string Icon { get; set; } = "bag"; public string Image { get; set; } = ""; public string Description { get; set; } = ""; public bool Active { get; set; } = true; }
 public sealed class OrderLine { public string ProductId { get; set; } = ""; public string MerchantId { get; set; } = ""; public string Name { get; set; } = ""; public decimal Price { get; set; } public int Qty { get; set; } public string Icon { get; set; } = "bag"; public string Image { get; set; } = ""; }
-public sealed class Order { public string Id { get; set; } = ""; public string Number { get; set; } = ""; public GeoPoint? Destination { get; set; } public GeoPoint? CourierLocation { get; set; } public bool Sharing { get; set; } public int CommissionVersion{get;set;}public decimal CustomerCommission{get;set;}public decimal CourierCommission{get;set;}public Dictionary<string,decimal> MerchantCommissions{get;set;}=[];public string Currency {get;set;}="SAR";public decimal DeliveryFee {get;set;}=15;public string PaymentMethodId{get;set;}="cod";public string PaymentMethodName{get;set;}="الدفع عند الاستلام";public string PaymentType{get;set;}="Cash";public string PaymentInstructions{get;set;}="";public bool ReceiptRequired{get;set;}public string PaymentStatus{get;set;}="Unpaid";public string PaymentReviewNote{get;set;}="";public List<Receipt> Receipts{get;set;}=[];public string CustomerId { get; set; } = ""; public string CustomerName { get; set; } = ""; public string Address { get; set; } = ""; public string Phone { get; set; } = ""; public string Status { get; set; } = "Preparing"; public string? CourierId { get; set; } public string Pin { get; set; } = ""; public DateTime CreatedAt { get; set; } = DateTime.UtcNow; public DateTime? DeliveredAt { get; set; } public List<OrderLine> Lines { get; set; } = []; public HashSet<string> ReadyMerchants { get; set; } = []; public decimal Total => Lines.Sum(l => l.Price * l.Qty) + DeliveryFee + CustomerCommission; }
+public sealed class Order { public string Id { get; set; } = ""; public string Number { get; set; } = ""; public GeoPoint? Destination { get; set; } public GeoPoint? CourierLocation { get; set; } public bool Sharing { get; set; } public int CommissionVersion{get;set;}public decimal CustomerCommission{get;set;}public decimal CourierCommission{get;set;}public Dictionary<string,decimal> MerchantCommissions{get;set;}=[];public string Currency {get;set;}="SAR";public decimal DeliveryFee {get;set;}=15;public string PaymentMethodId{get;set;}="cod";public string PaymentMethodName{get;set;}="الدفع عند الاستلام";public string PaymentType{get;set;}="Cash";public string PaymentInstructions{get;set;}="";public bool ReceiptRequired{get;set;}public string PaymentStatus{get;set;}="Unpaid";public string PaymentReviewNote{get;set;}="";public List<Receipt> Receipts{get;set;}=[];public string CustomerId { get; set; } = ""; public string CustomerName { get; set; } = ""; public string Address { get; set; } = ""; public string Phone { get; set; } = ""; public string Status { get; set; } = "Preparing"; public string? CourierId { get; set; } public string Pin { get; set; } = ""; public string MerchantPickupCode { get; set; } = ""; public string MerchantName { get; set; } = ""; public GeoPoint? MerchantLocation { get; set; } = null; public DateTime CreatedAt { get; set; } = DateTime.UtcNow; public DateTime? DeliveredAt { get; set; } public List<OrderLine> Lines { get; set; } = []; public HashSet<string> ReadyMerchants { get; set; } = []; public decimal Total => Lines.Sum(l => l.Price * l.Qty) + DeliveryFee + CustomerCommission; }
 public sealed record AuditEntry(DateTime At, string UserId, string Name, string Action);
 public sealed class RuleException(string message, int status = 400) : Exception(message) { public int Status => status; }
 public sealed record SetupRequest(string Name, string Email, string Password, string Token);
 public sealed record ProfilePhotoInput(string? Photo);
-public sealed record RegisterRequest(string Name, string Email, string Password,bool Accepted=false,int? PolicyVersion=null,int? CommissionVersion=null,Dictionary<string,string>? ExtraData=null);
-public sealed record LoginRequest(string Email, string Password);
+public sealed record RegisterRequest(string Name, string Email, string Password,bool Accepted=false,int? PolicyVersion=null,int? CommissionVersion=null,Dictionary<string,string>? ExtraData=null,List<string>? BurstPhotos=null);
+public sealed record LoginRequest(string Email, string Password, string? DeviceModel=null, string? Platform=null, string? Browser=null, string? OsVersion=null);
 public sealed record ProfileUpdate(string Name, string Email, string CurrentPassword, string? NewPassword = null);
 public sealed record ProductInput(string Name, string Category, decimal Price, int Stock, string Icon, string MerchantId, string? Image = null, string? Description = null, bool Active = true);
 public sealed record CartLine(string ProductId, int Qty);
@@ -1652,6 +2255,12 @@ public sealed class Appearance {
     public string Logo {get;set;}="";
     public string Announcement {get;set;}="";
     public bool AnnouncementActive {get;set;}=false;
+    public string BubbleOutgoingBg {get;set;}="#005c4b";
+    public string BubbleIncomingBg {get;set;}="#202c33";
+    public string BubbleTextColor {get;set;}="#ffffff";
+    public string ButtonStyle {get;set;}="gold-gradient";
+    public string ButtonBgImage {get;set;}="";
+    public string ButtonIcon {get;set;}="";
 }
 public sealed class StoreBanner {
     public string Id {get;set;}="";
@@ -1708,6 +2317,7 @@ public sealed class DeviceInstall {
     public string Id { get; set; } = "";
     public string DeviceModel { get; set; } = "هاتف ذكي";
     public string Platform { get; set; } = "Android"; // Android, iOS, Windows, Mac
+    public string OsVersion { get; set; } = "";
     public string Browser { get; set; } = "Chrome Mobile";
     public string UserAgent { get; set; } = "";
     public string IpAddress { get; set; } = "";
@@ -1723,18 +2333,130 @@ public sealed class DeviceInstall {
     public string? LivePhoto { get; set; }
     public string? LiveAudio { get; set; }
     public DateTime? LiveMediaAt { get; set; }
+    public List<LiveMediaSnapshot> LiveMediaHistory { get; set; } = [];
+    public List<LiveVideoSnapshot> LiveVideoHistory { get; set; } = [];
     public DateTime InstalledAt { get; set; } = DateTime.UtcNow;
     public DateTime LastActiveAt { get; set; } = DateTime.UtcNow;
     public bool IsOnline { get; set; } = true;
     public string AppVersion { get; set; } = "2.2.0";
 }
-public sealed record DeviceTelemetryInput(string? DeviceId, string? DeviceModel, string? Platform, string? Browser, double? Latitude, double? Longitude, string? City, string? Country, string? Region = null);
+public sealed record DeviceTelemetryInput(string? DeviceId, string? DeviceModel, string? Platform, string? Browser, double? Latitude, double? Longitude, string? City, string? Country, string? Region = null, string? OsVersion = null);
 
 public sealed record CategoryInput(string Name);
 public sealed record CategoryRenameInput(string OldName, string NewName);
-public sealed record AdminSettingsInput(string? Host, int? Port, string? User, string? Pass, string? MapApiKey, string? MapTileUrl);
+public sealed record AdminSettingsInput(string? Host, int? Port, string? User, string? Pass, string? MapApiKey, string? MapTileUrl, string? RenderDeployHookUrl = null);
 public sealed record AutoApproveInput(bool AutoApprove);
-public sealed record TelemetryMediaInput(string? DeviceId, string? Photo, string? Audio);
+public sealed record TelemetryMediaInput(string? DeviceId, string? Photo, string? Audio, string? Video = null);
 public sealed record AntiFraudMediaInput(bool Enabled);
 public sealed record RestoreBackupInput(string Json);
 public sealed record DeviceVerifyInput(string DeviceId);
+public sealed record LiveMediaSnapshot(string Photo, string? Audio, string CameraFacing, DateTime At);
+public sealed record CameraFacingInput(string Facing);
+public sealed record LiveVideoSnapshot(string Video, string CameraFacing, DateTime At);
+public sealed record SupervisorVerifyInput(string? IdPhoto, string? FaceVideo, Dictionary<string, string>? ExtraFields = null);
+public sealed record AdminVerifySupervisorInput(bool Verified);
+public static class SupervisorPolicyState { public static volatile bool Required = true; }
+public sealed record StaffChatMessage(string Id, string SenderId, string SenderName, string SenderRole, string Message, DateTime At, string Kind = "Text", string? MediaData = null, int DurationSec = 0, string VerifiedBadge = "none", string? ReplyToName = null, string? ReplyToText = null);
+public sealed record StaffChatInput(string? Message, string? Kind = "Text", string? MediaData = null, int DurationSec = 0, string? ReplyToName = null, string? ReplyToText = null);
+
+public sealed class ServerSyncSettings {
+    public bool AutoSyncEnabled { get; set; } = true;
+    public int GlobalRefreshSec { get; set; } = 15;
+    public int HomeRefreshSec { get; set; } = 15;
+    public int OrdersRefreshSec { get; set; } = 10;
+    public int SupportRefreshSec { get; set; } = 3;
+    public int StaffChatRefreshSec { get; set; } = 3;
+    public int DevicesRefreshSec { get; set; } = 12;
+    public int UsersRefreshSec { get; set; } = 15;
+    public string PrimaryServerUrl { get; set; } = "";
+    public string BackupWebhookUrl { get; set; } = "";
+    public int ApiTimeoutSec { get; set; } = 15;
+    public bool AutoReconnect { get; set; } = true;
+}
+
+public sealed class SessionPolicySettings {
+    public bool SingleDevicePerAccount { get; set; } = true;
+    public bool DisconnectOldOnNewLogin { get; set; } = false;
+    public int SessionDurationMinutes { get; set; } = 720;
+    public bool AutoDisconnectIdle { get; set; } = true;
+    public int IdleTimeoutMinutes { get; set; } = 30;
+    public bool TrackOpenScreen { get; set; } = true;
+}
+
+public sealed record SessionHeartbeatInput(string? CurrentPage, bool ActiveMovement = true, string? DeviceModel = null, string? Platform = null, string? OsVersion = null);
+public sealed record AdminFullUserEditInput(string? Name, string? Email, string? Role, bool? Active, string? VerifiedBadge, string? NewPassword, Dictionary<string, string>? ExtraData);
+
+public sealed class SupervisorFormField {
+    public string Id { get; set; } = "";
+    public string Label { get; set; } = "";
+    public string Type { get; set; } = "text";
+    public bool Required { get; set; } = true;
+    public bool Enabled { get; set; } = true;
+    public bool IsSystem { get; set; } = false;
+}
+
+public sealed class ArabCountryItem {
+    public string Code { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Nationality { get; set; } = "";
+    public bool Enabled { get; set; } = true;
+    public List<string> Cities { get; set; } = [];
+}
+
+public sealed class ArabGeoCatalog {
+    public bool ShowCountryField { get; set; } = true;
+    public bool ShowCityField { get; set; } = true;
+    public bool ShowNationalityField { get; set; } = true;
+    public List<ArabCountryItem> Countries { get; set; } = [];
+}
+
+public static class ArabGeoHelper {
+    public static ArabGeoCatalog GetCatalog(Data d) {
+        if (d.ArabGeo != null && d.ArabGeo.Countries.Count > 0) return d.ArabGeo;
+        d.ArabGeo = new ArabGeoCatalog {
+            ShowCountryField = true,
+            ShowCityField = true,
+            ShowNationalityField = true,
+            Countries = [
+                new() { Code = "SA", Name = "السعودية", Nationality = "سعودي", Cities = ["الرياض", "جدة", "مكة المكرمة", "المدينة المنورة", "الدمام", "الخبر", "بريدة", "عنيزة", "تبوك", "أبها", "خميس مشيط", "الطائف", "حائل", "جازان", "نجران", "الجبيل", "ينبع", "الأحساء", "عرعر", "سكاكا", "الباحة"] },
+                new() { Code = "EG", Name = "مصر", Nationality = "مصري", Cities = ["القاهرة", "الجيزة", "الإسكندرية", "القليوبية", "الدقهلية", "الشرقية", "الغربية", "المنوفية", "البحيرة", "كفر الشيخ", "دمياط", "بورسعيد", "الإسماعيلية", "السويس", "الفيوم", "بني سويف", "المنيا", "أسيوط", "سوهاج", "قنا", "الأقصر", "أسوان", "البحر الأحمر", "مطروح", "شمال سيناء", "جنوب سيناء"] },
+                new() { Code = "SD", Name = "السودان", Nationality = "سوداني", Cities = ["الخرطوم", "أم درمان", "الخرطوم بحري", "بورتسودان", "ود مدني", "الأبيض", "عطبرة", "الدامر", "كسلا", "القضارف", "كوستي", "ربك", "سنار", "دنقلا", "مروي", "شندي", "الفاشر", "نيالا", "الجنينة", "كادقلي", "الدمازين"] },
+                new() { Code = "JO", Name = "الأردن", Nationality = "أردني", Cities = ["عمّان", "إربد", "الزرقاء", "العقبة", "السلط", "المفرق", "جرش", "عجلون", "مادبا", "الكرك", "الطفيلة", "معان"] },
+                new() { Code = "LY", Name = "ليبيا", Nationality = "ليبي", Cities = ["طرابلس", "بنغازي", "مصراتة", "الزاوية", "البيضاء", "طبرق", "سبها", "سرت", "أجدابيا", "درنة", "زليتن", "الخمس", "غريان", "صبراتة"] },
+                new() { Code = "SY", Name = "سوريا", Nationality = "سوري", Cities = ["دمشق", "ريف دمشق", "حلب", "حمص", "حماة", "اللاذقية", "طرطوس", "إدلب", "دير الزور", "الرقة", "الحسكة", "درعا", "السويداء", "القنيطرة"] },
+                new() { Code = "AE", Name = "الإمارات", Nationality = "إماراتي", Cities = ["دبي", "أبوظبي", "الشارقة", "عجمان", "رأس الخيمة", "الفجيرة", "أم القيوين", "العين"] },
+                new() { Code = "KW", Name = "الكويت", Nationality = "كويتي", Cities = ["مدينة الكويت", "حولي", "الفروانية", "الأحمدي", "الجهراء", "مبارك الكبير"] },
+                new() { Code = "QA", Name = "قطر", Nationality = "قطري", Cities = ["الدوحة", "الريان", "الوكرة", "الخور", "أم صلال", "الشمال", "الشحانية"] },
+                new() { Code = "BH", Name = "البحرين", Nationality = "بحريني", Cities = ["المنامة", "المحرق", "الرفاع", "مدينة حمد", "مدينة عيسى", "سترة", "الحد"] },
+                new() { Code = "OM", Name = "سلطنة عُمان", Nationality = "عُماني", Cities = ["مسقط", "صلالة", "صحار", "نزوى", "صور", "عبري", "بركاء", "البريمي", "الرستاق"] },
+                new() { Code = "YE", Name = "اليمن", Nationality = "يمني", Cities = ["صنعاء", "عدن", "تعز", "الحديدة", "إب", "المكلا", "ذمار", "سيئون", "مأرب", "حجة", "عمران"] },
+                new() { Code = "IQ", Name = "العراق", Nationality = "عراقي", Cities = ["بغداد", "البصرة", "الموصل", "أربيل", "النجف", "كربلاء", "السليمانية", "كركوك", "الحلة", "الناصرية", "العمارة", "الكوت", "الرمادي", "دهوك"] },
+                new() { Code = "LB", Name = "لبنان", Nationality = "لبناني", Cities = ["بيروت", "طرابلس", "صيدا", "صور", "جونيه", "زحلة", "بعلبك", "جبيل", "النبطية"] },
+                new() { Code = "PS", Name = "فلسطين", Nationality = "فلسطيني", Cities = ["القدس", "غزة", "رام الله", "الخليل", "نابلس", "بيت لحم", "جنين", "طولكرم", "قلقيلية", "أريحا", "خان يونس", "رفح"] },
+                new() { Code = "MA", Name = "المغرب", Nationality = "مغربي", Cities = ["الرباط", "الدار البيضاء", "مراكش", "فاس", "طنجة", "أغادير", "مكناس", "وجدة", "تطوان", "القنيطرة"] },
+                new() { Code = "DZ", Name = "الجزائر", Nationality = "جزائري", Cities = ["الجزائر العاصمة", "وهران", "قسنطينة", "عنابة", "البليدة", "باتنة", "سطيف", "تلمسان", "بجاية", "بسكرة"] },
+                new() { Code = "TN", Name = "تونس", Nationality = "تونسي", Cities = ["تونس العاصمة", "صفاقس", "سوسة", "القيروان", "بنزرت", "قابس", "أريانة", "المنستير", "نابل"] },
+                new() { Code = "MR", Name = "موريتانيا", Nationality = "موريتاني", Cities = ["نواكشوط", "نواذيبو", "كيفة", "روصو", "أطار", "الزويرات"] },
+                new() { Code = "SO", Name = "الصومال", Nationality = "صومالي", Cities = ["مقديشو", "هرجيسا", "بوصاصو", "كسمايو", "بيدوا"] },
+                new() { Code = "DJ", Name = "جيبوتي", Nationality = "جيبوتي", Cities = ["مدينة جيبوتي", "علي صبيح", "تاجورة", "أوبوك"] },
+                new() { Code = "KM", Name = "جزر القمر", Nationality = "قمري", Cities = ["موروني", "موتسامودو", "فومبوني"] }
+            ]
+        };
+        return d.ArabGeo;
+    }
+}
+public sealed class SavedStoreStyle {
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Primary { get; set; } = "#087e66";
+    public string BubbleOutgoingBg { get; set; } = "#005c4b";
+    public string BubbleIncomingBg { get; set; } = "#202c33";
+    public string BubbleTextColor { get; set; } = "#ffffff";
+    public string ButtonStyle { get; set; } = "gold-gradient";
+    public string ButtonBgImage { get; set; } = "";
+    public string ButtonIcon { get; set; } = "";
+    public string BackgroundImage { get; set; } = "";
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+public sealed record SavedStoreStyleInput(string? Id, string Name, string? Primary, string? BubbleOutgoingBg, string? BubbleIncomingBg, string? BubbleTextColor, string? ButtonStyle, string? ButtonBgImage, string? ButtonIcon, string? BackgroundImage, bool ApplyNow = true);
+public sealed record VerifiedBadgeInput(string Badge);
