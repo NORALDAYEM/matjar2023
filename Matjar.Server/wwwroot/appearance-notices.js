@@ -204,11 +204,21 @@ async function requestMobileNotificationPermission() {
   }
 }
 
-const defaultAppearance={storeName:'التسوق',subtitle:'كل ما تحب، أقرب إليك',primary:'#087e66',background:'#f7f7f2',ink:'#18332e',font:'Tahoma',logo:'',announcement:'',announcementActive:false};
+const defaultAppearance={storeName:'التسوق',subtitle:'كل ما تحب، أقرب إليك',primary:'#087e66',background:'#f7f7f2',ink:'#18332e',font:'Tahoma',logo:'',announcement:'',announcementActive:false,bubbleOutgoingBg:'#005c4b',bubbleIncomingBg:'#202c33',bubbleTextColor:'#ffffff',buttonStyle:'gold-gradient',buttonBgImage:'',buttonIcon:''};
 const storeFonts={Tahoma:'Tahoma,Arial,sans-serif',Arial:'Arial,Tahoma,sans-serif',System:'system-ui,Tahoma,sans-serif',Serif:'Georgia,"Times New Roman",serif'};
 let storeAppearance={...defaultAppearance},draftLogo='',imageLoading=false,noticeCache=[],storeBanners=[],storeStaff=[];
 function paintAppearance(){
  const a=storeAppearance;const r=document.documentElement;if(a.primary)r.style.setProperty('--green',a.primary);
+ r.style.setProperty('--wa-out-bg', a.bubbleOutgoingBg || '#005c4b');
+ r.style.setProperty('--wa-in-bg', a.bubbleIncomingBg || '#202c33');
+ r.style.setProperty('--wa-text', a.bubbleTextColor || '#ffffff');
+ if(a.buttonBgImage){
+  document.body.dataset.btnStyle = 'custom-img';
+  r.style.setProperty('--vip-btn-bg-img', `url("${a.buttonBgImage}")`);
+ } else {
+  document.body.dataset.btnStyle = a.buttonStyle || 'gold-gradient';
+  r.style.removeProperty('--vip-btn-bg-img');
+ }
  r.style.fontFamily=storeFonts[a.font]||storeFonts.Tahoma;document.title=a.storeName+' | التسوق';
  document.querySelectorAll('.brand').forEach(b=>{
   const img=b.querySelector('img');if(img&&img.getAttribute('src')!==(a.logo||'icon.svg'))img.setAttribute('src',a.logo||'icon.svg');
@@ -307,9 +317,19 @@ async function executeInstantLiveSync() {
        .catch(()=>{});
      }
     }
-    // إذا كان في لوحة التحكم أو الطلبات، تحديث الطلبات والمستخدمين فوراً
-    if (typeof refresh === 'function' && ['home', 'orders', 'courier', 'history', 'users', 'staff'].includes(page)) {
-      await refresh();
+    // منع إعادة الرسم أثناء رفع ملفات توثيق المشرف أو فتح نافذة منبثقة أو اختيار ملف
+    if (window._pauseAutoRefresh || page === 'supverify' || document.getElementById('sup-id-photo-file') || document.getElementById('modal')?.open) {
+      return;
+    }
+    const syncCfg = window.serverSyncConfig || { autoSyncEnabled: true, homeRefreshSec: 15, ordersRefreshSec: 10, usersRefreshSec: 15 };
+    if (syncCfg.autoSyncEnabled === false) return;
+    const nowTs = Date.now();
+    const pageSec = page === 'orders' ? (syncCfg.ordersRefreshSec || 10) : page === 'users' ? (syncCfg.usersRefreshSec || 15) : (syncCfg.homeRefreshSec || 15);
+    if (!window._lastPageAutoRefresh || (nowTs - window._lastPageAutoRefresh) >= pageSec * 1000) {
+      if (typeof refresh === 'function' && ['home', 'orders', 'courier', 'history', 'users', 'staff', 'sessions'].includes(page)) {
+        window._lastPageAutoRefresh = nowTs;
+        await refresh();
+      }
     }
   } catch(e) {
   } finally {
@@ -607,6 +627,56 @@ async function composeNotice(){const sent=await request('/notifications/sent');m
 
 async function appearanceAction(name,id,el){
  if(name==='appearance'){appearanceEditor();return true;}
+ if(name==='app-icon-bubbles'){appIconAndBubblesModal();return true;}
+ if(name==='store-styles-studio'){await storeStylesStudioModal();return true;}
+ if(name==='pick-app-icon-preset'){
+  const p = appIconPresets[Number(id)||0];
+  if(p){
+   draftLogo = renderPresetIconPng(p.emoji, p.bg);
+   const pv = document.getElementById('icon-bubble-preview');
+   if(pv) pv.src = draftLogo;
+   document.querySelectorAll('.icon-preset-btn').forEach((b,i)=>b.classList.toggle('active', i===Number(id)));
+   toast('تم اختيار أيقونة: ' + p.label + ' — اضغط حفظ للتطبيق');
+  }
+  return true;
+ }
+ if(name==='pick-btn-texture'){
+  const bt = btnImageTextures[Number(id)||0];
+  if(bt){
+   studioBtnStyle = bt.style;
+   studioBtnImg = bt.img || '';
+   const uIn = document.getElementById('studio-btn-img-url');
+   if(uIn) uIn.value = studioBtnImg;
+   document.querySelectorAll('.design-wp-item').forEach((b,i)=>b.classList.toggle('active', i===Number(id)));
+   toast('تم اختيار نمط الأزرار: ' + bt.name);
+  }
+  return true;
+ }
+ if(name==='apply-saved-style'){
+  const raw = (!demo && apiBase) ? await request('/admin/styles') : (demoData().savedStyles||[]);
+  const list = Array.isArray(raw) ? raw : [];
+  const st = list.find(x=>x.id===id);
+  if(st){
+   storeAppearance = { ...storeAppearance, primary: st.primary, bubbleOutgoingBg: st.bubbleOutgoingBg, bubbleIncomingBg: st.bubbleIncomingBg, bubbleTextColor: st.bubbleTextColor, buttonStyle: st.buttonStyle, buttonBgImage: st.buttonBgImage };
+   if(apiBase){
+    await request('/appearance', 'PUT', { ...storeAppearance, logo: storeAppearance.logo || '' });
+   }
+   paintAppearance();
+   closeModal();
+   toast('تم تطبيق الاستايل المحفوظ: ' + st.name);
+  }
+  return true;
+ }
+ if(name==='delete-saved-style'){
+  if(!apiBase){
+   const d = demoData(); d.savedStyles = (d.savedStyles||[]).filter(x=>x.id!==id); persistDemo(d);
+  } else {
+   await request('/admin/styles/' + id, 'DELETE');
+  }
+  await storeStylesStudioModal();
+  toast('تم حذف الاستايل');
+  return true;
+ }
  if(name==='remove-store-image'){draftLogo='';appearancePreview();return true;}
  if(name==='reset-appearance'){const f=$('[data-form="appearance"]');for(const key of ['primary','background','ink','font','storeName','subtitle','announcement'])if(f.elements[key])f.elements[key].value=defaultAppearance[key]||'';draftLogo='';appearancePreview();return true;}
  if(name==='banners-manager'){await bannersManager();return true;}
@@ -650,9 +720,53 @@ async function appearanceForm(kind,id,f,form){
   toast('تم حفظ نغمة وشكل إشعارات التطبيق بنجاح');
   return true;
  }
+ if(kind==='save-icon-bubbles'){
+  const payload = {
+   ...storeAppearance,
+   primary: f.primary || storeAppearance.primary,
+   bubbleOutgoingBg: f.bubbleOutgoingBg || '#005c4b',
+   bubbleIncomingBg: f.bubbleIncomingBg || '#202c33',
+   bubbleTextColor: f.bubbleTextColor || '#ffffff',
+   logo: draftLogo || storeAppearance.logo || ''
+  };
+  storeAppearance = await request('/appearance', 'PUT', payload);
+  closeModal();
+  paintAppearance();
+  toast('تم تحديث أيقونة التطبيق وألوان وفقاعات الرسائل بنجاح!');
+  return true;
+ }
+ if(kind==='save-store-style'){
+  const btnImg = (f.buttonBgImage ?? studioBtnImg ?? '').trim();
+  const bStyle = btnImg ? 'custom-img' : studioBtnStyle;
+  const stPayload = {
+   name: f.name,
+   primary: f.primary || storeAppearance.primary,
+   bubbleOutgoingBg: f.bubbleOutgoingBg || storeAppearance.bubbleOutgoingBg || '#005c4b',
+   bubbleIncomingBg: storeAppearance.bubbleIncomingBg || '#202c33',
+   bubbleTextColor: storeAppearance.bubbleTextColor || '#ffffff',
+   buttonStyle: bStyle,
+   buttonBgImage: btnImg,
+   buttonIcon: '',
+   backgroundImage: '',
+   applyNow: true
+  };
+  if(!apiBase){
+   const d = demoData(); d.savedStyles = d.savedStyles || [];
+   d.savedStyles.unshift({ id:'st_'+Date.now(), ...stPayload, updatedAt:new Date().toISOString() });
+   persistDemo(d);
+  } else {
+   await request('/admin/styles', 'POST', stPayload);
+   await refreshAppearance();
+  }
+  storeAppearance = { ...storeAppearance, primary: stPayload.primary, bubbleOutgoingBg: stPayload.bubbleOutgoingBg, buttonStyle: bStyle, buttonBgImage: btnImg };
+  paintAppearance();
+  await storeStylesStudioModal();
+  toast('تم حفظ الاستايل وتطبيقه على المتجر بنجاح!');
+  return true;
+ }
  if(kind==='appearance'){
   if(imageLoading)throw new Error('انتظر اكتمال تجهيز الصورة');
-  storeAppearance=await request('/appearance','PUT',{storeName:f.storeName,subtitle:f.subtitle,loadingTitle:f.loadingTitle||f.storeName||'التسوق',loadingSubtitle:f.loadingSubtitle||'نجهّز لك تجربة أجمل…',primary:f.primary,background:f.background,ink:f.ink,font:f.font,logo:draftLogo,announcement:f.announcement||'',announcementActive:f.announcementActive==='on'});
+  storeAppearance=await request('/appearance','PUT',{...storeAppearance,storeName:f.storeName,subtitle:f.subtitle,loadingTitle:f.loadingTitle||f.storeName||'التسوق',loadingSubtitle:f.loadingSubtitle||'نجهّز لك تجربة أجمل…',primary:f.primary,background:f.background,ink:f.ink,font:f.font,logo:draftLogo,announcement:f.announcement||'',announcementActive:f.announcementActive==='on'});
   try {
    localStorage.setItem('ts-loading-title', f.loadingTitle||f.storeName||'التسوق');
    localStorage.setItem('ts-loading-sub', f.loadingSubtitle||'نجهّز لك تجربة أجمل…');
@@ -675,6 +789,9 @@ function appearanceDemo(path,method,body){
  const d=demoData();d.appearance??={...defaultAppearance};d.notifications??=[];d.banners??=[];d.staff??=[];
  const save=v=>{persistDemo(d);return v;};
  if(path==='/appearance'){if(method==='PUT')d.appearance=body;return method==='PUT'?save(d.appearance):d.appearance;}
+ if(path==='/admin/styles'&&method==='GET'){d.savedStyles??=[];return d.savedStyles;}
+ if(path==='/admin/styles'&&method==='POST'){d.savedStyles??=[];const st={id:'st_'+Date.now(),...body,updatedAt:new Date().toISOString()};d.savedStyles.unshift(st);return save(st);}
+ if(path.startsWith('/admin/styles/')&&method==='DELETE'){d.savedStyles=(d.savedStyles||[]).filter(x=>x.id!==path.split('/')[3]);return save({ok:true});}
  if(path==='/banners'){return d.banners.filter(b=>b.active);}
  if(path==='/banners/all'){return d.banners;}
  if(path==='/banners'&&method==='POST'){const b={...body,id:crypto.randomUUID()};d.banners.push(b);return save(b);}
@@ -720,3 +837,171 @@ async function pollPublicInstalledNotices(){
 }
 setInterval(() => { if(!document.hidden) pollPublicInstalledNotices(); }, 8000);
 setTimeout(pollPublicInstalledNotices, 2500);
+
+
+/* ========================================================
+   App Icon Studio + Message Bubble Colors + Store Styles Studio
+   ======================================================== */
+const appIconPresets = [
+ { emoji:'🛍️', label:'حقيبة فاخرة', bg:'#064e3b' },
+ { emoji:'👑', label:'تاج ملكي', bg:'#1e1b4b' },
+ { emoji:'💎', label:'ألماس', bg:'#0f172a' },
+ { emoji:'⭐', label:'نجمة ذهبية', bg:'#422006' },
+ { emoji:'🛒', label:'سلة تسوق', bg:'#065f46' },
+ { emoji:'🎁', label:'هدية فاخرة', bg:'#881337' },
+ { emoji:'⌚', label:'ساعة كلاسيك', bg:'#18181b' },
+ { emoji:'💍', label:'خاتم ذهب', bg:'#3b0764' },
+ { emoji:'🕶️', label:'نظارة فخمة', bg:'#0c4a6e' },
+ { emoji:'👠', label:'أزياء نسائية', bg:'#701a75' },
+ { emoji:'👔', label:'أزياء رجالية', bg:'#1e293b' },
+ { emoji:'🧴', label:'عطور فاخرة', bg:'#3f6212' },
+ { emoji:'📱', label:'إلكترونيات', bg:'#172554' },
+ { emoji:'💻', label:'تقنية', bg:'#0f766e' },
+ { emoji:'🚚', label:'توصيل سريع', bg:'#7c2d12' },
+ { emoji:'⚡', label:'توصيل برق', bg:'#713f12' },
+ { emoji:'🏪', label:'متجر رسمي', bg:'#042f24' },
+ { emoji:'🛡️', label:'متجر موثوق', bg:'#1e3a8a' },
+ { emoji:'🌟', label:'نخبة VIP', bg:'#451a03' },
+ { emoji:'🔥', label:'عروض حصرية', bg:'#7f1d1d' },
+ { emoji:'🏆', label:'الجودة الذهبية', bg:'#365314' },
+ { emoji:'🎨', label:'تصميم وإبداع', bg:'#4c1d95' },
+ { emoji:'🌙', label:'متجر الليل', bg:'#020617' },
+ { emoji:'🌸', label:'عناية وجمال', bg:'#831843' }
+];
+
+function renderPresetIconPng(emoji, bgHex){
+ const c = document.createElement('canvas');
+ c.width = 512; c.height = 512;
+ const ctx = c.getContext('2d');
+ const grad = ctx.createLinearGradient(0, 0, 512, 512);
+ grad.addColorStop(0, bgHex || '#064e3b');
+ grad.addColorStop(1, '#021711');
+ ctx.fillStyle = grad;
+ ctx.beginPath();
+ ctx.roundRect(0, 0, 512, 512, 110);
+ ctx.fill();
+ ctx.strokeStyle = '#d4af37';
+ ctx.lineWidth = 18;
+ ctx.strokeRect(18, 18, 476, 476);
+ ctx.font = '250px sans-serif';
+ ctx.textAlign = 'center';
+ ctx.textBaseline = 'middle';
+ ctx.fillText(emoji, 256, 275);
+ return c.toDataURL('image/png');
+}
+
+function appIconAndBubblesModal(){
+ const a = storeAppearance;
+ draftLogo = a.logo || '';
+ modal('📱 تغيير أيقونة التطبيق وألوان وفقاعات الرسائل', `
+  <form class="form" data-form="save-icon-bubbles">
+   <strong style="color:#fef08a;font-size:13.5px">1. اختر أيقونة التطبيق على الهواتف (${appIconPresets.length} شكل جاهز):</strong>
+   <div class="icon-preset-grid">
+    ${appIconPresets.map((ic, idx) => `
+     <button type="button" class="icon-preset-btn" data-action="pick-app-icon-preset" data-id="${idx}">
+      <span class="ico">${ic.emoji}</span>
+      <span>${esc(ic.label)}</span>
+     </button>
+    `).join('')}
+   </div>
+   <div class="inline" style="justify-content:space-between;align-items:center">
+    <label style="flex:1">أو ارفع صورة أيقونة PNG مخصصة<input id="custom-app-icon-file" type="file" accept="image/png,image/jpeg,image/webp"></label>
+    <img id="icon-bubble-preview" src="${esc(draftLogo || 'icon.svg')}" style="width:64px;height:64px;border-radius:16px;border:2px solid #d4af37;object-fit:cover" alt="معاينة الأيقونة">
+   </div>
+
+   <strong style="color:#fef08a;font-size:13.5px;margin-top:6px">2. ألوان المتجر وفقاعات الدردشة والرسائل:</strong>
+   <div class="row">
+    <label>لون المتجر الرئيسي<input name="primary" type="color" value="${esc(a.primary||'#087e66')}" style="height:44px;padding:4px"></label>
+    <label>لون نص فقاعات الرسائل<input name="bubbleTextColor" type="color" value="${esc(a.bubbleTextColor||'#ffffff')}" style="height:44px;padding:4px"></label>
+   </div>
+   <div class="row">
+    <label>لون فقاعة رسائلي (المرسل)<input name="bubbleOutgoingBg" type="color" value="${esc(a.bubbleOutgoingBg||'#005c4b')}" style="height:44px;padding:4px"></label>
+    <label>لون فقاعة الطرف الآخر (المستقبل)<input name="bubbleIncomingBg" type="color" value="${esc(a.bubbleIncomingBg||'#202c33')}" style="height:44px;padding:4px"></label>
+   </div>
+   <button class="btn full" type="submit">💾 حفظ وتحديث الأيقونة وفقاعات الرسائل فوراً</button>
+   <div class="form-error" hidden></div>
+  </form>
+ `);
+ const fi = document.getElementById('custom-app-icon-file');
+ if(fi) fi.onchange = async e => {
+  const file = e.target.files?.[0]; if(!file) return;
+  try {
+   draftLogo = await normalizeImage(file, 512, 420000);
+   const pv = document.getElementById('icon-bubble-preview');
+   if(pv) pv.src = draftLogo;
+   toast('تم تجهيز الأيقونة المخصصة');
+  } catch(err){ toast(err.message); }
+ };
+}
+
+const btnImageTextures = [
+ { name:'ذهبي ملكي', style:'gold-gradient', img:'' },
+ { name:'زمردي فاخر', style:'emerald', img:'' },
+ { name:'أزرق ياقوتي', style:'royal-blue', img:'' },
+ { name:'عقيق أحمر', style:'ruby', img:'' },
+ { name:'زجاجي شفاف', style:'glass', img:'' },
+ { name:'دائري ناعم', style:'rounded', img:'' },
+ { name:'رخام وذهب', style:'custom-img', img:'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=600&auto=format&fit=crop&q=70' },
+ { name:'نسيج ذهبي', style:'custom-img', img:'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=600&auto=format&fit=crop&q=70' },
+ { name:'بريق ليلي', style:'custom-img', img:'https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=600&auto=format&fit=crop&q=70' },
+ { name:'رخام أسود', style:'custom-img', img:'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=600&auto=format&fit=crop&q=70' },
+ { name:'ألوان متدرجة', style:'custom-img', img:'https://images.unsplash.com/photo-1557683316-973673baf926?w=600&auto=format&fit=crop&q=70' },
+ { name:'إضاءة ذهبية', style:'custom-img', img:'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=70' }
+];
+let studioBtnImg = '';
+let studioBtnStyle = 'gold-gradient';
+
+async function storeStylesStudioModal(){
+ if(user?.role !== 'Admin'){ toast('هذه الشاشة خاصة بإدارة المتجر فقط'); return; }
+ let savedList = [];
+ try {
+  const raw = (!demo && apiBase) ? await request('/admin/styles') : (demoData().savedStyles || []);
+  savedList = Array.isArray(raw) ? raw : [];
+ } catch(e){ savedList = []; }
+ const a = storeAppearance;
+ studioBtnStyle = a.buttonStyle || 'gold-gradient';
+ studioBtnImg = a.buttonBgImage || '';
+
+ modal('🎭 استوديو حفظ وتعديل استايلات المتجر والأزرار (للإدارة فقط)', `
+  <div class="stack" style="max-height:74vh;overflow-y:auto;padding-left:4px">
+   <form class="form" data-form="save-store-style">
+    <strong style="color:#fef08a;font-size:13.5px">1. حفظ استايل جديد أو تعديل الحالي:</strong>
+    <label>اسم الاستايل<input name="name" required maxlength="60" placeholder="مثال: استايل العيد الذهبي"></label>
+    <div class="row">
+     <label>اللون الرئيسي<input name="primary" type="color" value="${esc(a.primary||'#087e66')}" style="height:42px;padding:4px"></label>
+     <label>فقاعة المرسل<input name="bubbleOutgoingBg" type="color" value="${esc(a.bubbleOutgoingBg||'#005c4b')}" style="height:42px;padding:4px"></label>
+    </div>
+    <strong style="color:#fef08a;font-size:13px">2. اختيار صورة أو نمط أزرار المتجر (${btnImageTextures.length} خيار):</strong>
+    <div class="design-gallery-grid" style="max-height:160px">
+     ${btnImageTextures.map((bt, i) => `
+      <button type="button" class="design-wp-item ${(studioBtnStyle===bt.style && studioBtnImg===bt.img)?'active':''}" data-action="pick-btn-texture" data-id="${i}">
+       ${bt.img ? `<img src="${esc(bt.img)}" alt="${esc(bt.name)}">` : `<div style="height:40px;width:100%;border-radius:8px;background:var(--vip-gold-gradient);display:grid;place-items:center;color:#031711;font-weight:bold;font-size:11px">زر</div>`}
+       <small>${esc(bt.name)}</small>
+      </button>
+     `).join('')}
+    </div>
+    <label>أو رابط صورة خلفية مخصّصة للأزرار<input id="studio-btn-img-url" name="buttonBgImage" value="${esc(studioBtnImg)}" placeholder="https://..." dir="ltr"></label>
+    <button class="btn full" type="submit">💾 حفظ الاستايل وتطبيقه على المتجر فوراً</button>
+    <div class="form-error" hidden></div>
+   </form>
+
+   <div style="border-top:1px dashed rgba(212,175,55,0.3);padding-top:12px">
+    <strong style="color:#fef08a;font-size:13.5px;display:block;margin-bottom:8px">📂 الاستايلات المحفوظة (${savedList.length}):</strong>
+    <div style="display:grid;gap:8px">
+     ${savedList.map(st => `
+      <div class="panel" style="padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+       <div>
+        <strong style="color:#fff">${esc(st.name)}</strong>
+        <small style="display:block;color:#cbd5e1">${esc(st.buttonStyle || 'gold-gradient')} · ${new Date(st.updatedAt).toLocaleDateString('ar-SA')}</small>
+       </div>
+       <div class="inline" style="gap:6px">
+        <button type="button" class="btn small" data-action="apply-saved-style" data-id="${esc(st.id)}">✨ تطبيق</button>
+        <button type="button" class="btn small danger" data-action="delete-saved-style" data-id="${esc(st.id)}">🗑️</button>
+       </div>
+      </div>
+     `).join('') || '<p class="hint">لا توجد استايلات محفوظة بعد — احفظ أول استايل أعلاه.</p>'}
+    </div>
+   </div>
+  </div>
+ `);
+}

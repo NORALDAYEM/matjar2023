@@ -214,7 +214,7 @@ function startSharing(id){
 }
 
 function supportHome(){return `<div class="section-head"><div><h1>الدعم الفني</h1><p>تابع رسائل العملاء والتجار والمندوبين بتصميم WhatsApp المتطور.</p></div></div><div class="panel stack"><p>يمكنك قراءة التذاكر والرد عليها والمحادثة الفورية بالصور والتسجيلات الصوتية ومتابعة خرائط الطلبات.</p><button class="btn" data-action="support">فتح مركز الدعم</button></div>`;}
-async function supportCenter(){const tickets=await request('/tickets');modal('مركز الدعم الفني والمحادثات',`<div class="stack"><button class="btn" data-action="new-ticket">فتح تذكرة دعم جديدة</button><p class="hint">محادثات فورية آمنة مع خدمة العملاء.</p>${tickets.map(t=>`<button class="ticket-card" data-action="open-ticket" data-id="${esc(t.id)}"><strong>${esc(t.subject)}</strong><small>${esc(t.name)} · ${t.status==='Closed'?'مغلقة':'مفتوحة'} · ${t.messages.length} رسالة</small></button>`).join('')||'<p class="hint">لا توجد تذاكر بعد.</p>'}<span dir="ltr">${esc(config.supportEmail||'')}</span></div>`);}
+async function supportCenter(){const tickets=await request('/tickets');modal('مركز الدعم الفني والمحادثات',`<div class="stack"><button class="btn" data-action="new-ticket">فتح تذكرة دعم جديدة</button><p class="hint">محادثات فورية آمنة مع خدمة العملاء.</p>${tickets.map(t=>`<button class="ticket-card" data-action="open-ticket" data-id="${esc(t.id)}"><strong>${esc(t.subject)}</strong><small>${esc(t.name)} · ${t.status==='Closed'?'مغلقة':'مفتوحة'} · ${t.messages.length} رسالة</small></button>`).join('')||'<p class="hint">لا توجد تذاكر بعد.</p>'}</div>`);}
 
 async function openTicket(id){
  const t=(await request('/tickets')).find(t=>t.id===id);if(!t)throw new Error('التذكرة غير متاحة');

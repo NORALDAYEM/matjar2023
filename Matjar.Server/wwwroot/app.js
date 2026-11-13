@@ -1,26 +1,50 @@
 
 window._verifiedFilter = window._verifiedFilter || 'all';
 window._verifiedSearch = window._verifiedSearch || '';
+window._supDraftIdPhoto = window._supDraftIdPhoto || '';
+window._supDraftFaceVideo = window._supDraftFaceVideo || '';
+window._supDraftExtra = window._supDraftExtra || {};
+window._regBurstPhotos = window._regBurstPhotos || [];
+window.staffChatPendingMedia = null;
+window.staffChatReplyTo = null;
+
+const BADGE_CATALOG = [
+ { id:'fb-blue', label:'صح أزرق (توثيق فيسبوك)', short:'✓ موثق رسمي', bg:'#1877F2', color:'#fff', isFbSvg:true },
+ { id:'blue', label:'شارة زرقاء كلاسيكية ✓', short:'✓ موثق', bg:'linear-gradient(135deg,#2563eb,#1d4ed8)', color:'#fff', sym:'✓' },
+ { id:'gold', label:'شارة ذهبية ملكية ★', short:'★ موثق ذهبي', bg:'linear-gradient(135deg,#facc15,#ca8a04)', color:'#031711', sym:'★' },
+ { id:'diamond', label:'شارة الماس الفاخرة 💎', short:'💎 توثيق ماسي', bg:'linear-gradient(135deg,#38bdf8,#0284c7)', color:'#fff', sym:'💎' },
+ { id:'emerald', label:'شارة الزمرد الأخضر 🛡️', short:'🛡️ توثيق زمردي', bg:'linear-gradient(135deg,#10b981,#047857)', color:'#fff', sym:'✓' },
+ { id:'crown-gold', label:'التاج الملكي الذهبي 👑', short:'👑 حساب ملكي', bg:'linear-gradient(135deg,#fbbf24,#92400e)', color:'#031711', sym:'👑' },
+ { id:'star-gold', label:'نجمة ذهبية مضيئة ⭐', short:'⭐ نجمة ذهبية', bg:'linear-gradient(135deg,#fde047,#ca8a04)', color:'#031711', sym:'★' },
+ { id:'star-blue', label:'نجمة زرقاء ياقوتية 💙', short:'★ نجمة زرقاء', bg:'linear-gradient(135deg,#60a5fa,#1e40af)', color:'#fff', sym:'★' },
+ { id:'star-emerald', label:'نجمة خضراء زمردية 💚', short:'★ نجمة زمردية', bg:'linear-gradient(135deg,#34d399,#065f46)', color:'#031711', sym:'★' },
+ { id:'star-ruby', label:'نجمة حمراء ياقوتية ❤️', short:'★ نجمة ياقوتية', bg:'linear-gradient(135deg,#f87171,#991b1b)', color:'#fff', sym:'★' },
+ { id:'star-purple', label:'نجمة بنفسجية ملكية 💜', short:'★ نجمة بنفسجية', bg:'linear-gradient(135deg,#c084fc,#5b21b6)', color:'#fff', sym:'★' }
+];
+
+const fbVerifiedSvg = (size=18) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" style="display:inline-block;vertical-align:middle;flex-shrink:0"><path d="M12 2L14.8 4.1L18.3 3.7L19.5 7L22.5 8.9L21.5 12.3L23.1 15.4L20.4 17.7L20.3 21.2L16.8 21.6L14.5 24L12 22.4L9.5 24L7.2 21.6L3.7 21.2L3.6 17.7L0.9 15.4L2.5 12.3L1.5 8.9L4.5 7L5.7 3.7L9.2 4.1L12 2Z" fill="#1877F2"/><path d="M8.5 12.5L10.8 14.8L15.8 9.5" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
 function getEffectiveBadge(u){
  if(!u) return 'none';
  if(u.verifiedBadge && u.verifiedBadge !== 'none') return u.verifiedBadge;
- if(u.role === 'Supervisor' && u.supervisorVerified) return 'blue';
+ if(u.role === 'Supervisor' && u.supervisorVerified) return 'fb-blue';
  return 'none';
 }
 
-function verifiedBadgeIcon(u){
+function verifiedBadgeIcon(u, size=18){
  const b = getEffectiveBadge(u);
- if(b === 'gold') return '<span title="حساب موثق بالشارة الذهبية" style="display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:50%;background:linear-gradient(135deg,#facc15,#b45309);color:#031711;font-size:11px;font-weight:900;box-shadow:0 0 8px rgba(250,204,21,0.55);margin-right:4px">★</span>';
- if(b === 'blue') return '<span title="حساب موثق بالشارة الزرقاء" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,#38bdf8,#1d4ed8);color:#fff;font-size:11px;font-weight:900;box-shadow:0 0 8px rgba(56,189,248,0.5);margin-right:4px">✓</span>';
- return '';
+ if(b === 'none') return '';
+ if(b === 'fb-blue') return `<span title="حساب موثق بالعلامة الزرقاء الرسمية" style="display:inline-flex;align-items:center;margin-right:4px">${fbVerifiedSvg(size)}</span>`;
+ const meta = BADGE_CATALOG.find(x => x.id === b) || BADGE_CATALOG[0];
+ return `<span title="${meta.label}" style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:50%;background:${meta.bg};color:${meta.color};font-size:${Math.max(10, size-7)}px;font-weight:900;box-shadow:0 0 8px rgba(250,204,21,0.45);margin-right:4px">${meta.sym||'✓'}</span>`;
 }
 
 function verifiedBadgeHtml(u, showUnverified=false){
  const b = getEffectiveBadge(u);
- if(b === 'gold') return '<span style="display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#facc15,#ca8a04);color:#031711;padding:2px 9px;border-radius:999px;font-size:10.5px;font-weight:bold;box-shadow:0 2px 8px rgba(250,204,21,0.35)">★ موثق ذهبي</span>';
- if(b === 'blue') return '<span style="display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;padding:2px 9px;border-radius:999px;font-size:10.5px;font-weight:bold;box-shadow:0 2px 8px rgba(37,99,235,0.35)">✓ موثق</span>';
- if(showUnverified || u?.role === 'Supervisor') return '<span class="badge Cancelled" style="font-size:10px">⚠️ غير موثق</span>';
+ if(b === 'fb-blue') return `<span style="display:inline-flex;align-items:center;gap:5px;background:rgba(24,119,242,0.18);border:1px solid #1877F2;color:#fff;padding:2px 9px;border-radius:999px;font-size:10.5px;font-weight:bold">${fbVerifiedSvg(15)} موثق رسمي</span>`;
+ const meta = BADGE_CATALOG.find(x => x.id === b);
+ if(meta) return `<span style="display:inline-flex;align-items:center;gap:4px;background:${meta.bg};color:${meta.color};padding:2px 9px;border-radius:999px;font-size:10.5px;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.3)">${meta.short}</span>`;
+ if(showUnverified || u?.role === 'Supervisor') return `<span class="badge Cancelled" style="font-size:10px;cursor:pointer" data-action="navigate" data-id="supverify">⚠️ غير موثق</span>`;
  return '';
 }
 
@@ -36,8 +60,8 @@ function verifiedAccountsView(){
 
  return `<div class="section-head">
   <div>
-   <h1>✅ إدارة الحسابات الموثقة وغير الموثقة</h1>
-   <p>صفحة متخصصة للتحكم الكامل في شارات التوثيق المميزة (الزرقاء والذهبية) لجميع حسابات المتجر</p>
+   <h1>✅ إدارة علامات التوثيق والشارات المميزة والنجوم الملونة</h1>
+   <p>تحكم كامل من الإدارة في منح علامة التوثيق الزرقاء (نفس فيسبوك)، الشارات الملكية، والنجوم الملونة أو إلغائها</p>
   </div>
   <div class="inline" style="gap:8px;flex-wrap:wrap">
    <button class="btn secondary" data-action="navigate" data-id="users">👥 كافة المستخدمين</button>
@@ -47,7 +71,7 @@ function verifiedAccountsView(){
 
  <div class="stats" style="grid-template-columns:repeat(3,1fr);margin:14px 0 18px">
   <div class="stat"><div class="label">إجمالي الحسابات${icon('users',18)}</div><strong>${all.length}</strong><small>جميع الحسابات المسجلة</small></div>
-  <div class="stat featured"><div class="label">الحسابات الموثقة${icon('check',18)}</div><strong>${verifiedList.length}</strong><small>تحمل شارة توثيق معتمدة</small></div>
+  <div class="stat featured"><div class="label">الحسابات الموثقة${icon('check',18)}</div><strong>${verifiedList.length}</strong><small>تحمل شارة توثيق أو نجمة</small></div>
   <div class="stat"><div class="label">غير الموثقة${icon('shield',18)}</div><strong>${unverifiedList.length}</strong><small>بدون شارة توثيق</small></div>
  </div>
 
@@ -57,34 +81,260 @@ function verifiedAccountsView(){
    <button class="btn small ${f==='verified'?'':'secondary'}" data-action="set-verified-filter" data-id="verified">✓ الموثقة (${verifiedList.length})</button>
    <button class="btn small ${f==='unverified'?'':'secondary'}" data-action="set-verified-filter" data-id="unverified">⚠️ غير الموثقة (${unverifiedList.length})</button>
   </div>
-  <input type="search" placeholder="🔍 ابحث بالاسم أو البريد أو الدور..." value="${esc(window._verifiedSearch||'')}" oninput="window._verifiedSearch=this.value;render();" style="min-width:240px;max-width:340px;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(2,16,12,0.75);color:#fff">
+  <input type="search" placeholder="🔍 ابحث بالاسم أو الدور..." value="${esc(window._verifiedSearch||'')}" oninput="window._verifiedSearch=this.value;render();" style="min-width:240px;max-width:340px;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(2,16,12,0.75);color:#fff">
  </div>
 
  <div style="display:grid;gap:12px">
   ${filtered.map(u => {
    const b = getEffectiveBadge(u);
-   return `<article class="order" style="background:rgba(4,25,19,0.88);border:1px solid ${b==='gold'?'rgba(250,204,21,0.55)':b==='blue'?'rgba(56,189,248,0.5)':'rgba(148,163,184,0.25)'};border-radius:16px;padding:16px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
-    <div style="display:flex;align-items:center;gap:12px">
-     <span class="avatar" style="width:44px;height:44px;border:2px solid ${b==='gold'?'#facc15':b==='blue'?'#38bdf8':'var(--line)'};font-size:17px">${esc((u.name||'?')[0])}</span>
-     <div>
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-       <strong style="font-size:15.5px;color:#fff">${esc(u.name)}</strong>
-       ${verifiedBadgeHtml(u, true)}
-       <span class="badge" style="font-size:10.5px;background:rgba(255,255,255,0.08);color:#cbd5e1">${roles[u.role]||u.role}</span>
+   return `<article class="order" style="background:rgba(4,25,19,0.88);border:1px solid ${b!=='none'?'rgba(56,189,248,0.5)':'rgba(148,163,184,0.25)'};border-radius:16px;padding:16px;display:grid;gap:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
+     <div style="display:flex;align-items:center;gap:12px">
+      <div class="topbar-avatar-circle" style="width:48px;height:48px">
+       ${u.profilePhoto ? `<img src="${esc(u.profilePhoto)}" alt="${esc(u.name)}">` : `<span class="avatar-letter">${esc((u.name||'?')[0])}</span>`}
+       ${b!=='none' ? `<span class="topbar-avatar-badge">${verifiedBadgeIcon(u, 18)}</span>` : ''}
       </div>
-      <div style="font-size:12px;color:#94a3b8;margin-top:4px" dir="ltr">${esc(u.email)}</div>
+      <div>
+       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <strong style="font-size:15.5px;color:#fff">${esc(u.name)}</strong>
+        ${verifiedBadgeHtml(u, true)}
+        <span class="badge" style="font-size:10.5px;background:rgba(255,255,255,0.08);color:#cbd5e1">${roles[u.role]||u.role}</span>
+       </div>
+       <div style="font-size:12px;color:#94a3b8;margin-top:4px" dir="ltr">${esc(u.email)}</div>
+      </div>
      </div>
+     ${b!=='none' ? `<button class="btn small danger" type="button" data-action="admin-set-verified-badge" data-id="${esc(u.id)}|none">⛔ إلغاء الشارة / التوثيق</button>` : ''}
     </div>
-    <div class="inline" style="gap:8px;flex-wrap:wrap">
-     <button class="btn small" type="button" style="background:${b==='blue'?'#1d4ed8':'rgba(29,78,216,0.22)'};color:#fff;border:1px solid #3b82f6" data-action="admin-set-verified-badge" data-id="${esc(u.id)}|blue">🔵 توثيق أزرق ✓</button>
-     <button class="btn small" type="button" style="background:${b==='gold'?'linear-gradient(135deg,#facc15,#ca8a04)':'rgba(250,204,21,0.16)'};color:${b==='gold'?'#031711':'#fef08a'};border:1px solid #eab308;font-weight:bold" data-action="admin-set-verified-badge" data-id="${esc(u.id)}|gold">🟡 توثيق ذهبي ★</button>
-     ${b!=='none' ? `<button class="btn small danger" type="button" data-action="admin-set-verified-badge" data-id="${esc(u.id)}|none">⛔ إلغاء التوثيق</button>` : ''}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;padding-top:8px;border-top:1px dashed rgba(212,175,55,0.2)">
+     ${BADGE_CATALOG.map(cat => `
+      <button class="btn small ${b===cat.id?'':'secondary'}" type="button" style="${b===cat.id?'border:2px solid #fff;':''}padding:5px 10px;font-size:11px" data-action="admin-set-verified-badge" data-id="${esc(u.id)}|${cat.id}">
+       ${cat.id==='fb-blue' ? fbVerifiedSvg(14) : (cat.sym||'★')} ${esc(cat.label)}
+      </button>
+     `).join('')}
     </div>
    </article>`;
   }).join('') || empty('لا توجد حسابات مطابقة للتصفية الحالية')}
  </div>`;
 }
 
+/* ========================================================
+   Default Arab Countries, Cities/Governorates & Nationalities Catalog (Req 14)
+   ======================================================== */
+const DEFAULT_ARAB_GEO = {
+ showCountryField: true,
+ showCityField: true,
+ showNationalityField: true,
+ countries: [
+  { code:'SA', name:'السعودية', nationality:'سعودي', enabled:true, cities:['الرياض','جدة','مكة المكرمة','المدينة المنورة','الدمام','الخبر','بريدة','عنيزة','تبوك','أبها','خميس مشيط','الطائف','حائل','جازان','نجران','الجبيل','ينبع','الأحساء','عرعر','سكاكا','الباحة'] },
+  { code:'EG', name:'مصر', nationality:'مصري', enabled:true, cities:['القاهرة','الجيزة','الإسكندرية','القليوبية','الدقهلية','الشرقية','الغربية','المنوفية','البحيرة','كفر الشيخ','دمياط','بورسعيد','الإسماعيلية','السويس','الفيوم','بني سويف','المنيا','أسيوط','سوهاج','قنا','الأقصر','أسوان','البحر الأحمر','مطروح','شمال سيناء','جنوب سيناء'] },
+  { code:'SD', name:'السودان', nationality:'سوداني', enabled:true, cities:['الخرطوم','أم درمان','الخرطوم بحري','بورتسودان','ود مدني','الأبيض','عطبرة','الدامر','كسلا','القضارف','كوستي','ربك','سنار','دنقلا','مروي','شندي','الفاشر','نيالا','الجنينة','كادقلي','الدمازين'] },
+  { code:'JO', name:'الأردن', nationality:'أردني', enabled:true, cities:['عمّان','إربد','الزرقاء','العقبة','السلط','المفرق','جرش','عجلون','مادبا','الكرك','الطفيلة','معان'] },
+  { code:'LY', name:'ليبيا', nationality:'ليبي', enabled:true, cities:['طرابلس','بنغازي','مصراتة','الزاوية','البيضاء','طبرق','سبها','سرت','أجدابيا','درنة','زليتن','الخمس','غريان','صبراتة'] },
+  { code:'SY', name:'سوريا', nationality:'سوري', enabled:true, cities:['دمشق','ريف دمشق','حلب','حمص','حماة','اللاذقية','طرطوس','إدلب','دير الزور','الرقة','الحسكة','درعا','السويداء','القنيطرة'] },
+  { code:'AE', name:'الإمارات', nationality:'إماراتي', enabled:true, cities:['دبي','أبوظبي','الشارقة','عجمان','رأس الخيمة','الفجيرة','أم القيوين','العين'] },
+  { code:'KW', name:'الكويت', nationality:'كويتي', enabled:true, cities:['مدينة الكويت','حولي','الفروانية','الأحمدي','الجهراء','مبارك الكبير'] },
+  { code:'QA', name:'قطر', nationality:'قطري', enabled:true, cities:['الدوحة','الريان','الوكرة','الخور','أم صلال','الشمال','الشحانية'] },
+  { code:'BH', name:'البحرين', nationality:'بحريني', enabled:true, cities:['المنامة','المحرق','الرفاع','مدينة حمد','مدينة عيسى','سترة','الحد'] },
+  { code:'OM', name:'سلطنة عُمان', nationality:'عُماني', enabled:true, cities:['مسقط','صلالة','صحار','نزوى','صور','عبري','بركاء','البريمي','الرستاق'] },
+  { code:'YE', name:'اليمن', nationality:'يمني', enabled:true, cities:['صنعاء','عدن','تعز','الحديدة','إب','المكلا','ذمار','سيئون','مأرب','حجة','عمران'] },
+  { code:'IQ', name:'العراق', nationality:'عراقي', enabled:true, cities:['بغداد','البصرة','الموصل','أربيل','النجف','كربلاء','السليمانية','كركوك','الحلة','الناصرية','العمارة','الكوت','الرمادي','دهوك'] },
+  { code:'LB', name:'لبنان', nationality:'لبناني', enabled:true, cities:['بيروت','طرابلس','صيدا','صور','جونيه','زحلة','بعلبك','جبيل','النبطية'] },
+  { code:'PS', name:'فلسطين', nationality:'فلسطيني', enabled:true, cities:['القدس','غزة','رام الله','الخليل','نابلس','بيت لحم','جنين','طولكرم','قلقيلية','أريحا','خان يونس','رفح'] },
+  { code:'MA', name:'المغرب', nationality:'مغربي', enabled:true, cities:['الرباط','الدار البيضاء','مراكش','فاس','طنجة','أغادير','مكناس','وجدة','تطوان','القنيطرة'] },
+  { code:'DZ', name:'الجزائر', nationality:'جزائري', enabled:true, cities:['الجزائر العاصمة','وهران','قسنطينة','عنابة','البليدة','باتنة','سطيف','تلمسان','بجاية','بسكرة'] },
+  { code:'TN', name:'تونس', nationality:'تونسي', enabled:true, cities:['تونس العاصمة','صفاقس','سوسة','القيروان','بنزرت','قابس','أريانة','المنستير','نابل'] },
+  { code:'MR', name:'موريتانيا', nationality:'موريتاني', enabled:true, cities:['نواكشوط','نواذيبو','كيفة','روصو','أطار','الزويرات'] },
+  { code:'SO', name:'الصومال', nationality:'صومالي', enabled:true, cities:['مقديشو','هرجيسا','بوصاصو','كسمايو','بيدوا'] },
+  { code:'DJ', name:'جيبوتي', nationality:'جيبوتي', enabled:true, cities:['مدينة جيبوتي','علي صبيح','تاجورة','أوبوك'] },
+  { code:'KM', name:'جزر القمر', nationality:'قمري', enabled:true, cities:['موروني','موتسامودو','فومبوني'] }
+ ]
+};
+
+window.arabGeoCatalog = JSON.parse(localStorage.getItem('ts-arab-geo') || 'null') || JSON.parse(JSON.stringify(DEFAULT_ARAB_GEO));
+window.serverSyncConfig = JSON.parse(localStorage.getItem('ts-server-sync-cfg') || 'null') || {
+ autoSyncEnabled: true, globalRefreshSec: 15, homeRefreshSec: 15, ordersRefreshSec: 10,
+ supportRefreshSec: 3, staffChatRefreshSec: 3, devicesRefreshSec: 12, usersRefreshSec: 15,
+ primaryServerUrl: '', backupWebhookUrl: '', apiTimeoutSec: 15, autoReconnect: true
+};
+window.supervisorFormFields = JSON.parse(localStorage.getItem('ts-sup-form-fields') || 'null') || [
+ { id:'idPhoto', label:'صورة إثبات الهوية الرسمية', type:'image', required:true, enabled:true, isSystem:true },
+ { id:'faceVideo', label:'فيديو التحقق من الوجه بالكاميرا', type:'video', required:true, enabled:true, isSystem:true },
+ { id:'fullName', label:'الاسم الرباعي الكامل للمشرف', type:'text', required:true, enabled:true, isSystem:false },
+ { id:'nationalId', label:'رقم الهوية / الإقامة', type:'text', required:true, enabled:true, isSystem:false },
+ { id:'workPhone', label:'رقم الجوال المباشر للطوارئ', type:'tel', required:true, enabled:true, isSystem:false }
+];
+
+function getActiveArabCountries(){
+ return (window.arabGeoCatalog?.countries || DEFAULT_ARAB_GEO.countries).filter(c => c.enabled !== false);
+}
+
+function onRegCountryChange(countryName){
+ const citySel = document.getElementById('reg-city-select');
+ const natSel = document.getElementById('reg-nationality-select');
+ const countries = getActiveArabCountries();
+ const found = countries.find(c => c.name === countryName) || countries[0];
+ if(citySel && found){
+  citySel.innerHTML = `<option value="">اختر المدينة / المحافظة في ${esc(found.name)}...</option>` +
+   (found.cities || []).map(ct => `<option value="${esc(ct)}">${esc(ct)}</option>`).join('');
+ }
+ if(natSel && found && !natSel.value){
+  natSel.value = found.nationality;
+ }
+}
+window.onRegCountryChange = onRegCountryChange;
+
+/* ========================================================
+   Dedicated Server Control & Per-Page Refresh Studio (Req 2 & 3)
+   ======================================================== */
+function serverControlView(){
+ if(user?.role !== 'Admin') return empty('هذه الصفحة مخصصة لإدارة المتجر الرئيسية فقط');
+ const cfg = dashboard?.serverSync || window.serverSyncConfig || {};
+ const srvUrl = apiBase || location.origin;
+ return `
+ <div class="section-head">
+  <div>
+   <h1>⚡ مركز التحكم بالسيرفر والمزامنة الفورية وضبط أوقات التحديث</h1>
+   <p>تحديث مباشر للسيرفر، التحكم في سرعة تحديث كل صفحة بالثواني، وإعدادات ربط المتجر بالسيرفر</p>
+  </div>
+  <div class="inline" style="gap:8px;flex-wrap:wrap">
+   <button class="btn" style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff" data-action="admin-server-refresh">🔄 تحديث السيرفر مباشرة الآن</button>
+   <button class="btn secondary" data-action="reset-server-sync-defaults">♻️ إعادة الضبط للتحديث الأساسي</button>
+   <button class="btn ghost" data-action="navigate" data-id="account">⚙️ مركز الإدارة</button>
+  </div>
+ </div>
+
+ <div class="stats" style="grid-template-columns:repeat(4,1fr);margin:14px 0 20px">
+  <div class="stat featured"><div class="label">حالة اتصال السيرفر${icon('check',18)}</div><strong style="color:#22c55e">متصل ونشط</strong><small dir="ltr">${esc(srvUrl)}</small></div>
+  <div class="stat"><div class="label">التحديث التلقائي${icon('clock',18)}</div><strong>${cfg.autoSyncEnabled!==false?'مفعّل ✓':'متوقف'}</strong><small>مزامنة لحظية للبيانات</small></div>
+  <div class="stat"><div class="label">تحديث الطلبات والدعم${icon('box',18)}</div><strong>${cfg.ordersRefreshSec||10}ث / ${cfg.supportRefreshSec||3}ث</strong><small>سرعة جلب الطلبات والرسائل</small></div>
+  <div class="stat"><div class="label">مهلة الاتصال (Timeout)${icon('shield',18)}</div><strong>${cfg.apiTimeoutSec||15} ثانية</strong><small>إعادة الاتصال التلقائي مفعلة</small></div>
+ </div>
+
+ <form class="form panel" data-form="save-server-sync-settings" style="padding:20px;display:grid;gap:16px">
+  <h3 style="color:#fef08a;margin:0">⏱️ 1. ضبط وقت التحديث التلقائي لكل صفحة (بالثواني):</h3>
+  <label class="check"><input type="checkbox" name="autoSyncEnabled" ${cfg.autoSyncEnabled!==false?'checked':''}> <strong>تفعيل التحديث الفوري التلقائي لجميع صفحات المتجر</strong></label>
+  <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+   <label>الصفحة الرئيسية والمنتجات (ثانية)<input type="number" name="homeRefreshSec" min="3" max="300" value="${cfg.homeRefreshSec||15}" required dir="ltr"></label>
+   <label>صفحة الطلبات والشحنات (ثانية)<input type="number" name="ordersRefreshSec" min="3" max="300" value="${cfg.ordersRefreshSec||10}" required dir="ltr"></label>
+   <label>شاشة الدعم الفني المباشر (ثانية)<input type="number" name="supportRefreshSec" min="2" max="120" value="${cfg.supportRefreshSec||3}" required dir="ltr"></label>
+   <label>دردشة الإدارة والمشرفين (ثانية)<input type="number" name="staffChatRefreshSec" min="2" max="120" value="${cfg.staffChatRefreshSec||3}" required dir="ltr"></label>
+   <label>خريطة التتبع والأجهزة (ثانية)<input type="number" name="devicesRefreshSec" min="5" max="300" value="${cfg.devicesRefreshSec||12}" required dir="ltr"></label>
+   <label>صفحة المستخدمين والجلسات (ثانية)<input type="number" name="usersRefreshSec" min="5" max="300" value="${cfg.usersRefreshSec||15}" required dir="ltr"></label>
+  </div>
+
+  <h3 style="color:#7dd3fc;margin:8px 0 0">🌐 2. بيانات التحكم في تحديث وربط المتجر بالسيرفر:</h3>
+  <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
+   <label>رابط السيرفر الأساسي للمتجر (Primary Server URL)<input name="primaryServerUrl" value="${esc(cfg.primaryServerUrl||srvUrl)}" dir="ltr" placeholder="https://matjar2023.onrender.com"></label>
+   <label>رابط ويبهوك النسخ الاحتياطي / المزامنة (اختياري)<input name="backupWebhookUrl" value="${esc(cfg.backupWebhookUrl||'')}" dir="ltr" placeholder="https://..."></label>
+   <label>مهلة استجابة السيرفر (API Timeout بالثواني)<input type="number" name="apiTimeoutSec" min="5" max="120" value="${cfg.apiTimeoutSec||15}" dir="ltr"></label>
+  </div>
+  <label class="check"><input type="checkbox" name="autoReconnect" ${cfg.autoReconnect!==false?'checked':''}> إعادة الاتصال التلقائي بالسيرفر عند انقطاع الشبكة</label>
+
+  <div class="inline" style="gap:10px;flex-wrap:wrap">
+   <button class="btn" type="submit">💾 حفظ وتطبيق إعدادات السيرفر والتحديث فوراً</button>
+   <button class="btn secondary" type="button" data-action="reset-server-sync-defaults">♻️ إعادة الضبط للتحديث الأساسي الافتراضي</button>
+   <button class="btn ghost" type="button" data-action="admin-tech-settings">🔑 إعدادات Render Deploy Hook والخرائط و SMTP</button>
+  </div>
+  <div class="form-error" hidden></div>
+ </form>`;
+}
+
+/* ========================================================
+   Professional Sessions & Connected Users Control Center (Req 4)
+   ======================================================== */
+let lastSessionsData = null;
+async function sessionsControlView(){
+ if(user?.role !== 'Admin') return empty('هذه الصفحة مخصصة لإدارة المتجر الرئيسية فقط');
+ let data = {
+  policy: dashboard?.sessionPolicy || { singleDevicePerAccount:true, disconnectOldOnNewLogin:false, sessionDurationMinutes:720, autoDisconnectIdle:true, idleTimeoutMinutes:30, trackOpenScreen:true },
+  totalActiveSessions: 1, uniqueOnlineUsers: 1, sessions: []
+ };
+ try {
+  if(apiBase) data = await request('/admin/sessions');
+ } catch(e){}
+ lastSessionsData = data;
+ const p = data.policy || {};
+ const pageNames = { home:'الرئيسية', orders:'الطلبات', products:'المنتجات', users:'المستخدمين', devices:'الخرائط والأجهزة', support:'الدعم الفني', staffchat:'دردشة الإدارة والمشرفين', account:'حسابي ومركز الإدارة', sessions:'إدارة الجلسات', server:'إدارة السيرفر', verified:'الحسابات الموثقة', supverify:'توثيق المشرف' };
+
+ return `
+ <div class="section-head">
+  <div>
+   <h1>🔐 مركز التحكم الاحترافي في الجلسات والأجهزة المتصلة بالحسابات</h1>
+   <p>منع دخول أكثر من هاتف بنفس الحساب، فصل الجلسات الخاملة تلقائياً، مراقبة الشاشات المفتوحة، وفصل أي جلسة فوراً</p>
+  </div>
+  <div class="inline" style="gap:8px;flex-wrap:wrap">
+   <button class="btn" data-action="refresh-sessions-view">🔄 تحديث الجلسات الآن</button>
+   <button class="btn secondary" data-action="navigate" data-id="users">👥 إدارة المستخدمين</button>
+  </div>
+ </div>
+
+ <div class="stats" style="grid-template-columns:repeat(4,1fr);margin:14px 0 20px">
+  <div class="stat featured"><div class="label">الجلسات النشطة الآن${icon('users',18)}</div><strong style="color:#22c55e">${data.totalActiveSessions||0}</strong><small>جلسة متصلة حالياً</small></div>
+  <div class="stat"><div class="label">المستخدمون المتصلون${icon('check',18)}</div><strong>${data.uniqueOnlineUsers||0}</strong><small>حساب متصل بالمتجر</small></div>
+  <div class="stat"><div class="label">مدة الجلسة المعتمدة${icon('clock',18)}</div><strong>${p.sessionDurationMinutes||720} دقيقة</strong><small>${Math.round((p.sessionDurationMinutes||720)/60)} ساعة لكل جلسة</small></div>
+  <div class="stat"><div class="label">فصل السكون (بدون حركة)${icon('shield',18)}</div><strong>${p.autoDisconnectIdle!==false?(p.idleTimeoutMinutes||30)+' دقيقة':'معطل'}</strong><small>فصل تلقائي عند عدم الحركة</small></div>
+ </div>
+
+ <form class="form panel" data-form="save-session-policy" style="padding:18px;margin-bottom:20px;display:grid;gap:14px;border:1px solid rgba(212,175,55,0.4)">
+  <h3 style="color:#fef08a;margin:0">⚙️ عداد وضبط سياسة الجلسات بصورة عامة:</h3>
+  <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
+   <label class="check" style="background:rgba(255,255,255,0.04);padding:10px 12px;border-radius:12px">
+    <input type="checkbox" name="singleDevicePerAccount" ${p.singleDevicePerAccount!==false?'checked':''}>
+    <span><strong>منع دخول أكثر من هاتف أو جهاز بنفس الحساب</strong></span>
+   </label>
+   <label class="check" style="background:rgba(255,255,255,0.04);padding:10px 12px;border-radius:12px">
+    <input type="checkbox" name="disconnectOldOnNewLogin" ${p.disconnectOldOnNewLogin?'checked':''}>
+    <span>عند الدخول من جهاز جديد: فصل الجهاز القديم تلقائياً (بدل حظر الدخول)</span>
+   </label>
+   <label class="check" style="background:rgba(255,255,255,0.04);padding:10px 12px;border-radius:12px">
+    <input type="checkbox" name="autoDisconnectIdle" ${p.autoDisconnectIdle!==false?'checked':''}>
+    <span><strong>فصل الجلسة تلقائياً في حال لا توجد حركة على الحساب</strong></span>
+   </label>
+  </div>
+  <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+   <label>مدة الجلسة الكاملة (بالدقائق)<input type="number" name="sessionDurationMinutes" min="5" max="43200" value="${p.sessionDurationMinutes||720}" required dir="ltr"></label>
+   <label>مهلة فصل الجلسة عند عدم وجود حركة (بالدقائق)<input type="number" name="idleTimeoutMinutes" min="1" max="1440" value="${p.idleTimeoutMinutes||30}" required dir="ltr"></label>
+  </div>
+  <button class="btn" type="submit">💾 حفظ وتطبيق إعدادات الجلسات فوراً</button>
+  <div class="form-error" hidden></div>
+ </form>
+
+ <div class="section-head">
+  <h2>🟢 قائمة المستخدمين المتصلين والجلسات والشاشات المفتوحة الآن (${(data.sessions||[]).length})</h2>
+ </div>
+ <div style="display:grid;gap:12px">
+  ${(data.sessions||[]).map(s => `
+   <article class="order" style="background:rgba(4,25,19,0.9);border:1px solid rgba(34,197,94,0.4);border-radius:16px;padding:16px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:12px">
+     <div class="topbar-avatar-circle" style="width:46px;height:46px">
+      ${s.profilePhoto ? `<img src="${esc(s.profilePhoto)}" alt="${esc(s.userName)}">` : `<span class="avatar-letter">${esc((s.userName||'?')[0])}</span>`}
+     </div>
+     <div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+       <strong style="font-size:15.5px;color:#fff">${esc(s.userName)}</strong>
+       <span class="badge Ready" style="font-size:10.5px">${roles[s.userRole]||s.userRole}</span>
+       <span class="badge" style="background:rgba(56,189,248,0.18);color:#7dd3fc;font-size:11px">🖥️ الشاشة المفتوحة: ${esc(pageNames[s.currentPage]||s.currentPage||'الرئيسية')}</span>
+      </div>
+      <div style="display:flex;gap:12px;font-size:11.5px;color:#cbd5e1;margin-top:6px;flex-wrap:wrap">
+       <span>📱 الجهاز: <b style="color:#fef08a">${esc(s.deviceModel||'هاتف ذكي')} (${esc(s.platform||'-')} ${esc(s.osVersion||'')})</b></span>
+       <span>·</span>
+       <span>🌐 المتصفح: <b>${esc(s.browser||'-')}</b></span>
+       <span>·</span>
+       <span>IP: <code style="color:#38bdf8" dir="ltr">${esc(s.ipAddress||'-')}</code></span>
+       <span>·</span>
+       <span>آخر حركة: <b style="color:#86efac">منذ ${s.idleSeconds||0} ثانية</b></span>
+       <span>·</span>
+       <span>متبقي للجلسة: <b style="color:#fde047">${s.remainingMinutes||0} دقيقة</b></span>
+      </div>
+     </div>
+    </div>
+    <div class="inline" style="gap:8px">
+     <button class="btn small danger" type="button" data-action="admin-kill-session" data-id="${esc(s.id)}">🔌 فصل هذه الجلسة فوراً</button>
+    </div>
+   </article>
+  `).join('') || empty('لا توجد جلسات نشطة حالياً')}
+ </div>`;
+}
 async function adminTechSettingsModal(){
  let s = { host:'smtp.gmail.com', port:587, user:'', hasPass:false, mapApiKey:'', mapTileUrl:'' };
  try { if(apiBase) s = await request('/admin/settings'); } catch(e){}
@@ -318,16 +568,24 @@ async function devicesView(){
         <span class="badge ${d.isOnline?'Ready':'Cancelled'}" style="font-size:10px">${d.isOnline?'🟢 متصل الآن':'⚪ غير متصل'}</span>
        </div>
        <p style="color:#cbd5e1;font-size:12.5px;margin:4px 0 0">
-        👤 الاسم المسجل: <b style="color:#fef08a">${esc(d.userName || 'زائر غير مسجل')}</b>${d.userEmail ? ` <span style="color:#94a3b8">(${esc(d.userEmail)})</span>` : ''}
+        👤 اسم المستخدم المتصل: <b style="color:#fef08a">${esc(d.userName || 'زائر غير مسجل')}</b>
+        · 🛡️ نوع الحساب: <span class="badge" style="background:rgba(212,175,55,0.2);color:#fef08a;font-size:10.5px">${esc(roles[d.userRole] || d.userRole || 'زائر')}</span>
+        ${d.userEmail ? ` · <span style="color:#94a3b8" dir="ltr">${esc(d.userEmail)}</span>` : ''}
        </p>
        <div style="display:flex;gap:12px;font-size:11.5px;color:#94a3b8;margin-top:6px;flex-wrap:wrap">
         <span>📱 نوع الهاتف: <b style="color:#ffffff">${esc(d.deviceModel || 'هاتف ذكي')} (${esc(d.platform || '-')})</b></span>
         <span>·</span>
+        <span>⚙️ إصدار الجوال والنظام: <b style="color:#7dd3fc">${esc(d.osVersion || (d.platform==='iOS'?'iOS 17.4':d.platform==='Android'?'Android 14':'Windows 11'))}</b></span>
+        <span>·</span>
+        <span>🌐 المتصفح: <b style="color:#e2e8f0">${esc(d.browser || 'Chrome Mobile')}</b></span>
+        <span>·</span>
         <span>🌐 IP الهاتف: <code style="color:#38bdf8;background:#031711;padding:2px 6px;border-radius:6px" dir="ltr">${esc(d.ipAddress || 'غير مسجل')}</code></span>
         <span>·</span>
-        <span>📍 المنطقة: <b style="color:#ffffff">${esc(d.region || d.city || 'الرياض')}</b></span>
+        <span>📍 المنطقة والمدينة: <b style="color:#ffffff">${esc(d.region || d.city || 'الرياض')} (${esc(d.country || 'السعودية')})</b></span>
         <span>·</span>
         <span>الإحداثيات: <code style="color:#fde047" dir="ltr">${Number(d.latitude||0).toFixed(4)}, ${Number(d.longitude||0).toFixed(4)}</code></span>
+        <span>·</span>
+        <span>آخر نشاط: <b style="color:#86efac">${d.lastActiveAt ? new Date(d.lastActiveAt).toLocaleString('ar-SA') : 'الآن'}</b></span>
        </div>
       </div>
      </div>
@@ -469,7 +727,14 @@ function detectDeviceTelemetry(){
   localStorage.setItem('ts-device-id', devId);
  }
  
- return { deviceId: devId, deviceModel: model, platform, browser };
+ let osVersion = 'نظام حديث';
+ const iosMatch = ua.match(/OS (\d+[_\d]*)/i);
+ const andMatch = ua.match(/Android\s+([0-9.]+)/i);
+ const winMatch = ua.match(/Windows NT\s+([0-9.]+)/i);
+ if(iosMatch) osVersion = 'iOS ' + iosMatch[1].replace(/_/g, '.');
+ else if(andMatch) osVersion = 'Android ' + andMatch[1];
+ else if(winMatch) osVersion = 'Windows ' + winMatch[1];
+ return { deviceId: devId, deviceModel: model, platform, browser, osVersion };
 }
 
 async function reportDeviceInstallTelemetry(coords = null){
@@ -781,6 +1046,7 @@ function demoData(){const raw=localStorage.getItem('ts-demo-data');const d=raw?J
  return d;
 }
 function persistDemo(d){localStorage.setItem('ts-demo-data',JSON.stringify(d));}
+function saveDemoData(d){persistDemo(d);}
 function demoUser(u){return {...u,permissions:Object.keys(rights).filter(p=>u.role==='Admin'||(p in u.overrides?u.overrides[p]:defaultRights[u.role].includes(p)))};}
 
 async function request(path,method='GET',body){
@@ -792,6 +1058,10 @@ async function request(path,method='GET',body){
 
 function demoRequest(path,method,body){
  const d=demoData(); const u=d.users.find(x=>x.id===user?.id); const order=d.orders.find(o=>path.includes('/'+o.id+'/')); let result={ok:true};
+ if(path==='/categories'&&method==='GET')return [...new Set((d.products||[]).map(p=>p.category).filter(Boolean))];
+ if(path==='/admin/sessions'&&method==='GET')return {policy:d.sessionPolicy||{singleDevicePerAccount:true,disconnectOldOnNewLogin:false,sessionDurationMinutes:720,autoDisconnectIdle:true,idleTimeoutMinutes:30,trackOpenScreen:true},totalActiveSessions:1,uniqueOnlineUsers:1,sessions:[{id:'s_demo',userId:u?.id||'a1',userName:u?.name||'Ahmed',userRole:u?.role||'Admin',deviceModel:'Apple iPhone 15 Pro',platform:'iOS',osVersion:'iOS 17.4',browser:'Mobile Safari',ipAddress:'127.0.0.1',currentPage:page||'home',idleSeconds:2,remainingMinutes:718}]};
+ if(path==='/admin/settings'&&method==='GET')return {host:'smtp.gmail.com',port:587,user:'',hasPass:false,mapApiKey:'',mapTileUrl:'',renderDeployHookUrl:''};
+ if(path==='/staff-chat'&&method==='GET')return {messages:d.staffChats||[],onlineParticipants:(d.users||[]).filter(x=>['Admin','Supervisor'].includes(x.role)).map(x=>({id:x.id,name:x.name,role:x.role,isOnline:true,inChatNow:true,verifiedBadge:x.verifiedBadge||'fb-blue'}))};
  if(path==='/products'&&method==='GET')return d.products.filter(p=>p.active);
  if(path==='/me')return demoUser(u);
  if(path==='/me/profile'&&method==='PUT'){
@@ -863,6 +1133,8 @@ function navs(){
   ['products','bag','المنتجات'],
   ['couriers','truck','المناديب'],
   ['users','shield','الحسابات والطاقم'],
+  ['staffchat','message','دردشة الإدارة والمشرفين'],
+  ...(!user.supervisorVerified ? [['supverify','shield','🪪 توثيق الحساب']] : []),
   ['account','user','مركز الإدارة وحسابي']
  ];
  // Admin streamlined navigation bar (grouped cleanly)
@@ -907,13 +1179,26 @@ function render(){
   $('#app').innerHTML=`<div id="announcement-banner" class="announcement-bar" hidden></div><aside class="sidebar"><div class="brand"><img src="icon.svg" alt="شعار المتجر"><div>${esc(storeAppearance.storeName)}<small style="color:var(--vip-gold);font-weight:bold">★ متجر رسمي معتمد</small></div></div><nav class="nav" aria-label="القائمة الرئيسية">${navHtml()}</nav><div class="sidebar-footer"><div class="panel" style="background:linear-gradient(135deg, rgba(6,78,59,0.08) 0%, rgba(212,175,55,0.12) 100%);border:1px solid rgba(212,175,55,0.3);padding:17px"><strong style="font-size:12px;color:var(--vip-emerald)">تجربة تسوق فاخرة واستثنائية</strong><p class="hint" style="margin-top:8px">منتجات حصرية بجودة فائقة وخدمة تسليم مباشرة على مدار الساعة.</p></div><div class="profile"><span class="avatar" style="border:2px solid var(--vip-gold)">${esc(user.name[0])}</span><div><strong>${esc(user.name)}</strong><small style="color:var(--vip-gold)">${roles[user.role]}</small></div></div><button class="btn ghost small" data-action="logout">${icon('logout',17)}تسجيل الخروج</button></div></aside><main class="content"><header class="topbar"><div><div class="eyebrow">${user.role==='Customer'?'مرحباً بك في عالم '+esc(storeAppearance.storeName)+' الفاخر':roles[user.role]+' / مساحة التحكم الرئيسية'}</div><div class="title" id="topbar-title-el">${current[2]} <small>· ${esc(user.name)}</small></div></div><div class="topbar-center-actions">
   <button class="icon-btn" data-action="notices" title="الإشعارات" aria-label="الإشعارات">${icon('bell')}<small class="notice-count"></small></button>
   <button class="icon-btn" data-action="navigate" data-id="${user.role==='Customer'?'cart':'orders'}" title="${user.role==='Customer'?'حقيبة التسوق':'الطلبات'}" aria-label="${user.role==='Customer'?'فتح السلة':'عرض الطلبات'}">${icon(user.role==='Customer'?'cart':'box')}</button>
-  <div class="topbar-profile-wrap">
+  <div class="topbar-profile-wrap" style="display:flex;align-items:center;gap:8px">
+   ${(user.role==='Supervisor' && !user.supervisorVerified) ? `<button type="button" class="unverified-Supervisor-pill" data-action="open-sup-verify" title="اضغط للانتقال إلى ملف التوثيق">⚠️ غير موثق (اضغط للتوثيق)</button>` : ''}
    <button type="button" class="topbar-profile-btn" data-action="toggle-topbar-profile" aria-label="قائمة حسابي السريعة">
-    ${user.profilePhoto ? `<img src="${esc(user.profilePhoto)}" alt="${esc(user.name)}">` : `<span class="avatar" style="width:30px;height:30px;font-size:13px">${esc(user.name[0])}</span>`}
-    <span>${esc(user.name)} ${verifiedBadgeIcon(user)}${(user.role==='Supervisor' && !user.supervisorVerified)?'<span class="badge Cancelled" style="font-size:9.5px;padding:2px 6px">لم يتم التحقق</span>':''}</span>
+    <div class="topbar-avatar-circle" id="topbar-avatar-box">
+     ${user.profilePhoto ? `<img src="${esc(user.profilePhoto)}" alt="${esc(user.name)}">` : `<span class="avatar-letter">${esc((user.name||'?')[0])}</span>`}
+     <span class="topbar-avatar-badge" id="topbar-badge-slot">${verifiedBadgeIcon(user, 20)}</span>
+    </div>
+    <div style="text-align:right;line-height:1.35">
+     <div style="display:flex;align-items:center;gap:5px;font-size:13.5px;color:#fff;font-weight:800">
+      <span>${esc(user.name)}</span>
+      ${verifiedBadgeIcon(user, 16)}
+     </div>
+     <small style="display:block;font-size:10.5px;color:${(user.role==='Supervisor' && !user.supervisorVerified)?'#fca5a5':'#fef08a'}">
+      ${(user.role==='Supervisor' && !user.supervisorVerified) ? '⚠️ غير موثق — اضغط للتوثيق' : (roles[user.role]||user.role)}
+     </small>
+    </div>
     <span>▾</span>
    </button>
    <div id="topbar-profile-dropdown" class="topbar-dropdown" hidden>
+    ${(user.role==='Supervisor' && !user.supervisorVerified) ? `<button type="button" data-action="open-sup-verify" style="color:#fde047;font-weight:bold">🪪 إكمال ملف توثيق المشرف الآن</button>` : ''}
     <button type="button" data-action="upload-profile-photo">🖼️ تغيير صورة الملف الشخصي</button>
     <button type="button" data-action="edit-profile">🔑 تغيير كلمة السر والبيانات</button>
     <button type="button" data-action="navigate" data-id="orders">📦 طلبياتي السابقة</button>
@@ -935,11 +1220,9 @@ function render(){
   });
  }
  const view=$('#view');
- const _reqSupVer = dashboard?.requireSupervisorVerification ?? config?.requireSupervisorVerification ?? true;
- if(user.role==='Supervisor' && _reqSupVer && !user.supervisorVerified){
-  view.innerHTML = supervisorVerificationGateView();
-  return;
- }
+ if(page==='supverify'){ view.innerHTML = supervisorVerificationGateView(); return; }
+ if(page==='server'){ view.innerHTML = serverControlView(); return; }
+ if(page==='sessions'){ sessionsControlView().then(html => { view.innerHTML = html; }); return; }
  if(page==='staffchat'){ view.innerHTML=staffChatView(); afterStaffChatRender(); return; }
  if(page==='home' && user.role==='Support'){ view.innerHTML=supportHome(); afterSupportRender(); return; }
  else if(page==='support'){ view.innerHTML=supportHome(); afterSupportRender(); return; }
@@ -1178,7 +1461,7 @@ function couriersManageView(){
    <p>تحديد قيمة غرامة الخصم عند إلغاء المندوب لأي طلب، ومتابعة أداء المناديب وشكاوى الطلبيات</p>
   </div>
   <div class="inline" style="gap:8px">
-   <button class="btn" type="button" data-action="new-courier-modal">+ إضافة مندوب توصيل جديد</button>
+   ${user.role==='Admin'?`<button class="btn" type="button" data-action="new-courier-modal">+ إضافة مندوب توصيل جديد</button>`:""}
   </div>
  </div>
 
@@ -1378,15 +1661,27 @@ function usersView(){
    <p>تحكم دقيق وشامل: مراقبة المتصلين، تعديل وتوليد كلمات المرور، تجميد وتنشيط الحسابات، وضبط الصلاحيات</p>
   </div>
   <div class="inline" style="gap:8px;flex-wrap:wrap">
-   <button class="btn" data-action="new-user">${icon('plus',17)}إضافة مستخدم</button>
-   <button class="btn secondary" data-action="navigate" data-id="staff">👥 طاقم وعمال المتجر</button>
+   ${user.role==='Admin'?`<button class="btn" data-action="new-user">${icon('plus',17)}إضافة مستخدم</button>`:""}
+   ${user.role==='Admin'?`<button class="btn" style="background:#0f766e;color:#fff" data-action="navigate" data-id="sessions">🔐 التحكم في الجلسات والمتصلين</button>`:""}
+   ${user.role==='Admin'?`<button class="btn secondary" data-action="arab-geo-manager">🌍 قوائم الدول والمدن والجنسيات</button>`:""}
+   ${user.role==='Admin'?`<button class="btn secondary" data-action="supervisor-form-manager">🪪 التحكم في فورم توثيق المشرف</button>`:""}
    <button class="btn secondary" data-action="registration-fields">📋 نموذج التسجيل</button>
    <button class="btn secondary" data-action="navigate" data-id="couriers">🚚 إدارة المناديب</button>
-   ${user.role==='Admin'?'<button class="btn" style="background:#1d4ed8;color:#fff" data-action="navigate" data-id="verified">✅ الموثقة وغير الموثقة</button>':''}
+   ${user.role==='Admin'?'<button class="btn" style="background:#1877F2;color:#fff" data-action="navigate" data-id="verified">✅ علامات التوثيق والشارات</button>':''}
   </div>
  </div>
 
  ${user.role==='Admin' ? `
+ <div class="panel" style="margin:12px 0 12px;padding:14px 18px;border:1px solid rgba(250,204,21,0.45);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+  <div>
+   <strong style="color:#fef08a;font-size:13.5px">📸 ضبط أخذ 5 صور تجريبية من الكاميرا الأمامية أثناء تسجيل المستخدم الجديد:</strong>
+   <span style="color:#cbd5e1;font-size:12px;margin-right:8px">${(dashboard?.regCapture5Photos ?? config?.regCapture5Photos ?? true) ? '✅ مفعّل (يلتقط 5 صور تلقائياً أثناء التسجيل وتظهر للإدارة فقط)' : '⛔ متوقف'}</span>
+  </div>
+  <div class="inline" style="gap:8px">
+   <button class="btn small ${(dashboard?.regCapture5Photos ?? config?.regCapture5Photos ?? true)?'':'secondary'}" type="button" data-action="toggle-reg-burst-photos" data-id="true">✅ تفعيل 5 صور بالتسجيل</button>
+   <button class="btn small ${!(dashboard?.regCapture5Photos ?? config?.regCapture5Photos ?? true)?'danger':'secondary'}" type="button" data-action="toggle-reg-burst-photos" data-id="false">⛔ إيقاف</button>
+  </div>
+ </div>
  <div class="panel" style="margin:12px 0 12px;padding:14px 18px;border:1px solid rgba(56,189,248,0.45);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
   <div>
    <strong style="color:#7dd3fc;font-size:13.5px">🪪 خيار توثيق المشرفين الإلزامي (بيانات التوثيق تظهر للإدارة فقط):</strong>
@@ -1464,7 +1759,7 @@ function usersView(){
      </div>`;
     })()}
 
-    ${u.tempPassword ? `
+    ${user.role==='Admin' && u.tempPassword ? `
     <div style="background:rgba(212,175,55,0.12);border:1px dashed rgba(212,175,55,0.4);padding:10px 14px;border-radius:12px;margin:12px 0;display:flex;align-items:center;justify-content:space-between;font-size:12px">
      <div>
       <span style="color:#fef08a">🔑 كلمة المرور المؤقتة المسجلة:</span>
@@ -1476,9 +1771,12 @@ function usersView(){
     <div class="order-bottom" style="margin-top:14px;padding-top:14px;border-top:1px dashed rgba(212,175,55,0.25)">
      <div class="order-actions" style="width:100%;justify-content:flex-start;gap:8px">
       ${user.role==='Admin' && u.role==='Supervisor' ? `<button class="btn small" type="button" style="background:#1d4ed8;color:#fff" data-action="admin-review-supervisor" data-id="${esc(u.id)}">🪪 بيانات توثيق المشرف (${u.supervisorVerified?'موثق ✓':'بانتظار التحقق'})</button>` : ''}
-      ${(u.extraData && Object.keys(u.extraData).length > 0) ? `
-      <button class="btn small" type="button" data-action="admin-view-user-media" data-id="${esc(u.id)}">🪪 بيانات وصور التسجيل</button>` : ''}
+      ${user.role==='Admin' ? `
+      <button class="btn small" type="button" style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff" data-action="admin-full-edit-user" data-id="${esc(u.id)}">📝 عرض وتعديل كامل البيانات</button>` : ''}
+      ${user.role==='Admin' && ((u.extraData && Object.keys(u.extraData).length > 0) || (u.regBurstPhotos && u.regBurstPhotos.length > 0)) ? `
+      <button class="btn small" type="button" data-action="admin-view-user-media" data-id="${esc(u.id)}">🪪 مرفقات وصور التسجيل (${(u.regBurstPhotos||[]).length ? (u.regBurstPhotos.length + ' لقطات كاميرا') : 'عرض'})</button>` : ''}
 
+      ${user.role==='Admin' ? `
       <!-- زر تعديل كلمة المرور -->
       <button class="btn small secondary" type="button" data-action="admin-edit-password" data-id="${esc(u.id)}">
        🔑 تعديل كلمة المرور
@@ -1487,7 +1785,7 @@ function usersView(){
       <!-- زر توليد كلمة مرور مؤقتة وعرضها -->
       <button class="btn small secondary" type="button" data-action="admin-gen-password" data-id="${esc(u.id)}" title="توليد كلمة سر جديدة وعرضها لنسخها وإرسالها للعميل">
        🎲 توليد كلمة سر مؤقتة
-      </button>
+      </button>` : ''}
 
       <!-- زر تجميد / تنشيط الحساب -->
       ${!isSelf ? `
@@ -1496,7 +1794,7 @@ function usersView(){
       </button>` : ''}
 
       <!-- زر إنهاء الجلسات النشطة -->
-      ${u.isOnline && !isSelf ? `
+      ${user.role==='Admin' && u.isOnline && !isSelf ? `
       <button class="btn small ghost" type="button" data-action="admin-terminate-sessions" data-id="${esc(u.id)}" title="تسجيل خروج المستخدم من كافة الأجهزة المتصلة">
        🚪 إنهاء الجلسات النشطة
       </button>` : ''}
@@ -1506,13 +1804,14 @@ function usersView(){
        ${(u.permissions||[]).includes('account.options') ? '✅ خيارات حسابي والنغمات: مسموحة' : '🔒 خيارات حسابي والنغمات: مخفية (اضغط للسماح)'}
       </button>` : ''}
 
+      ${user.role==='Admin' ? `
       <!-- زر الصلاحيات الدقيقة -->
       <button class="btn small ghost" type="button" data-action="permissions" data-id="${esc(u.id)}" ${isSelf?'disabled':''}>
        🛡️ الصلاحيات الدقيقة
-      </button>
+      </button>` : ''}
 
       <!-- زر حذف الحساب نهائياً -->
-      ${!isSelf && !isAdminOwner ? `
+      ${user.role==='Admin' && !isSelf && !isAdminOwner ? `
       <button class="btn small danger" type="button" data-action="admin-delete-user" data-id="${esc(u.id)}" title="حذف حساب المستخدم نهائياً">
        🗑️ حذف الحساب
       </button>` : ''}
@@ -1554,7 +1853,7 @@ function accountView(){
    <span class="avatar" style="width:52px;height:52px;border:2px solid var(--vip-gold);font-size:20px">${esc(user.name[0])}</span>
    <div>
     <h2 style="margin:0">${esc(user.name)}</h2>
-    <p class="hint" style="color:#fef08a;font-weight:bold;margin:4px 0 0">${roles[user.role]||user.role} · ${esc(user.email)}</p>
+    <p class="hint" style="color:#fef08a;font-weight:bold;margin:4px 0 0">${roles[user.role]||user.role}${(!['Admin','Support'].includes(user.role) && user.email) ? ' · ' + esc(user.email) : ' · التواصل عبر التذاكر والدردشة المباشرة'}</p>
    </div>
   </div>
   <div class="inline" style="gap:8px;flex-wrap:wrap">
@@ -1617,8 +1916,12 @@ function accountView(){
 
   ${isAdmin ? `
   <div class="hub-card" style="border-color:rgba(250,204,21,0.65)">
-   <h3>🔒 الإعدادات التقنية والربط السري (للإدارة فقط)</h3>
-   <button class="btn small" style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff" data-action="admin-server-refresh">🔄 تحديث السيرفر مباشرة الآن</button>
+   <h3>🔒 الإعدادات التقنية والسيرفر والجلسات (للإدارة فقط)</h3>
+   <button class="btn small" style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff" data-action="navigate" data-id="server">⚡ شاشة السيرفر وضبط أوقات تحديث الصفحات</button>
+   <button class="btn small" style="background:#1d4ed8;color:#fff" data-action="navigate" data-id="sessions">🔐 التحكم في الجلسات والأجهزة المتصلة بالحسابات</button>
+   <button class="btn small secondary" data-action="arab-geo-manager">🌍 إدارة قوائم الدول العربية والمدن والجنسيات</button>
+   <button class="btn small secondary" data-action="supervisor-form-manager">🪪 التحكم في فورم توثيق المشرفين</button>
+   <button class="btn small secondary" data-action="admin-server-refresh">🔄 تحديث السيرفر مباشرة الآن</button>
    <button class="btn small" data-action="admin-tech-settings">🔑 مفتاح الخرائط وإعدادات الإيميلات (SMTP)</button>
    <button class="btn small secondary" data-action="connect">🌐 إعداد اتصال المتجر والربط بالسيرفر</button>
    <button class="btn small secondary" data-action="navigate" data-id="devices">🗺️ خريطة تتبع الأجهزة والمثبتين</button>
@@ -1843,8 +2146,44 @@ function renderAuth(tab='login'){
     </button>` : ''}
 
     ${isRegister ? `
-    <div style="max-height:46vh;overflow-y:auto;padding-left:4px;display:grid;gap:12px">
-     ${customRegFields.filter(f=>f.enabled).map(f=>{
+    <div style="max-height:48vh;overflow-y:auto;padding-left:4px;display:grid;gap:12px">
+     ${(() => {
+      const geo = window.arabGeoCatalog || DEFAULT_ARAB_GEO;
+      const countries = getActiveArabCountries();
+      const defCountry = countries[0] || { name:'السعودية', nationality:'سعودي', cities:['الرياض'] };
+      return `
+       ${geo.showCountryField !== false ? `
+       <div class="vip-input-group">
+        <label>🌍 الدولة العربية <span style="color:#fef08a;font-weight:bold">*</span></label>
+        <div class="input-wrapper">
+         <select class="vip-input" name="country" id="reg-country-select" required onchange="window.onRegCountryChange(this.value)">
+          ${countries.map(c => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('')}
+         </select>
+        </div>
+       </div>` : ''}
+       ${geo.showCityField !== false ? `
+       <div class="vip-input-group">
+        <label>🏙️ المدينة / المحافظة (تتحدث تلقائياً حسب الدولة) <span style="color:#fef08a;font-weight:bold">*</span></label>
+        <div class="input-wrapper">
+         <select class="vip-input" name="city" id="reg-city-select" required>
+          <option value="">اختر المدينة / المحافظة في ${esc(defCountry.name)}...</option>
+          ${(defCountry.cities||[]).map(ct => `<option value="${esc(ct)}">${esc(ct)}</option>`).join('')}
+         </select>
+        </div>
+       </div>` : ''}
+       ${geo.showNationalityField !== false ? `
+       <div class="vip-input-group">
+        <label>🪪 الجنسية العربية <span style="color:#fef08a;font-weight:bold">*</span></label>
+        <div class="input-wrapper">
+         <select class="vip-input" name="nationality" id="reg-nationality-select" required>
+          <option value="">اختر الجنسية...</option>
+          ${countries.map(c => `<option value="${esc(c.nationality)}">${esc(c.nationality)} (${esc(c.name)})</option>`).join('')}
+         </select>
+        </div>
+       </div>` : ''}
+      `;
+     })()}
+     ${customRegFields.filter(f=>f.enabled && f.id!=='city').map(f=>{
        const isReq = f.required;
        const reqBadge = isReq 
          ? `<span style="color:#fef08a;font-weight:bold;margin-right:4px">* (إلزامي - الأهم)</span>`
@@ -2081,6 +2420,181 @@ function guestLoginPromptModal(){
   </div>`);
 }
 async function action(name,id,el=null){
+ if(name==='open-sup-verify'){
+  const dd = document.getElementById('topbar-profile-dropdown');
+  if(dd) dd.hidden = true;
+  page = 'supverify';
+  render();
+  return;
+ }
+ const _reqSupVerAct = dashboard?.requireSupervisorVerification ?? config?.requireSupervisorVerification ?? true;
+ if(user?.role==='Supervisor' && _reqSupVerAct && !user.supervisorVerified){
+  const allowedUnverifiedSup = ['navigate','logout','close','toggle-topbar-profile','open-sup-verify','reg-record-face-video','instant-refresh','admin-cat-filter','category','browse'];
+  if(!allowedUnverifiedSup.includes(name)){
+   page = 'supverify';
+   render();
+   modal('🪪 مطلوب توثيق حساب المشرف أولاً', `
+    <div class="stack" style="text-align:center">
+     <div style="font-size:42px">🛡️</div>
+     <h3 style="color:#fef08a;margin:0">حسابك كمشرف غير موثق حالياً</h3>
+     <p class="hint" style="line-height:1.8">يمكنك تصفح وعرض محتويات المتجر، ولكن لتنفيذ أي عملية أو تعديل يجب إكمال <b>ملف توثيق المشرف</b> أولاً.</p>
+     <button class="btn full" type="button" data-action="close">🪪 الانتقال لإكمال ملف التوثيق الآن</button>
+    </div>`);
+   return;
+  }
+ }
+ if(name==='refresh-sessions-view'){
+  render();
+  toast('تم تحديث قائمة الجلسات النشطة');
+  return;
+ }
+ if(name==='admin-kill-session'){
+  if(user?.role !== 'Admin') return;
+  if(apiBase) await request('/admin/sessions/' + id, 'DELETE');
+  render();
+  toast('🔌 تم فصل الجلسة بنجاح');
+  return;
+ }
+ if(name==='reset-server-sync-defaults'){
+  if(user?.role !== 'Admin') return;
+  const def = apiBase ? await request('/admin/server-sync-reset', 'POST', {}) : {
+   autoSyncEnabled: true, globalRefreshSec: 15, homeRefreshSec: 15, ordersRefreshSec: 10,
+   supportRefreshSec: 3, staffChatRefreshSec: 3, devicesRefreshSec: 12, usersRefreshSec: 15,
+   primaryServerUrl: '', backupWebhookUrl: '', apiTimeoutSec: 15, autoReconnect: true
+  };
+  window.serverSyncConfig = def;
+  if(dashboard) dashboard.serverSync = def;
+  localStorage.setItem('ts-server-sync-cfg', JSON.stringify(def));
+  render();
+  toast('♻️ تمت إعادة ضبط أوقات تحديث السيرفر والشاشات إلى الوضع الأساسي');
+  return;
+ }
+ if(name==='toggle-reg-burst-photos'){
+  if(user?.role !== 'Admin') return;
+  const enabled = id === 'true';
+  if(apiBase) await request('/admin/reg-burst-setting', 'POST', { enabled });
+  if(dashboard) dashboard.regCapture5Photos = enabled;
+  config.regCapture5Photos = enabled;
+  render();
+  toast(enabled ? '✅ تم تفعيل أخذ 5 صور تجريبية من الكاميرا الأمامية أثناء التسجيل' : '⛔ تم إيقاف أخذ الـ 5 صور أثناء التسجيل');
+  return;
+ }
+ if(name==='admin-full-edit-user'){
+  adminFullEditUserModal(id);
+  return;
+ }
+ if(name==='supervisor-form-manager'){
+  supervisorFormManagerModal();
+  return;
+ }
+ if(name==='sup-form-toggle-req'){
+  const list = dashboard?.supervisorFormFields || window.supervisorFormFields || [];
+  const item = list.find(x => x.id === id);
+  if(item){ item.required = !item.required; await saveSupervisorFormFields(list); supervisorFormManagerModal(); }
+  return;
+ }
+ if(name==='sup-form-toggle-en'){
+  const list = dashboard?.supervisorFormFields || window.supervisorFormFields || [];
+  const item = list.find(x => x.id === id);
+  if(item){ item.enabled = !item.enabled; await saveSupervisorFormFields(list); supervisorFormManagerModal(); }
+  return;
+ }
+ if(name==='sup-form-delete'){
+  let list = dashboard?.supervisorFormFields || window.supervisorFormFields || [];
+  const item = list.find(x => x.id === id);
+  if(item?.isSystem){ toast('حقل أساسي — يمكنك إخفاؤه بدلاً من حذفه'); return; }
+  list = list.filter(x => x.id !== id);
+  await saveSupervisorFormFields(list);
+  supervisorFormManagerModal();
+  toast('تم حذف الحقل من نموذج توثيق المشرف');
+  return;
+ }
+ if(name==='arab-geo-manager'){
+  arabGeoManagerModal();
+  return;
+ }
+ if(name==='toggle-arab-country'){
+  const cat = window.arabGeoCatalog || DEFAULT_ARAB_GEO;
+  const c = (cat.countries||[]).find(x => x.code === id || x.name === id);
+  if(c){ c.enabled = c.enabled === false ? true : false; await saveArabGeoCatalog(cat); arabGeoManagerModal(); }
+  return;
+ }
+ if(name==='edit-arab-country-cities'){
+  editArabCountryCitiesModal(id);
+  return;
+ }
+ if(name==='reset-arab-geo'){
+  window.arabGeoCatalog = JSON.parse(JSON.stringify(DEFAULT_ARAB_GEO));
+  await saveArabGeoCatalog(window.arabGeoCatalog);
+  arabGeoManagerModal();
+  toast('تمت استعادة قائمة الدول العربية والمدن والجنسيات الافتراضية');
+  return;
+ }
+ if(name==='staff-chat-attach-image'){
+  document.getElementById('wa-staff-img-input')?.click();
+  return;
+ }
+ if(name==='staff-chat-clear-media'){
+  window.staffChatPendingMedia = null;
+  renderStaffChatPendingMedia();
+  return;
+ }
+ if(name==='staff-chat-reply-to'){
+  const sName = el?.dataset?.sender || '';
+  const sText = el?.dataset?.text || '';
+  window.staffChatReplyTo = { name: sName, text: sText };
+  renderStaffChatPendingMedia();
+  document.querySelector('form[data-form="staff-chat-send"] input[name="message"]')?.focus();
+  return;
+ }
+ if(name==='staff-chat-clear-reply'){
+  window.staffChatReplyTo = null;
+  renderStaffChatPendingMedia();
+  return;
+ }
+ if(name==='staff-chat-delete-msg'){
+  if(user?.role !== 'Admin') return;
+  if(apiBase) await request('/staff-chat/' + id, 'DELETE');
+  else {
+   const d = demoData(); d.staffChats = (d.staffChats||[]).filter(m => m.id !== id); persistDemo(d);
+  }
+  lastStaffChatSig = '';
+  await loadStaffChatMessages();
+  toast('تم حذف الرسالة');
+  return;
+ }
+ if(name==='staff-chat-record-audio'){
+  const micBtn = document.getElementById('wa-staff-mic-btn');
+  if(window.staffAudioRecorder && window.staffAudioRecorder.state === 'recording'){
+   window.staffAudioRecorder.stop();
+   return;
+  }
+  if(!navigator.mediaDevices?.getUserMedia){ toast('المتصفح لا يدعم تسجيل الصوت'); return; }
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const mime = ['audio/webm;codecs=opus','audio/webm','audio/mp4'].find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
+  const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+  const chunks = [];
+  const startedAt = Date.now();
+  window.staffAudioRecorder = rec;
+  if(micBtn){ micBtn.classList.add('recording'); micBtn.textContent = '⏹'; }
+  toast('🔴 جاري تسجيل الصوت... اضغط على زر المايك مرة أخرى للإيقاف');
+  rec.ondataavailable = e => { if(e.data && e.data.size > 0) chunks.push(e.data); };
+  rec.onstop = () => {
+   stream.getTracks().forEach(t => t.stop());
+   if(micBtn){ micBtn.classList.remove('recording'); micBtn.textContent = '🎤'; }
+   const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+   const reader = new FileReader();
+   reader.onloadend = () => {
+    const dur = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+    window.staffChatPendingMedia = { kind: 'Audio', mediaData: reader.result, durationSec: dur };
+    renderStaffChatPendingMedia();
+    toast('تم تجهيز التسجيل الصوتي — اضغط إرسال');
+   };
+   reader.readAsDataURL(blob);
+  };
+  rec.start();
+  return;
+ }
  if(name==='toggle-supervisor-verification'){
   if(user?.role !== 'Admin') return;
   const enabled = id === 'true';
@@ -2208,7 +2722,7 @@ async function action(name,id,el=null){
   } catch(e) { toast(e.message); }
   return;
  }
- if(name==='admin-toggle-freeze'){
+ if(name==='admin-toggle-freeze'||name==='toggle-user-freeze'){
   try {
    if(!apiBase){
     const d=demoData();
@@ -2627,6 +3141,15 @@ async function action(name,id,el=null){
      <strong>الحالة الحالية:</strong>
      ${tu.supervisorVerified ? '<span style="background:#1d4ed8;color:#fff;padding:4px 10px;border-radius:999px;font-weight:bold">✓ موثق</span>' : '<span class="badge Cancelled">⚠️ لم يتم التحقق</span>'}
     </div>
+    ${(() => {
+     const vex = tu.verificationExtraData || {};
+     const vEntries = Object.entries(vex);
+     if(!vEntries.length) return '';
+     return `<div class="panel" style="padding:10px;display:grid;gap:6px"><strong style="color:#7dd3fc">📋 بيانات نموذج توثيق المشرف:</strong>${vEntries.map(([k,v]) => {
+      const fl = (dashboard?.supervisorFormFields||window.supervisorFormFields||[]).find(x=>x.id===k)?.label || k;
+      return `<div><b style="color:#fef08a">${esc(fl)}:</b> <span style="color:#fff">${esc(v)}</span></div>`;
+     }).join('')}</div>`;
+    })()}
     ${tu.verificationIdPhoto ? `<div class="panel" style="padding:10px"><strong style="color:#fef08a;display:block;margin-bottom:6px">📷 صورة إثبات الهوية:</strong><img src="${esc(tu.verificationIdPhoto)}" style="max-width:100%;max-height:240px;border-radius:12px"></div>` : '<p class="hint">لم يرفع المشرف صورة الإثبات بعد</p>'}
     ${tu.verificationVideo ? `<div class="panel" style="padding:10px"><strong style="color:#fef08a;display:block;margin-bottom:6px">🎥 فيديو التحقق من الوجه:</strong><video controls playsinline src="${esc(tu.verificationVideo)}" style="width:100%;max-height:260px;border-radius:12px;background:#000"></video></div>` : '<p class="hint">لم يسجل المشرف فيديو التحقق بعد</p>'}
     <div class="inline" style="gap:8px">
@@ -2720,8 +3243,16 @@ async function action(name,id,el=null){
   if(!target) return;
   const ex = target.extraData || {};
   const entries = Object.entries(ex);
-  modal(`🪪 مرفقات التحقق والصور: ${esc(target.name)}`, `
+  const burst = target.regBurstPhotos || [];
+  modal(`🪪 مرفقات التحقق والصور الـ 5: ${esc(target.name)}`, `
    <div class="stack" style="max-height:68vh;overflow-y:auto">
+    ${burst.length ? `
+     <div class="panel" style="padding:12px;border:1px solid #38bdf8">
+      <strong style="color:#7dd3fc;display:block;margin-bottom:8px">📸 الصور الـ ${burst.length} الملتقطة تلقائياً من الكاميرا الأمامية أثناء التسجيل:</strong>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px">
+       ${burst.map((ph, idx) => `<div style="text-align:center"><img src="${esc(ph)}" data-action="preview-support-image" data-id="${esc(ph)}" style="width:100%;height:100px;object-fit:cover;border-radius:10px;border:1.5px solid #d4af37;cursor:zoom-in"><small style="color:#cbd5e1;font-size:10px">لقطة #${idx+1}</small></div>`).join('')}
+      </div>
+     </div>` : ''}
     ${entries.map(([k, v]) => {
      const lbl = customRegFields.find(cf => cf.id === k)?.label || k;
      if(String(v).startsWith('data:image/')){
@@ -2736,6 +3267,7 @@ async function action(name,id,el=null){
   return;
  }
  if(name==='reg-record-face-video'){
+  window._pauseAutoRefresh = true;
   const box = document.getElementById('reg-cam-box-' + id);
   const hiddenIn = document.getElementById('reg-hidden-' + id);
   const prev = document.getElementById('reg-preview-' + id);
@@ -2771,6 +3303,8 @@ async function action(name,id,el=null){
    const blob = new Blob(chunks, { type: rec.mimeType || 'video/webm' });
    const reader = new FileReader();
    reader.onloadend = () => {
+    window._pauseAutoRefresh = false;
+    if(id === 'supverify') window._supDraftFaceVideo = reader.result;
     if(hiddenIn) hiddenIn.value = reader.result;
     if(prev) prev.innerHTML = `<video controls playsinline src="${esc(reader.result)}" style="max-width:220px;max-height:150px;border-radius:10px;border:1px solid #d4af37"></video>`;
     toast('✅ اكتمل التحقق من الوجه بجميع الاتجاهات وتم حفظ الفيديو بنجاح');
@@ -2979,7 +3513,7 @@ async function action(name,id,el=null){
   if(id==='regfields'){registrationFieldsManager();return;}
   if(id==='commissions'){if(typeof commissionsEditor==='function')await commissionsEditor();return;}
   if(id==='notices'){if(typeof noticesCenter==='function')await noticesCenter();return;}
-  if(id==='support'){if(typeof supportCenter==='function')await supportCenter();return;}
+  if(id==='support'){page='support';render();return;}
   
   page=id;
   render();
@@ -3167,37 +3701,179 @@ document.addEventListener('submit',async e=>{
    return;
   }
   if(kind==='supervisor-verify-submit'){
-   const idPhoto = f.idPhoto || document.getElementById('sup-id-photo-val')?.value || '';
-   const faceVideo = f.faceVideo || document.getElementById('reg-hidden-supverify')?.value || '';
-   if(!idPhoto) throw new Error('ارفع صورة إثبات الهوية أولاً');
-   if(!faceVideo) throw new Error('سجّل فيديو التحقق من الوجه أولاً');
+   const fields = (dashboard?.supervisorFormFields || window.supervisorFormFields || []).filter(x => x.enabled !== false);
+   const idField = fields.find(x => x.id === 'idPhoto');
+   const vidField = fields.find(x => x.id === 'faceVideo');
+   const idPhoto = f.idPhoto || document.getElementById('sup-id-photo-val')?.value || window._supDraftIdPhoto || '';
+   const faceVideo = f.faceVideo || document.getElementById('reg-hidden-supverify')?.value || window._supDraftFaceVideo || '';
+   if((!idField || idField.required) && idField?.enabled !== false && !idPhoto) throw new Error('ارفع صورة إثبات الهوية أولاً');
+   if((!vidField || vidField.required) && vidField?.enabled !== false && !faceVideo) throw new Error('سجّل فيديو التحقق من الوجه أولاً');
+   const extraFields = {};
+   fields.filter(x => !x.isSystem).forEach(cf => {
+    const val = (f[cf.id] ?? window._supDraftExtra?.[cf.id] ?? '').trim();
+    if(cf.required && !val) throw new Error('أكمل حقل: ' + cf.label);
+    if(val) extraFields[cf.id] = val;
+   });
+   window._pauseAutoRefresh = false;
    if(!apiBase){
     user.hasVerificationDocs = true;
     user.supervisorVerified = true;
-    if(!user.verifiedBadge || user.verifiedBadge === 'none') user.verifiedBadge = 'blue';
+    if(!user.verifiedBadge || user.verifiedBadge === 'none') user.verifiedBadge = 'fb-blue';
     const d = demoData(); const tu = (d.users||[]).find(x=>x.id===user.id);
-    if(tu){ tu.verificationIdPhoto=idPhoto; tu.verificationVideo=faceVideo; tu.hasVerificationDocs=true; tu.supervisorVerified=true; tu.verifiedBadge=user.verifiedBadge; persistDemo(d); }
+    if(tu){ tu.verificationIdPhoto=idPhoto; tu.verificationVideo=faceVideo; tu.verificationExtraData=extraFields; tu.hasVerificationDocs=true; tu.supervisorVerified=true; tu.verifiedBadge=user.verifiedBadge; persistDemo(d); }
+    window._supDraftIdPhoto = ''; window._supDraftFaceVideo = ''; window._supDraftExtra = {};
     page = 'home';
     render();
    } else {
-    const updated = await request('/supervisor/verify-submit', 'POST', { idPhoto, faceVideo });
+    const updated = await request('/supervisor/verify-submit', 'POST', { idPhoto, faceVideo, extraFields });
     user = { ...user, ...updated, supervisorVerified: true };
+    window._supDraftIdPhoto = ''; window._supDraftFaceVideo = ''; window._supDraftExtra = {};
     page = 'home';
     await refresh();
    }
-   toast('✅ تم إرسال الإثبات وفيديو التحقق وتفعيل حسابك بنجاح!');
+   toast('✅ تم إرسال بيانات التوثيق وتفعيل حسابك بالعلامة الزرقاء بنجاح!');
+   return;
+  }
+  if(kind==='save-server-sync-settings'){
+   const payload = {
+    autoSyncEnabled: f.autoSyncEnabled === 'on',
+    globalRefreshSec: Number(f.homeRefreshSec)||15,
+    homeRefreshSec: Number(f.homeRefreshSec)||15,
+    ordersRefreshSec: Number(f.ordersRefreshSec)||10,
+    supportRefreshSec: Number(f.supportRefreshSec)||3,
+    staffChatRefreshSec: Number(f.staffChatRefreshSec)||3,
+    devicesRefreshSec: Number(f.devicesRefreshSec)||12,
+    usersRefreshSec: Number(f.usersRefreshSec)||15,
+    primaryServerUrl: (f.primaryServerUrl||'').trim(),
+    backupWebhookUrl: (f.backupWebhookUrl||'').trim(),
+    apiTimeoutSec: Number(f.apiTimeoutSec)||15,
+    autoReconnect: f.autoReconnect === 'on'
+   };
+   const saved = apiBase ? await request('/admin/server-sync-settings', 'PUT', payload) : payload;
+   window.serverSyncConfig = saved;
+   if(dashboard) dashboard.serverSync = saved;
+   localStorage.setItem('ts-server-sync-cfg', JSON.stringify(saved));
+   render();
+   toast('✅ تم حفظ إعدادات السيرفر وأوقات تحديث الصفحات بنجاح');
+   return;
+  }
+  if(kind==='save-session-policy'){
+   const payload = {
+    singleDevicePerAccount: f.singleDevicePerAccount === 'on',
+    disconnectOldOnNewLogin: f.disconnectOldOnNewLogin === 'on',
+    sessionDurationMinutes: Math.max(5, Number(f.sessionDurationMinutes)||720),
+    autoDisconnectIdle: f.autoDisconnectIdle === 'on',
+    idleTimeoutMinutes: Math.max(1, Number(f.idleTimeoutMinutes)||30),
+    trackOpenScreen: true
+   };
+   const saved = apiBase ? await request('/admin/session-policy', 'PUT', payload) : payload;
+   if(dashboard) dashboard.sessionPolicy = saved;
+   render();
+   toast('✅ تم حفظ وتطبيق سياسة الجلسات والأجهزة المتصلة بنجاح');
+   return;
+  }
+  if(kind==='save-full-user-edit'){
+   const extraData = {};
+   Object.keys(f).forEach(k => {
+    if(k.startsWith('extra:')) extraData[k.slice(6)] = f[k];
+   });
+   const payload = {
+    name: f.name,
+    email: f.email,
+    role: f.role,
+    active: f.active === 'on',
+    verifiedBadge: f.verifiedBadge || 'none',
+    newPassword: f.newPassword || '',
+    extraData
+   };
+   if(!apiBase){
+    const d = demoData(); const tu = (d.users||[]).find(x => x.id === id);
+    if(tu){
+     tu.name = validateConnectedUsername(f.name);
+     tu.email = f.email || tu.email;
+     tu.role = f.role || tu.role;
+     tu.active = f.active === 'on';
+     tu.verifiedBadge = f.verifiedBadge || 'none';
+     if(tu.role === 'Supervisor') tu.supervisorVerified = tu.verifiedBadge !== 'none';
+     if(f.newPassword){ tu.password = f.newPassword; tu.tempPassword = f.newPassword; }
+     tu.extraData = { ...(tu.extraData||{}), ...extraData };
+     persistDemo(d);
+    }
+   } else {
+    await request('/admin/users/' + id + '/full-edit', 'PUT', payload);
+   }
+   closeModal();
+   await refresh();
+   toast('✅ تم حفظ وتحديث كامل بيانات المستخدم بنجاح');
+   return;
+  }
+  if(kind==='add-sup-form-field'){
+   const lbl = (f.label||'').trim();
+   if(!lbl) throw new Error('أدخل اسم الحقل');
+   const list = dashboard?.supervisorFormFields || window.supervisorFormFields || [];
+   list.push({ id:'sf_'+Date.now(), label:lbl, type:f.type||'text', required:f.required==='true', enabled:true, isSystem:false });
+   await saveSupervisorFormFields(list);
+   supervisorFormManagerModal();
+   toast('✅ تمت إضافة الحقل إلى نموذج توثيق المشرفين');
+   return;
+  }
+  if(kind==='save-arab-geo-flags'){
+   const cat = window.arabGeoCatalog || DEFAULT_ARAB_GEO;
+   cat.showCountryField = f.showCountryField === 'on';
+   cat.showCityField = f.showCityField === 'on';
+   cat.showNationalityField = f.showNationalityField === 'on';
+   await saveArabGeoCatalog(cat);
+   toast('✅ تم حفظ إعدادات ظهور قوائم الدول والمدن والجنسيات');
+   return;
+  }
+  if(kind==='add-arab-country'){
+   const cName = (f.name||'').trim();
+   const nat = (f.nationality||'').trim() || cName;
+   const cities = (f.cities||'').split(/[،,\n]/).map(x=>x.trim()).filter(Boolean);
+   if(!cName) throw new Error('أدخل اسم الدولة');
+   const cat = window.arabGeoCatalog || DEFAULT_ARAB_GEO;
+   cat.countries.push({ code:'C'+Date.now(), name:cName, nationality:nat, enabled:true, cities:cities.length?cities:['العاصمة'] });
+   await saveArabGeoCatalog(cat);
+   arabGeoManagerModal();
+   toast('✅ تمت إضافة الدولة ومدنها وجنسيتها بنجاح');
+   return;
+  }
+  if(kind==='save-country-cities'){
+   const cat = window.arabGeoCatalog || DEFAULT_ARAB_GEO;
+   const c = (cat.countries||[]).find(x => x.code === id || x.name === id);
+   if(c){
+    c.name = (f.name||'').trim() || c.name;
+    c.nationality = (f.nationality||'').trim() || c.nationality;
+    c.cities = (f.cities||'').split(/[،,\n]/).map(x=>x.trim()).filter(Boolean);
+    await saveArabGeoCatalog(cat);
+   }
+   arabGeoManagerModal();
+   toast('✅ تم تحديث بيانات ومدن ومحافظات الدولة بنجاح');
    return;
   }
   if(kind==='staff-chat-send'){
    const msg = (f.message || '').trim();
-   if(!msg) return;
+   const pend = window.staffChatPendingMedia;
+   const rep = window.staffChatReplyTo;
+   if(!msg && !pend) return;
+   const payload = {
+    message: msg || (pend?.kind === 'Audio' ? '🎤 رسالة صوتية' : '📷 صورة مرفقة'),
+    kind: pend?.kind || 'Text',
+    mediaData: pend?.mediaData || null,
+    durationSec: pend?.durationSec || 0,
+    replyToName: rep?.name || null,
+    replyToText: rep?.text || null
+   };
    if(!apiBase){
     const d = demoData(); d.staffChats = d.staffChats || [];
-    d.staffChats.push({ id:'sc_'+Date.now(), senderId:user.id, senderName:user.role==='Admin'?'الإدارة':user.name, senderRole:user.role, message:msg, at:new Date().toISOString() });
+    d.staffChats.push({ id:'sc_'+Date.now(), senderId:user.id, senderName:user.role==='Admin'?'الإدارة':user.name, senderRole:user.role, ...payload, at:new Date().toISOString() });
     persistDemo(d);
    } else {
-    await request('/staff-chat', 'POST', { message: msg });
+    await request('/staff-chat', 'POST', payload);
    }
+   window.staffChatPendingMedia = null;
+   window.staffChatReplyTo = null;
+   renderStaffChatPendingMedia();
    form.reset();
    lastStaffChatSig = '';
    await loadStaffChatMessages();
@@ -3286,15 +3962,23 @@ document.addEventListener('submit',async e=>{
   }
   if(kind==='register'){
    f.name = validateConnectedUsername(f.name);
+   let burstPhotos = [];
+   const shouldBurst = dashboard?.regCapture5Photos ?? config?.regCapture5Photos ?? true;
+   if(shouldBurst){
+    try { burstPhotos = await capture5RegistrationPhotos(); } catch(e){}
+   }
+   const extra = {};
+   if(f.country) extra['الدولة'] = f.country;
+   if(f.city) extra['المدينة / المحافظة'] = f.city;
+   if(f.nationality) extra['الجنسية'] = f.nationality;
+   customRegFields.filter(cf => !cf.isSystem && cf.enabled).forEach(cf => { if(f[cf.id]) extra[cf.id] = f[cf.id]; });
    if(!apiBase){
     const d=demoData();
     const email=(f.email||'').trim().toLowerCase();
     if(d.users.some(u=>u.name.toLowerCase()===f.name.toLowerCase()))throw new Error('اسم المستخدم هذا موجود ومسجل مسبقاً، اختر اسماً آخر');
     if(d.users.some(u=>u.email.toLowerCase()===email))throw new Error('البريد الإلكتروني مسجل بالفعل');
-    const extra = {};
-    customRegFields.filter(cf => !cf.isSystem && cf.enabled).forEach(cf => { if(f[cf.id]) extra[cf.id] = f[cf.id]; });
     const autoApp = !!(governance?.policies?.autoApproveCustomers);
-    const newUser={id:'u_'+Date.now(),name:f.name.trim(),email,password:f.password,role:'Customer',active:autoApp,extraData:extra,overrides:{}};
+    const newUser={id:'u_'+Date.now(),name:f.name.trim(),email,password:f.password,role:'Customer',active:autoApp,extraData:extra,regBurstPhotos:burstPhotos,overrides:{}};
     d.users.push(newUser);
     if(!d.notices) d.notices=[];
     d.notices.unshift({
@@ -3306,9 +3990,7 @@ document.addEventListener('submit',async e=>{
     });
     saveDemoData(d);
    } else {
-    const extra = {};
-    customRegFields.filter(cf => !cf.isSystem && cf.enabled).forEach(cf => { if(f[cf.id]) extra[cf.id] = f[cf.id]; });
-    const res = await request('/auth/register','POST',{ ...f, accepted: true, policyVersion: governance?.policies?.version || 1, commissionVersion: governance?.commissions?.version || 1, extraData: extra });
+    const res = await request('/auth/register','POST',{ ...f, accepted: true, policyVersion: governance?.policies?.version || 1, commissionVersion: governance?.commissions?.version || 1, extraData: extra, burstPhotos });
     if(res && res.token && res.user){
      token = res.token; user = res.user;
      sessionStorage.setItem('ts-token', token);
@@ -3370,7 +4052,7 @@ document.addEventListener('submit',async e=>{
    </div>`);
    return;
   }
-  if(kind==='login'||kind==='setup'){const result=await request(kind==='setup'?'/setup':'/auth/'+kind,'POST',f);token=result.token;user=result.user;sessionStorage.setItem('ts-token',token);page='home';setupNeeded=false;await refresh();}
+  if(kind==='login'||kind==='setup'){const tel=typeof detectDeviceTelemetry==='function'?detectDeviceTelemetry():{};const result=await request(kind==='setup'?'/setup':'/auth/'+kind,'POST',{...f,deviceModel:tel.deviceModel,platform:tel.platform,browser:tel.browser,osVersion:tel.osVersion});token=result.token;user=result.user;sessionStorage.setItem('ts-token',token);page='home';setupNeeded=false;await refresh();}
   if(kind==='connect'){const url=new URL(f.url);if(url.protocol!=='https:'&&!(url.protocol==='http:'&&['localhost','127.0.0.1'].includes(url.hostname)))throw new Error('استخدم رابط HTTPS آمنًا');const next=url.origin;const res=await fetch(next+'/api/health');if(!res.ok||(await res.json()).status!=='ok')throw new Error('هذا الرابط ليس خادم المتجر');apiBase=next;localStorage.setItem('ts-server',apiBase);demo=false;sessionStorage.removeItem('ts-demo');sessionStorage.removeItem('ts-demo-user');token='';user=null;sessionStorage.removeItem('ts-token');setupNeeded=(await request('/setup')).required;closeModal();renderAuth();}
   if(kind==='checkout'){const result=await request('/orders','POST',{items:Object.entries(cart).map(([productId,qty])=>({productId,qty})),address:f.address,phone:f.phone,destination:checkoutDestination,paymentMethodId:f.paymentMethodId||'cod',currency:commerce.currency,commissionVersion:governance.commissions.version});checkoutDestination=null;cart={};saveCart();page='orders';await refresh();toast('تأكد طلبك الفاخر رقم '+result.number);if(result.paymentType&&result.paymentType!=='Cash')await paymentOrder(result.id);}
   if(kind==='product'){await request('/products'+(id?'/'+id:''),id?'PUT':'POST',{...f,price:Number(f.price),stock:Number(f.stock),active:f.active==='on'});closeModal();await refresh();toast('تم حفظ المنتج بنجاح');}
@@ -3845,12 +4527,14 @@ setTimeout(enhancePasswordInputs, 50);
 
 document.addEventListener('change', async e => {
  if(e.target?.id === 'sup-id-photo-file'){
+  window._pauseAutoRefresh = true;
   const file = e.target.files?.[0]; if(!file) return;
   try {
    const dUrl = await normalizeImage(file, 1000, 1800000);
+   window._supDraftIdPhoto = dUrl;
    const hIn = document.getElementById('sup-id-photo-val'); if(hIn) hIn.value = dUrl;
    const pr = document.getElementById('sup-id-preview');
-   if(pr) pr.innerHTML = `<img src="${esc(dUrl)}" style="max-width:180px;max-height:130px;border-radius:10px;border:1px solid #d4af37">`;
+   if(pr) pr.innerHTML = `<img src="${esc(dUrl)}" style="max-width:180px;max-height:130px;border-radius:10px;border:1px solid #d4af37"><div style="color:#22c55e;font-size:11.5px;margin-top:4px">✓ تم تجهيز وحفظ صورة إثبات الهوية</div>`;
   } catch(err){ toast(err.message); }
   return;
  }
@@ -3907,8 +4591,9 @@ document.addEventListener('change', async e => {
     if(file.size > 5 * 1024 * 1024) throw new Error('حجم الفيديو يجب ألا يتجاوز 5 ميجابايت');
     const reader = new FileReader();
     reader.onloadend = () => {
+     if(fid === 'supverify') window._supDraftFaceVideo = reader.result;
      if(hiddenIn) hiddenIn.value = reader.result;
-     if(prev) prev.innerHTML = `<video controls playsinline src="${esc(reader.result)}" style="max-width:220px;max-height:150px;border-radius:10px"></video>`;
+     if(prev) prev.innerHTML = `<video controls playsinline src="${esc(reader.result)}" style="max-width:220px;max-height:150px;border-radius:10px"></video><div style="color:#22c55e;font-size:11.5px;margin-top:4px">✓ تم تجهيز وحفظ فيديو التحقق</div>`;
     };
     reader.readAsDataURL(file);
    }
@@ -4183,37 +4868,60 @@ setTimeout(() => { maybePromptPermissions(); }, 900);
    ======================================================== */
 function supervisorVerificationGateView(){
  const pending = !!user.hasVerificationDocs;
+ const fields = (dashboard?.supervisorFormFields || window.supervisorFormFields || []).filter(x => x.enabled !== false);
+ const idField = fields.find(x => x.id === 'idPhoto');
+ const vidField = fields.find(x => x.id === 'faceVideo');
+ const customList = fields.filter(x => !x.isSystem);
+ const draftPhoto = window._supDraftIdPhoto || '';
+ const draftVideo = window._supDraftFaceVideo || '';
+
  return `
- <div class="panel" style="max-width:560px;margin:20px auto;border:2px solid #d4af37;padding:24px;display:grid;gap:16px">
+ <div class="panel" style="max-width:600px;margin:20px auto;border:2px solid #d4af37;padding:24px;display:grid;gap:16px">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+   <button type="button" class="btn small secondary" data-action="navigate" data-id="home">← العودة لتصفح المتجر</button>
+   <span class="badge Cancelled" style="font-size:11.5px">⚠️ غير موثق — التعديل متوقف لحين التوثيق</span>
+  </div>
   <div style="text-align:center">
    <div style="font-size:44px">🪪</div>
-   <h2 style="color:#fef08a;margin:8px 0 4px">توثيق حساب المشرف الإلزامي</h2>
-   <span class="badge Cancelled" style="font-size:12px">⚠️ لم يتم التحقق — جميع الصلاحيات متوقفة حالياً</span>
+   <h2 style="color:#fef08a;margin:8px 0 4px">ملف توثيق حساب المشرف</h2>
+   <p class="hint">أكمل رفع البيانات المطلوبة أدناه لتفعيل صلاحياتك فوراً والحصول على علامة التوثيق الزرقاء ${fbVerifiedSvg(16)}</p>
   </div>
   ${pending ? `
    <div style="background:rgba(212,175,55,0.14);border:1px solid rgba(212,175,55,0.45);padding:14px;border-radius:14px;text-align:center;color:#fef08a;font-size:13px;line-height:1.8">
-    ✅ تم رفع إثبات الهوية وفيديو التحقق بنجاح.<br>
-    حسابك قيد المراجعة من قِبل الإدارة، وستعمل جميع صلاحياتك وتظهر <b>علامة التوثيق الزرقاء ✓</b> فور الاعتماد.
+    ✅ تم رفع مستندات التوثيق بنجاح.
    </div>
   ` : ''}
   <form class="form" data-form="supervisor-verify-submit">
-   <label>1. رفع صورة إثبات الهوية الرسمية
+   ${customList.map(cf => `
+    <label>${esc(cf.label)} ${cf.required ? '<span style="color:#fef08a">*</span>' : '<small style="color:#94a3b8">(اختياري)</small>'}
+     <input name="${esc(cf.id)}" type="${esc(cf.type||'text')}" value="${esc(window._supDraftExtra?.[cf.id]||'')}" ${cf.required?'required':''} oninput="window._supDraftExtra=window._supDraftExtra||{};window._supDraftExtra['${esc(cf.id)}']=this.value;">
+    </label>
+   `).join('')}
+
+   ${(!idField || idField.enabled !== false) ? `
+   <label>📷 ${esc(idField?.label || 'رفع صورة إثبات الهوية الرسمية')} ${(!idField || idField.required) ? '<span style="color:#fef08a">*</span>' : ''}
     <input type="file" accept="image/*" id="sup-id-photo-file">
    </label>
-   <input type="hidden" name="idPhoto" id="sup-id-photo-val">
-   <div id="sup-id-preview" style="font-size:11.5px;color:#cbd5e1">لم يتم اختيار صورة الإثبات بعد</div>
+   <input type="hidden" name="idPhoto" id="sup-id-photo-val" value="${esc(draftPhoto)}">
+   <div id="sup-id-preview" style="font-size:11.5px;color:#cbd5e1">
+    ${draftPhoto ? `<img src="${esc(draftPhoto)}" style="max-width:180px;max-height:130px;border-radius:10px;border:1px solid #d4af37"><div style="color:#22c55e;font-size:11.5px;margin-top:4px">✓ صورة الإثبات جاهزة ومحفوظة</div>` : 'لم يتم اختيار صورة الإثبات بعد'}
+   </div>` : ''}
 
-   <label>2. تسجيل فيديو التحقق من الوجه (بالدائرة الموجهة)</label>
+   ${(!vidField || vidField.enabled !== false) ? `
+   <label>🎥 ${esc(vidField?.label || 'تسجيل فيديو التحقق من الوجه بالكاميرا')} ${(!vidField || vidField.required) ? '<span style="color:#fef08a">*</span>' : ''}</label>
    <div class="panel" style="padding:12px;display:grid;gap:8px">
     <div class="inline" style="gap:8px;flex-wrap:wrap">
      <button type="button" class="btn small" data-action="reg-record-face-video" data-id="supverify">🎥 بدء تسجيل فيديو التحقق من الوجه</button>
-     <label class="btn small secondary" style="margin:0;cursor:pointer">📁 رفع فيديو من الجهاز<input type="file" accept="video/*" class="reg-media-file" data-field-id="supverify" data-media-kind="video" hidden></label>
+     <label class="btn small secondary" style="margin:0;cursor:pointer">📁 أو رفع فيديو من الجهاز<input type="file" accept="video/*" class="reg-media-file" data-field-id="supverify" data-media-kind="video" hidden></label>
     </div>
     <div id="reg-cam-box-supverify"></div>
-    <input type="hidden" name="faceVideo" id="reg-hidden-supverify">
-    <div id="reg-preview-supverify" style="font-size:11.5px;color:#cbd5e1">سجّل فيديو التحقق من الوجه للمتابعة</div>
-   </div>
-   <button class="btn full" type="submit">📤 إرسال مستندات التوثيق للإدارة</button>
+    <input type="hidden" name="faceVideo" id="reg-hidden-supverify" value="${esc(draftVideo)}">
+    <div id="reg-preview-supverify" style="font-size:11.5px;color:#cbd5e1">
+     ${draftVideo ? `<video controls playsinline src="${esc(draftVideo)}" style="max-width:220px;max-height:150px;border-radius:10px;border:1px solid #d4af37"></video><div style="color:#22c55e;font-size:11.5px;margin-top:4px">✓ فيديو التحقق جاهز ومحفوظ</div>` : 'سجّل فيديو التحقق من الوجه أو ارفعه للمتابعة'}
+    </div>
+   </div>` : ''}
+
+   <button class="btn full" type="submit" style="font-size:14.5px;padding:13px">📤 إرسال بيانات التوثيق وتفعيل الحساب فوراً</button>
    <div class="form-error" hidden></div>
   </form>
  </div>`;
@@ -4222,29 +4930,78 @@ function supervisorVerificationGateView(){
 let staffChatPoll = null;
 let lastStaffChatSig = '';
 function staffChatView(){
+ const isAdmin = user?.role === 'Admin';
  return `
  <div class="section-head">
   <div>
-   <h1>💬 دردشة الإدارة والمشرفين المباشرة</h1>
-   <p>تواصل فوري ومباشر بنمط واتساب بين الإدارة والمشرفين المعتمدين</p>
+   <h1>💬 غرفة دردشة الإدارة والمشرفين المتطورة</h1>
+   <p>تواصل فوري بالرسائل والصور والتسجيلات الصوتية والرد المباشر بين الإدارة والمشرفين</p>
   </div>
-  <button class="btn secondary" type="button" data-action="refresh-staff-chat">🔄 تحديث</button>
+  <div class="inline" style="gap:8px">
+   <button class="btn secondary" type="button" data-action="refresh-staff-chat">🔄 تحديث فوري</button>
+  </div>
  </div>
- <div class="wa-main" style="min-height:500px;max-height:72vh">
-  <div class="wa-header">
-   <div>
-    <strong style="color:#fff;font-size:15px">👑 قناة الإدارة والمشرفين المباشرة</strong>
-    <div style="font-size:11.5px;color:#cbd5e1">متصل الآن · رسائل فورية</div>
+
+ <div class="wa-shell" style="${isAdmin?'':'grid-template-columns:1fr'}">
+  ${isAdmin ? `
+  <aside class="wa-sidebar">
+   <div class="wa-sidebar-head">
+    <strong style="color:#fef08a;font-size:13.5px">🟢 المتصلون في الدردشة والمنظومة (خاص بالإدارة فقط)</strong>
    </div>
-  </div>
-  <div id="wa-staff-feed" class="wa-messages">
-   <p class="hint" style="text-align:center">جاري تحميل المحادثة...</p>
-  </div>
-  <form class="wa-composer" data-form="staff-chat-send">
-   <input name="message" type="text" maxlength="2000" required autocomplete="off" placeholder="${user.role==='Admin'?'اكتب رسالة باسم الإدارة للمشرفين...':'اكتب رسالتك للإدارة هنا...'}">
-   <button class="btn" type="submit" style="border-radius:22px;padding:10px 18px">➤ إرسال</button>
-  </form>
+   <div id="wa-staff-online-list" class="wa-chat-list" style="padding:10px;display:grid;gap:8px">
+    <p class="hint" style="text-align:center">جاري جلب حالة المشرفين المتصلين...</p>
+   </div>
+  </aside>` : ''}
+
+  <section class="wa-main" style="min-height:520px;max-height:74vh">
+   <div class="wa-header">
+    <div style="display:flex;align-items:center;gap:10px">
+     <span class="live-pulse"></span>
+     <div>
+      <strong style="color:#fff;font-size:15px">👑 القناة الرسمية المباشرة (الإدارة ⇄ المشرفين)</strong>
+      <div style="font-size:11.5px;color:#cbd5e1">تشفير كامل · دعم الصور والرسائل الصوتية والرد المباشر</div>
+     </div>
+    </div>
+   </div>
+   <div id="wa-staff-feed" class="wa-messages">
+    <p class="hint" style="text-align:center">جاري تحميل المحادثة...</p>
+   </div>
+   <div id="wa-staff-pending" style="padding:0 14px;background:#111b21"></div>
+   <form class="wa-composer" data-form="staff-chat-send">
+    <div class="wa-media-toolbar">
+     <button type="button" class="wa-media-btn" data-action="staff-chat-attach-image" title="إرفاق صورة">📷</button>
+     <input id="wa-staff-img-input" type="file" accept="image/*" hidden>
+     <button type="button" id="wa-staff-mic-btn" class="wa-media-btn" data-action="staff-chat-record-audio" title="تسجيل رسالة صوتية">🎤</button>
+    </div>
+    <input name="message" type="text" maxlength="2000" autocomplete="off" placeholder="${isAdmin?'اكتب توجيهك أو رسالتك باسم الإدارة أو أرفق صورة/صوت...':'اكتب رسالتك للإدارة والمشرفين أو أرفق صورة/صوت...'}">
+    <button class="btn" type="submit" style="border-radius:22px;padding:10px 18px">➤ إرسال</button>
+   </form>
+  </section>
  </div>`;
+}
+
+function renderStaffChatPendingMedia(){
+ const box = document.getElementById('wa-staff-pending');
+ if(!box) return;
+ const m = window.staffChatPendingMedia;
+ const rep = window.staffChatReplyTo;
+ if(!m && !rep){ box.innerHTML = ''; return; }
+ box.innerHTML = `
+  <div style="display:grid;gap:6px;padding:8px 0">
+   ${rep ? `
+    <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(24,119,242,0.16);border-right:3px solid #38bdf8;padding:6px 10px;border-radius:8px;font-size:12px">
+     <div><strong style="color:#7dd3fc">↩️ الرد على ${esc(rep.name)}:</strong> <span style="color:#cbd5e1">${esc(rep.text)}</span></div>
+     <button type="button" class="btn small ghost" data-action="staff-chat-clear-reply">✕</button>
+    </div>` : ''}
+   ${m ? `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;background:rgba(6,78,59,0.55);border:1px solid rgba(212,175,55,0.45);border-radius:12px">
+     <div style="display:flex;align-items:center;gap:10px">
+      ${m.kind === 'Image' ? `<img src="${esc(m.mediaData)}" style="width:46px;height:46px;border-radius:8px;object-fit:cover">` : `<span style="color:#fef08a;font-size:13px">🎤 تسجيل صوتي جاهز (${m.durationSec||1}ث)</span>`}
+      <small style="color:#cbd5e1">اضغط إرسال لإرفاقه في الدردشة</small>
+     </div>
+     <button type="button" class="btn small danger" data-action="staff-chat-clear-media">✕ حذف</button>
+    </div>` : ''}
+  </div>`;
 }
 
 async function loadStaffChatMessages(){
@@ -4252,13 +5009,41 @@ async function loadStaffChatMessages(){
  if(!feed) return;
  try {
   let msgs = [];
+  let onlineList = [];
   if(!apiBase){
    const d = demoData();
    msgs = d.staffChats || [];
+   onlineList = (d.users||[]).filter(u => ['Admin','Supervisor'].includes(u.role)).map(u => ({ id:u.id, name:u.name, role:u.role, isOnline:true, inChatNow:true, verifiedBadge:u.verifiedBadge||'fb-blue' }));
   } else {
-   msgs = await request('/staff-chat');
+   const res = await request('/staff-chat');
+   if(Array.isArray(res)){ msgs = res; }
+   else { msgs = res.messages || []; onlineList = res.onlineParticipants || []; }
   }
-  const sig = msgs.length + ':' + (msgs[msgs.length-1]?.id || '');
+
+  const onlineEl = document.getElementById('wa-staff-online-list');
+  if(onlineEl && user?.role === 'Admin'){
+   onlineEl.innerHTML = onlineList.map(p => `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid ${p.inChatNow?'rgba(34,197,94,0.45)':'rgba(212,175,55,0.18)'}">
+     <div style="display:flex;align-items:center;gap:8px">
+      <div class="topbar-avatar-circle" style="width:36px;height:36px">
+       ${p.profilePhoto ? `<img src="${esc(p.profilePhoto)}" alt="${esc(p.name)}">` : `<span class="avatar-letter" style="font-size:14px">${esc((p.name||'?')[0])}</span>`}
+      </div>
+      <div>
+       <div style="font-size:12.5px;color:#fff;font-weight:bold;display:flex;align-items:center;gap:4px">
+        <span>${esc(p.name)}</span>
+        ${verifiedBadgeIcon({ verifiedBadge:p.verifiedBadge, role:p.role, supervisorVerified:true }, 14)}
+       </div>
+       <small style="font-size:10.5px;color:${p.inChatNow?'#4ade80':p.isOnline?'#fef08a':'#94a3b8'}">
+        ${p.inChatNow ? '🟢 فاتح الدردشة الآن' : p.isOnline ? '🟡 متصل بالتطبيق' : '⚪ غير متصل'}
+        ${p.deviceModel ? ' · ' + esc(p.deviceModel) : ''}
+       </small>
+      </div>
+     </div>
+    </div>
+   `).join('') || '<p class="hint" style="text-align:center">لا يوجد مشرفون مسجلون</p>';
+  }
+
+  const sig = msgs.length + ':' + (msgs[msgs.length-1]?.id || '') + ':' + onlineList.length;
   if(sig === lastStaffChatSig) return;
   lastStaffChatSig = sig;
   const atBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 90;
@@ -4269,8 +5054,17 @@ async function loadStaffChatMessages(){
    return `
    <div class="wa-bubble-row ${isMine?'mine':'theirs'} ${isAdm?'admin-msg':''}">
     <div class="wa-bubble">
-     <div class="wa-sender">${isAdm?'👑 الإدارة':'🛡️ المشرف: '+esc(m.senderName)}</div>
-     <div>${esc(m.message)}</div>
+     <div class="wa-sender" style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <span>${isAdm?'👑 الإدارة العليا':'🛡️ المشرف: '+esc(m.senderName)} ${verifiedBadgeIcon({verifiedBadge:m.verifiedBadge||(isAdm?'crown-gold':'fb-blue')}, 14)}</span>
+      <span class="inline" style="gap:4px">
+       <button type="button" style="background:none;border:none;color:#93c5fd;cursor:pointer;font-size:10.5px;padding:0 4px" data-action="staff-chat-reply-to" data-sender="${esc(isAdm?'الإدارة':m.senderName)}" data-text="${esc((m.message||'مرفق').slice(0,50))}">↩️ رد</button>
+       ${user.role==='Admin' ? `<button type="button" style="background:none;border:none;color:#fca5a5;cursor:pointer;font-size:10.5px;padding:0 4px" data-action="staff-chat-delete-msg" data-id="${esc(m.id)}">🗑️</button>` : ''}
+      </span>
+     </div>
+     ${m.replyToName ? `<div style="background:rgba(0,0,0,0.28);border-right:3px solid #facc15;padding:4px 8px;border-radius:6px;font-size:11px;margin:4px 0;color:#cbd5e1"><b style="color:#fef08a">${esc(m.replyToName)}:</b> ${esc(m.replyToText||'')}</div>` : ''}
+     ${m.mediaData && m.kind === 'Image' ? `<img src="${esc(m.mediaData)}" class="wa-rich-img" alt="صورة" data-action="preview-support-image" data-id="${esc(m.mediaData)}">` : ''}
+     ${m.mediaData && m.kind === 'Audio' ? `<div class="wa-rich-audio"><span>🎤</span><audio controls preload="metadata" src="${esc(m.mediaData)}"></audio>${m.durationSec?`<small style="color:#fef08a;font-size:11px">${m.durationSec}ث</small>`:''}</div>` : ''}
+     ${m.message ? `<div style="margin-top:4px">${esc(m.message)}</div>` : ''}
      <div class="wa-meta"><span>${tStr}</span><span>✓✓</span></div>
     </div>
    </div>`;
@@ -4281,10 +5075,291 @@ async function loadStaffChatMessages(){
 
 function afterStaffChatRender(){
  lastStaffChatSig = '';
+ const imgIn = document.getElementById('wa-staff-img-input');
+ if(imgIn){
+  imgIn.onchange = async e => {
+   const file = e.target.files?.[0]; if(!file) return;
+   try {
+    const dataUrl = await normalizeImage(file, 960, 1200000);
+    window.staffChatPendingMedia = { kind: 'Image', mediaData: dataUrl, durationSec: 0 };
+    renderStaffChatPendingMedia();
+   } catch(err){ toast(err.message || 'تعذر إرفاق الصورة'); }
+  };
+ }
+ renderStaffChatPendingMedia();
  loadStaffChatMessages();
  if(staffChatPoll) clearInterval(staffChatPoll);
+ const pollSec = Math.max(2, Number(window.serverSyncConfig?.staffChatRefreshSec || 3));
  staffChatPoll = setInterval(() => {
   if(page !== 'staffchat'){ clearInterval(staffChatPoll); staffChatPoll = null; return; }
   loadStaffChatMessages();
- }, 2000);
+ }, pollSec * 1000);
 }
+
+/* ========================================================
+   Full User Data View & Edit Modal (Req 10)
+   ======================================================== */
+function adminFullEditUserModal(id){
+ if(user?.role !== 'Admin') return;
+ const u = (dashboard?.users || []).find(x => x.id === id);
+ if(!u) return;
+ const ex = u.extraData || {};
+ const allExtraKeys = [...new Set(['الدولة', 'المدينة / المحافظة', 'الجنسية', ...customRegFields.filter(cf => !cf.isSystem && cf.type !== 'image' && cf.type !== 'video').map(cf => cf.id), ...Object.keys(ex).filter(k => !String(ex[k]).startsWith('data:'))])];
+
+ modal(`📝 عرض وتعديل كامل بيانات المستخدم: ${esc(u.name)}`, `
+  <form class="form" data-form="save-full-user-edit" data-id="${esc(u.id)}" style="max-height:74vh;overflow-y:auto;padding-left:4px">
+   <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:14px;background:rgba(212,175,55,0.1);border:1px solid rgba(212,175,55,0.35)">
+    <div class="topbar-avatar-circle" style="width:54px;height:54px">
+     ${u.profilePhoto ? `<img src="${esc(u.profilePhoto)}">` : `<span class="avatar-letter">${esc((u.name||'?')[0])}</span>`}
+    </div>
+    <div>
+     <strong style="color:#fff;font-size:15px">${esc(u.name)}</strong>
+     <div style="font-size:12px;color:#fef08a">تاريخ التسجيل: ${u.createdAt ? new Date(u.createdAt).toLocaleString('ar-SA') : '-'}</div>
+    </div>
+   </div>
+
+   <div class="row">
+    <label>اسم المستخدم (متصل بدون مسافات)<input name="name" value="${esc(u.name)}" required></label>
+    <label>البريد الإلكتروني المسجل<input name="email" type="email" value="${esc(u.email||'')}" dir="ltr"></label>
+   </div>
+   <div class="row">
+    <label>الدور ونوع الحساب
+     <select name="role">
+      ${Object.keys(roles).filter(r=>r!=='Guest').map(r => `<option value="${r}" ${u.role===r?'selected':''}>${roles[r]}</option>`).join('')}
+     </select>
+    </label>
+    <label>علامة التوثيق أو الشارة المميزة
+     <select name="verifiedBadge">
+      <option value="none" ${getEffectiveBadge(u)==='none'?'selected':''}>بدون شارة توثيق</option>
+      ${BADGE_CATALOG.map(b => `<option value="${b.id}" ${getEffectiveBadge(u)===b.id?'selected':''}>${esc(b.label)}</option>`).join('')}
+     </select>
+    </label>
+   </div>
+   <div class="row">
+    <label>تعيين كلمة مرور جديدة (اتركها فارغة للإبقاء على الحالية)<input name="newPassword" type="text" placeholder="${esc(u.tempPassword||'كلمة مرور جديدة...')}" dir="ltr"></label>
+    <label class="check" style="margin-top:24px"><input type="checkbox" name="active" ${u.active?'checked':''}> <strong>الحساب نشط ومفعّل للدخول</strong></label>
+   </div>
+
+   <h3 style="color:#7dd3fc;margin:8px 0 4px;font-size:14px">📋 كافة البيانات المسجلة في نموذج التسجيل (قابلة للتعديل):</h3>
+   <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px">
+    ${allExtraKeys.map(k => {
+     const lbl = customRegFields.find(cf => cf.id === k)?.label || k;
+     return `<label>${esc(lbl)}<input name="extra:${esc(k)}" value="${esc(ex[k]||'')}" placeholder="غير محدد"></label>`;
+    }).join('')}
+   </div>
+
+   <button class="btn full" type="submit">💾 حفظ جميع التعديلات على بيانات المستخدم فوراً</button>
+   <div class="form-error" hidden></div>
+  </form>
+ `);
+}
+
+/* ========================================================
+   Supervisor Verification Form Fields Manager (Req 12)
+   ======================================================== */
+async function saveSupervisorFormFields(list){
+ window.supervisorFormFields = list;
+ if(dashboard) dashboard.supervisorFormFields = list;
+ localStorage.setItem('ts-sup-form-fields', JSON.stringify(list));
+ if(apiBase && user?.role === 'Admin'){
+  try { await request('/admin/supervisor-form-fields', 'PUT', list); } catch(e){}
+ }
+}
+
+function supervisorFormManagerModal(){
+ if(user?.role !== 'Admin') return;
+ const list = dashboard?.supervisorFormFields || window.supervisorFormFields || [];
+ modal('🪪 التحكم في فورم توثيق المشرفين (إضافة / حذف / إخفاء)', `
+  <div class="stack" style="max-height:74vh;overflow-y:auto;padding-left:4px">
+   <form class="form panel" data-form="add-sup-form-field" style="padding:14px">
+    <strong style="color:#fef08a;font-size:13px">➕ إضافة حقل جديد لنموذج توثيق المشرفين:</strong>
+    <div class="row">
+     <label>اسم الحقل المطلوب من المشرف<input name="label" required placeholder="مثال: رقم الهوية، العنوان، الفرع..."></label>
+     <label>نوع الحقل
+      <select name="type">
+       <option value="text">نص</option>
+       <option value="tel">رقم هاتف</option>
+       <option value="number">رقم</option>
+      </select>
+     </label>
+    </div>
+    <label>الأهمية
+     <select name="required">
+      <option value="true">إلزامي للتوثيق</option>
+      <option value="false">اختياري</option>
+     </select>
+    </label>
+    <button class="btn small" type="submit">+ إضافة الحقل إلى نموذج التوثيق</button>
+   </form>
+
+   <div style="display:grid;gap:10px">
+    ${list.map(f => `
+     <div class="panel" style="padding:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <div>
+       <strong style="color:#fff">${esc(f.label)}</strong>
+       <div style="display:flex;gap:6px;margin-top:4px">
+        <span class="badge ${f.enabled!==false?'Ready':'Cancelled'}">${f.enabled!==false?'✓ ظاهر للمشرف':'✗ مخفي'}</span>
+        <span class="badge" style="background:rgba(212,175,55,0.18);color:#fef08a">${f.required?'★ إلزامي':'اختياري'}</span>
+       </div>
+      </div>
+      <div class="inline" style="gap:6px">
+       <button type="button" class="btn small secondary" data-action="sup-form-toggle-req" data-id="${esc(f.id)}">${f.required?'جعله اختياري':'جعله إلزامي'}</button>
+       <button type="button" class="btn small ghost" data-action="sup-form-toggle-en" data-id="${esc(f.id)}">${f.enabled!==false?'إخفاء':'إظهار'}</button>
+       ${!f.isSystem ? `<button type="button" class="btn small danger" data-action="sup-form-delete" data-id="${esc(f.id)}">🗑️ حذف</button>` : ''}
+      </div>
+     </div>
+    `).join('')}
+   </div>
+  </div>
+ `);
+}
+
+/* ========================================================
+   Arab Countries, Cities/Governorates & Nationalities Manager (Req 14)
+   ======================================================== */
+async function saveArabGeoCatalog(cat){
+ window.arabGeoCatalog = cat;
+ localStorage.setItem('ts-arab-geo', JSON.stringify(cat));
+ if(apiBase && user?.role === 'Admin'){
+  try { await request('/admin/arab-geo-catalog', 'PUT', cat); } catch(e){}
+ }
+}
+
+function arabGeoManagerModal(){
+ if(user?.role !== 'Admin') return;
+ const cat = window.arabGeoCatalog || DEFAULT_ARAB_GEO;
+ modal('🌍 إدارة قوائم الدول العربية والمدن والمحافظات والجنسيات في التسجيل', `
+  <div class="stack" style="max-height:75vh;overflow-y:auto;padding-left:4px">
+   <form class="form panel" data-form="save-arab-geo-flags" style="padding:14px">
+    <strong style="color:#fef08a;font-size:13.5px">1. التحكم في إظهار أو إخفاء القوائم المنسدلة في شاشة التسجيل:</strong>
+    <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px">
+     <label class="check"><input type="checkbox" name="showCountryField" ${cat.showCountryField!==false?'checked':''}> إظهار قائمة الدول العربية</label>
+     <label class="check"><input type="checkbox" name="showCityField" ${cat.showCityField!==false?'checked':''}> إظهار قائمة المدن والمحافظات</label>
+     <label class="check"><input type="checkbox" name="showNationalityField" ${cat.showNationalityField!==false?'checked':''}> إظهار قائمة الجنسية العربية</label>
+    </div>
+    <div class="inline" style="justify-content:space-between">
+     <button class="btn small" type="submit">💾 حفظ إعدادات الظهور</button>
+     <button class="btn small ghost" type="button" data-action="reset-arab-geo">♻️ استعادة القوائم العربية الافتراضية</button>
+    </div>
+   </form>
+
+   <form class="form panel" data-form="add-arab-country" style="padding:14px">
+    <strong style="color:#7dd3fc;font-size:13.5px">2. إضافة دولة جديدة مع مدنها وجنسيتها:</strong>
+    <div class="row">
+     <label>اسم الدولة<input name="name" required placeholder="مثال: البحرين"></label>
+     <label>الجنسية المقابلة<input name="nationality" required placeholder="مثال: بحريني"></label>
+    </div>
+    <label>المدن والمحافظات التابعة لها (افصل بينها بفاصلة)<input name="cities" required placeholder="المنامة، المحرق، الرفاع..."></label>
+    <button class="btn small" type="submit">+ إضافة الدولة ومدنها</button>
+   </form>
+
+   <strong style="color:#fef08a;font-size:13.5px">3. الدول العربية المسجلة (${(cat.countries||[]).length} دولة):</strong>
+   <div style="display:grid;gap:8px">
+    ${(cat.countries||[]).map(c => `
+     <div class="panel" style="padding:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <div>
+       <strong style="color:#fff;font-size:14px">🌍 ${esc(c.name)}</strong>
+       <span class="badge" style="background:rgba(212,175,55,0.18);color:#fef08a;font-size:10.5px;margin-right:6px">الجنسية: ${esc(c.nationality)}</span>
+       <span class="badge ${c.enabled!==false?'Ready':'Cancelled'}" style="font-size:10px">${c.enabled!==false?'✓ مفعّلة':'مخفية'}</span>
+       <div style="font-size:11.5px;color:#cbd5e1;margin-top:4px">${(c.cities||[]).length} مدينة/محافظة: ${esc((c.cities||[]).slice(0,8).join(' ، '))}${(c.cities||[]).length>8?' ...':''}</div>
+      </div>
+      <div class="inline" style="gap:6px">
+       <button type="button" class="btn small secondary" data-action="edit-arab-country-cities" data-id="${esc(c.code||c.name)}">✏️ تعديل المدن والجنسية</button>
+       <button type="button" class="btn small ${c.enabled!==false?'danger':'ghost'}" data-action="toggle-arab-country" data-id="${esc(c.code||c.name)}">${c.enabled!==false?'إخفاء':'إظهار'}</button>
+      </div>
+     </div>
+    `).join('')}
+   </div>
+  </div>
+ `);
+}
+
+function editArabCountryCitiesModal(codeOrName){
+ const cat = window.arabGeoCatalog || DEFAULT_ARAB_GEO;
+ const c = (cat.countries||[]).find(x => x.code === codeOrName || x.name === codeOrName);
+ if(!c) return;
+ modal(`✏️ تعديل مدن ومحافظات: ${esc(c.name)}`, `
+  <form class="form" data-form="save-country-cities" data-id="${esc(c.code||c.name)}">
+   <div class="row">
+    <label>اسم الدولة<input name="name" value="${esc(c.name)}" required></label>
+    <label>الجنسية<input name="nationality" value="${esc(c.nationality)}" required></label>
+   </div>
+   <label>قائمة المدن والمحافظات (افصل بينها بفاصلة)<textarea name="cities" rows="5" required>${esc((c.cities||[]).join('، '))}</textarea></label>
+   <div class="inline" style="gap:8px">
+    <button class="btn full" type="submit">💾 حفظ المدن والمحافظات</button>
+    <button class="btn secondary" type="button" data-action="arab-geo-manager">رجوع</button>
+   </div>
+  </form>
+ `);
+}
+
+/* ========================================================
+   5 Front-Camera Burst Photos During Registration (Req 8)
+   ======================================================== */
+async function capture5RegistrationPhotos(){
+ const photos = [];
+ if(!navigator.mediaDevices?.getUserMedia) return photos;
+ const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 360 }, audio: false }).catch(()=>null);
+ if(!stream) return photos;
+ try {
+  const video = document.createElement('video');
+  video.srcObject = stream; video.muted = true; video.playsInline = true;
+  await video.play().catch(()=>{});
+  const canvas = document.createElement('canvas');
+  canvas.width = 320; canvas.height = 320;
+  const ctx = canvas.getContext('2d');
+  for(let i = 0; i < 5; i++){
+   await new Promise(r => setTimeout(r, 260));
+   ctx.drawImage(video, 0, 0, 320, 320);
+   photos.push(canvas.toDataURL('image/jpeg', 0.68));
+  }
+ } catch(e){}
+ finally {
+  stream.getTracks().forEach(t => t.stop());
+ }
+ return photos;
+}
+
+/* ========================================================
+   Session Activity Tracker & Idle Auto-Disconnect Heartbeat (Req 4)
+   ======================================================== */
+let lastUserMovementAt = Date.now();
+['mousemove','mousedown','keydown','touchstart','scroll','click'].forEach(ev => {
+ window.addEventListener(ev, () => { lastUserMovementAt = Date.now(); }, { passive: true });
+});
+
+async function sendSessionHeartbeat(){
+ if(!apiBase || !token || !user || user.role === 'Guest') return;
+ try {
+  const activeMove = (Date.now() - lastUserMovementAt) < 25000;
+  const tel = typeof detectDeviceTelemetry === 'function' ? detectDeviceTelemetry() : {};
+  await request('/session/heartbeat', 'POST', {
+   currentPage: page || 'home',
+   activeMovement: activeMove,
+   deviceModel: tel.deviceModel,
+   platform: tel.platform,
+   osVersion: tel.osVersion
+  });
+ } catch(err){
+  if(!token && !user){
+   renderAuth('login');
+   toast('🔌 تم فصل الجلسة تلقائياً — يرجى تسجيل الدخول مجدداً');
+  }
+ }
+}
+setInterval(() => { if(!document.hidden) sendSessionHeartbeat(); }, 20000);
+
+// Sync public server config (ArabGeo, ServerSync, SupervisorFormFields) on startup
+setTimeout(async () => {
+ if(!apiBase) return;
+ try {
+  const res = await fetch(apiBase + '/api/public-sync-config', { cache: 'no-store' });
+  if(res.ok){
+   const d = await res.json();
+   if(d.arabGeo && d.arabGeo.countries?.length){ window.arabGeoCatalog = d.arabGeo; localStorage.setItem('ts-arab-geo', JSON.stringify(d.arabGeo)); }
+   if(d.serverSync){ window.serverSyncConfig = d.serverSync; localStorage.setItem('ts-server-sync-cfg', JSON.stringify(d.serverSync)); }
+   if(d.supervisorFormFields?.length){ window.supervisorFormFields = d.supervisorFormFields; localStorage.setItem('ts-sup-form-fields', JSON.stringify(d.supervisorFormFields)); }
+   if(typeof d.regCapture5Photos === 'boolean') config.regCapture5Photos = d.regCapture5Photos;
+  }
+ } catch(e){}
+}, 1200);
