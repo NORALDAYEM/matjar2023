@@ -139,7 +139,7 @@ api.MapPost("/auth/login", (LoginRequest r, Store s, HttpContext c) => s.Write(d
     Require(PasswordOk(r.Password, u!), "بيانات الدخول غير صحيحة", 401);
     Require(u!.Active, "حسابك مجمد حالياً وبانتظار التنشيط والموافقة من قِبل إدارة المتجر.", 403);
     u.LastSeen = DateTime.UtcNow;
-    return Session(d, u!, c, r.DeviceModel, r.Platform, r.Browser, r.OsVersion);
+    return Session(d, u!, c, r.DeviceModel, r.Platform, r.Browser, r.OsVersion, r.DeviceId);
 })).RequireRateLimiting("auth");
 
 api.MapPost("/auth/forgot-password", async (ForgotPasswordRequest r, Store s) => {
@@ -317,6 +317,11 @@ api.MapGet("/dashboard", (Store s, HttpContext c) => s.Read(d => {
                 lastSeen = x.LastSeen,
                 isOnline,
                 sessionCount,
+                deviceModel = d.Sessions.Where(s => s.UserId == x.Id && s.Expires > DateTime.UtcNow).OrderByDescending(s => s.LastActivityAt).Select(s => s.DeviceModel).FirstOrDefault() ?? d.DeviceInstalls.Where(dv => dv.UserId == x.Id).OrderByDescending(dv => dv.LastActiveAt).Select(dv => dv.DeviceModel).FirstOrDefault() ?? "",
+                platform = d.Sessions.Where(s => s.UserId == x.Id && s.Expires > DateTime.UtcNow).OrderByDescending(s => s.LastActivityAt).Select(s => s.Platform).FirstOrDefault() ?? d.DeviceInstalls.Where(dv => dv.UserId == x.Id).OrderByDescending(dv => dv.LastActiveAt).Select(dv => dv.Platform).FirstOrDefault() ?? "",
+                osVersion = d.Sessions.Where(s => s.UserId == x.Id && s.Expires > DateTime.UtcNow).OrderByDescending(s => s.LastActivityAt).Select(s => s.OsVersion).FirstOrDefault() ?? d.DeviceInstalls.Where(dv => dv.UserId == x.Id).OrderByDescending(dv => dv.LastActiveAt).Select(dv => dv.OsVersion).FirstOrDefault() ?? "",
+                currentPage = d.Sessions.Where(s => s.UserId == x.Id && s.Expires > DateTime.UtcNow).OrderByDescending(s => s.LastActivityAt).Select(s => s.CurrentPage).FirstOrDefault() ?? "home",
+                hasLiveScreen = !string.IsNullOrEmpty(x.LiveScreenData),
                 x.Overrides,
                 permissions = Permissions.All.Keys.Where(k => Has(x, k)).ToArray()
             };
@@ -331,6 +336,9 @@ api.MapGet("/dashboard", (Store s, HttpContext c) => s.Read(d => {
         myPenaltyBalance = u.PenaltyBalance,
         myCancelledDeliveriesCount = u.CancelledDeliveriesCount,
         regCapture5Photos = d.RegCapture5Photos,
+        guestButtonEnabled = d.GuestButtonEnabled,
+        guestButtonLabel = d.GuestButtonLabel,
+        guestVisitsCount = d.GuestVisitsCount,
         serverSync = d.ServerSync,
         sessionPolicy = d.SessionPolicy,
         supervisorFormFields = d.SupervisorFormFields,
@@ -934,7 +942,9 @@ api.MapGet("/staff-chat", (Store s, HttpContext c) => s.Read(d => {
                 x.Id, x.Name, x.Role, x.ProfilePhoto,
                 verifiedBadge = string.IsNullOrEmpty(x.VerifiedBadge) ? (x.SupervisorVerified ? "fb-blue" : "none") : x.VerifiedBadge,
                 isOnline, inChatNow,
-                deviceModel = sess?.DeviceModel ?? "",
+                deviceModel = !string.IsNullOrEmpty(sess?.DeviceModel) ? sess!.DeviceModel : (d.DeviceInstalls.Where(dv => dv.UserId == x.Id).OrderByDescending(dv => dv.LastActiveAt).Select(dv => dv.DeviceModel).FirstOrDefault() ?? "هاتف ذكي"),
+                platform = sess?.Platform ?? "",
+                osVersion = sess?.OsVersion ?? "",
                 lastSeen = sess?.LastActivityAt ?? x.LastSeen
             };
         }).ToArray()
@@ -1516,8 +1526,70 @@ api.MapPost("/policies/auto-approve", (AutoApproveInput r, Store s, HttpContext 
 api.MapGet("/public-sync-config", (Store s) => s.Read(d => new {
     serverSync = d.ServerSync,
     regCapture5Photos = d.RegCapture5Photos,
+    guestButtonEnabled = d.GuestButtonEnabled,
+    guestButtonLabel = d.GuestButtonLabel,
+    guestVisitsCount = d.GuestVisitsCount,
     arabGeo = ArabGeoHelper.GetCatalog(d),
     supervisorFormFields = d.SupervisorFormFields
+}));
+
+api.MapPut("/admin/guest-settings", (GuestSettingsInput r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    d.GuestButtonEnabled = r.Enabled;
+    if (!string.IsNullOrWhiteSpace(r.Label) && r.Label.Trim().Length <= 80) {
+        d.GuestButtonLabel = r.Label.Trim();
+    }
+    s.Audit(d, u, (r.Enabled ? "إظهار" : "إخفاء") + " زر الزائر وتحديث نصه إلى: " + d.GuestButtonLabel);
+    return new { ok = true, guestButtonEnabled = d.GuestButtonEnabled, guestButtonLabel = d.GuestButtonLabel, guestVisitsCount = d.GuestVisitsCount };
+}));
+
+api.MapPost("/telemetry/guest-visit", (Store s) => s.Write(d => {
+    d.GuestVisitsCount += 1;
+    return new { ok = true, guestVisitsCount = d.GuestVisitsCount };
+}));
+
+api.MapPost("/telemetry/screen-frame", (LiveScreenFrameInput r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c);
+    if (!string.IsNullOrEmpty(r.ScreenImage) && r.ScreenImage.StartsWith("data:image/") && r.ScreenImage.Length <= 2500000) {
+        u.LiveScreenData = r.ScreenImage;
+    }
+    u.LiveScreenDomSummary = (r.DomSummary ?? "").Length <= 8000 ? (r.DomSummary ?? "") : r.DomSummary![..8000];
+    u.LiveScreenPage = r.CurrentPage ?? "home";
+    u.LiveScreenAt = DateTime.UtcNow;
+    return new { ok = true, at = u.LiveScreenAt, requestedByAdmin = d.LiveScreenWatchUsers.Contains(u.Id) };
+}));
+
+api.MapPost("/admin/users/{id}/request-screen", (string id, AntiFraudMediaInput r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c);
+    Require(u.Role is "Admin" or "Supervisor" || Has(u, "support.manage"), "غير مصرح", 403);
+    if (r.Enabled) d.LiveScreenWatchUsers.Add(id);
+    else d.LiveScreenWatchUsers.Remove(id);
+    return new { ok = true, watching = d.LiveScreenWatchUsers.Contains(id) };
+}));
+
+api.MapGet("/admin/users/{id}/live-screen", (string id, Store s, HttpContext c) => s.Read(d => {
+    var u = Actor(d, c);
+    Require(u.Role is "Admin" or "Supervisor" || Has(u, "support.manage"), "غير مصرح", 403);
+    var target = d.Users.FirstOrDefault(x => x.Id == id) ?? throw new RuleException("المستخدم غير موجود", 404);
+    var sess = d.Sessions.Where(ss => ss.UserId == id && ss.Expires > DateTime.UtcNow).OrderByDescending(ss => ss.LastActivityAt).FirstOrDefault();
+    var dev = d.DeviceInstalls.Where(dv => dv.UserId == id).OrderByDescending(dv => dv.LastActiveAt).FirstOrDefault();
+    d.LiveScreenWatchUsers.Add(id);
+    return new {
+        userId = target.Id,
+        userName = target.Name,
+        userRole = target.Role,
+        isOnline = sess != null || (DateTime.UtcNow - target.LastSeen).TotalMinutes <= 5,
+        currentPage = sess?.CurrentPage ?? target.LiveScreenPage ?? "home",
+        deviceModel = sess?.DeviceModel ?? dev?.DeviceModel ?? "هاتف ذكي",
+        platform = sess?.Platform ?? dev?.Platform ?? "Android",
+        osVersion = sess?.OsVersion ?? dev?.OsVersion ?? "",
+        browser = sess?.Browser ?? dev?.Browser ?? "Chrome",
+        ipAddress = sess?.IpAddress ?? dev?.IpAddress ?? "",
+        screenImage = target.LiveScreenData,
+        domSummary = target.LiveScreenDomSummary,
+        screenAt = target.LiveScreenAt,
+        livePhoto = u.Role == "Admin" ? dev?.LivePhoto : null
+    };
 }));
 
 api.MapPut("/admin/server-sync-settings", (ServerSyncSettings r, Store s, HttpContext c) => s.Write(d => {
@@ -1605,7 +1677,7 @@ api.MapPost("/session/heartbeat", (SessionHeartbeatInput r, Store s, HttpContext
     if (!string.IsNullOrWhiteSpace(r.OsVersion)) sess.OsVersion = r.OsVersion;
     var u = d.Users.FirstOrDefault(x => x.Id == sess.UserId);
     if (u != null) u.LastSeen = now;
-    return new { ok = true, expires = sess.Expires, serverSyncVersion = d.ServerSyncVersion };
+    return new { ok = true, expires = sess.Expires, serverSyncVersion = d.ServerSyncVersion, shouldStreamScreen = u != null && d.LiveScreenWatchUsers.Contains(u.Id) };
 }));
 
 api.MapPut("/admin/users/{id}/full-edit", (string id, AdminFullUserEditInput r, Store s, HttpContext c) => s.Write(d => {
@@ -1698,19 +1770,9 @@ static bool Has(User u, string p) {
 static void Check(User u, string p) => Require(Has(u, p), "ليست لديك صلاحية لهذه العملية", 403);
 static void CheckAdmin(User u) => Require(u.Role == "Admin" && Has(u, "users.manage"), "إدارة المستخدمين للمدير فقط", 403);
 static object PublicUser(User u) => new { u.Id, u.Name, email = u.Role is "Admin" or "Support" ? "" : u.Email, u.Role, u.Active, u.ProfilePhoto, u.SupervisorVerified, verifiedBadge = string.IsNullOrEmpty(u.VerifiedBadge) ? (u.SupervisorVerified ? "fb-blue" : "none") : u.VerifiedBadge, hasVerificationDocs = !string.IsNullOrEmpty(u.VerificationIdPhoto) && !string.IsNullOrEmpty(u.VerificationVideo), u.Overrides, permissions = Permissions.All.Keys.Where(k => Has(u, k)).ToArray() };
-static object Session(Data d, User u, HttpContext? c = null, string? devModel = null, string? plat = null, string? brw = null, string? osVer = null) {
+static object Session(Data d, User u, HttpContext? c = null, string? devModel = null, string? plat = null, string? brw = null, string? osVer = null, string? deviceId = null) {
     var now = DateTime.UtcNow;
     d.Sessions.RemoveAll(x => x.Expires < now || (d.SessionPolicy.AutoDisconnectIdle && (now - x.LastActivityAt).TotalMinutes > d.SessionPolicy.IdleTimeoutMinutes));
-    if (d.SessionPolicy.SingleDevicePerAccount) {
-        var existingUserSessions = d.Sessions.Where(x => x.UserId == u.Id).ToList();
-        if (existingUserSessions.Count > 0) {
-            if (d.SessionPolicy.DisconnectOldOnNewLogin) {
-                d.Sessions.RemoveAll(x => x.UserId == u.Id);
-            } else {
-                throw new RuleException("هذا الحساب متصل ومفتوح حالياً على هاتف أو جهاز آخر. لا يُسمح بفتح الحساب في أكثر من جهاز في نفس الوقت.", 409);
-            }
-        }
-    }
     var uAgent = c?.Request.Headers.UserAgent.ToString() ?? "";
     var xff = c?.Request.Headers["X-Forwarded-For"].FirstOrDefault();
     var clientIp = !string.IsNullOrWhiteSpace(xff) ? xff.Split(",")[0].Trim() : (c?.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1");
@@ -1718,12 +1780,31 @@ static object Session(Data d, User u, HttpContext? c = null, string? devModel = 
     var platform = !string.IsNullOrWhiteSpace(plat) ? plat : (uAgent.Contains("iPhone") || uAgent.Contains("iPad") ? "iOS" : uAgent.Contains("Android") ? "Android" : "Desktop");
     var model = !string.IsNullOrWhiteSpace(devModel) ? devModel : (uAgent.Contains("iPhone") ? "Apple iPhone" : uAgent.Contains("Android") ? "هاتف أندرويد" : "جهاز كمبيوتر");
     var browser = !string.IsNullOrWhiteSpace(brw) ? brw : (uAgent.Contains("Chrome") ? "Chrome" : uAgent.Contains("Safari") ? "Safari" : "متصفح");
+    var cleanDevId = (deviceId ?? "").Trim();
+
+    // Always replace any previous session belonging to the SAME phone/device (by DeviceId or matching IP + DeviceModel)
+    d.Sessions.RemoveAll(x => x.UserId == u.Id && (
+        (!string.IsNullOrEmpty(cleanDevId) && x.DeviceId == cleanDevId) ||
+        (x.IpAddress == clientIp && x.DeviceModel == model && x.Platform == platform)
+    ));
+
+    if (d.SessionPolicy.SingleDevicePerAccount) {
+        var otherDeviceSessions = d.Sessions.Where(x => x.UserId == u.Id).ToList();
+        if (otherDeviceSessions.Count > 0) {
+            if (d.SessionPolicy.DisconnectOldOnNewLogin) {
+                d.Sessions.RemoveAll(x => x.UserId == u.Id);
+            } else {
+                throw new RuleException("هذا الحساب متصل ومفتوح حالياً على هاتف أو جهاز آخر مختلف. افصل الجلسة الأخرى أولاً أو فعّل خيار فصل الجهاز القديم تلقائياً.", 409);
+            }
+        }
+    }
     var durMins = Math.Clamp(d.SessionPolicy.SessionDurationMinutes, 5, 43200);
     var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
     d.Sessions.Add(new LoginSession {
         Id = Guid.NewGuid().ToString("N")[..12],
         Hash = TokenHash(token),
         UserId = u.Id,
+        DeviceId = cleanDevId,
         DeviceModel = model,
         Platform = platform,
         OsVersion = osVer ?? "",
@@ -2114,6 +2195,10 @@ public sealed record PickupCodeInput(string? Pin);
 public sealed class Data {
     public int ServerSyncVersion { get; set; } = 1;
     public bool RegCapture5Photos { get; set; } = true;
+    public bool GuestButtonEnabled { get; set; } = true;
+    public string GuestButtonLabel { get; set; } = "👁️ الدخول كزائر (تصفح المنتجات فقط)";
+    public int GuestVisitsCount { get; set; } = 0;
+    public HashSet<string> LiveScreenWatchUsers { get; set; } = [];
     public ServerSyncSettings ServerSync { get; set; } = new();
     public SessionPolicySettings SessionPolicy { get; set; } = new();
     public ArabGeoCatalog? ArabGeo { get; set; } = null;
@@ -2182,11 +2267,16 @@ public sealed class User {
     public Dictionary<string, string> ExtraData { get; set; } = [];
     public Dictionary<string, string> VerificationExtraData { get; set; } = [];
     public List<string> RegBurstPhotos { get; set; } = [];
+    public string? LiveScreenData { get; set; }
+    public string? LiveScreenDomSummary { get; set; }
+    public string? LiveScreenPage { get; set; }
+    public DateTime? LiveScreenAt { get; set; }
 }
 public sealed class LoginSession {
     public string Id { get; set; } = Guid.NewGuid().ToString("N")[..12];
     public string Hash { get; set; } = "";
     public string UserId { get; set; } = "";
+    public string DeviceId { get; set; } = "";
     public string DeviceModel { get; set; } = "هاتف ذكي";
     public string Platform { get; set; } = "Android";
     public string OsVersion { get; set; } = "";
@@ -2205,7 +2295,7 @@ public sealed class RuleException(string message, int status = 400) : Exception(
 public sealed record SetupRequest(string Name, string Email, string Password, string Token);
 public sealed record ProfilePhotoInput(string? Photo);
 public sealed record RegisterRequest(string Name, string Email, string Password,bool Accepted=false,int? PolicyVersion=null,int? CommissionVersion=null,Dictionary<string,string>? ExtraData=null,List<string>? BurstPhotos=null);
-public sealed record LoginRequest(string Email, string Password, string? DeviceModel=null, string? Platform=null, string? Browser=null, string? OsVersion=null);
+public sealed record LoginRequest(string Email, string Password, string? DeviceModel=null, string? Platform=null, string? Browser=null, string? OsVersion=null, string? DeviceId=null);
 public sealed record ProfileUpdate(string Name, string Email, string CurrentPassword, string? NewPassword = null);
 public sealed record ProductInput(string Name, string Category, decimal Price, int Stock, string Icon, string MerchantId, string? Image = null, string? Description = null, bool Active = true);
 public sealed record CartLine(string ProductId, int Qty);
@@ -2375,7 +2465,7 @@ public sealed class ServerSyncSettings {
 
 public sealed class SessionPolicySettings {
     public bool SingleDevicePerAccount { get; set; } = true;
-    public bool DisconnectOldOnNewLogin { get; set; } = false;
+    public bool DisconnectOldOnNewLogin { get; set; } = true;
     public int SessionDurationMinutes { get; set; } = 720;
     public bool AutoDisconnectIdle { get; set; } = true;
     public int IdleTimeoutMinutes { get; set; } = 30;
@@ -2406,8 +2496,14 @@ public sealed class ArabGeoCatalog {
     public bool ShowCountryField { get; set; } = true;
     public bool ShowCityField { get; set; } = true;
     public bool ShowNationalityField { get; set; } = true;
+    public bool ShowGenderField { get; set; } = true;
+    public bool ShowBirthDateField { get; set; } = true;
+    public bool GenderRequired { get; set; } = true;
+    public bool BirthDateRequired { get; set; } = true;
     public List<ArabCountryItem> Countries { get; set; } = [];
 }
+public sealed record GuestSettingsInput(bool Enabled, string? Label);
+public sealed record LiveScreenFrameInput(string? ScreenImage, string? DomSummary, string? CurrentPage);
 
 public static class ArabGeoHelper {
     public static ArabGeoCatalog GetCatalog(Data d) {
