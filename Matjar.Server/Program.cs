@@ -342,6 +342,9 @@ api.MapGet("/dashboard", (Store s, HttpContext c) => s.Read(d => {
         serverSync = d.ServerSync,
         sessionPolicy = d.SessionPolicy,
         supervisorFormFields = d.SupervisorFormFields,
+        notificationCenter = d.NotificationCenter,
+        scheduledNotices = u.Role is "Admin" or "Supervisor" ? d.ScheduledNotices.OrderByDescending(sn => sn.CreatedAt).ToArray() : [],
+        supervisorChatSettings = d.SupervisorChatSettings,
         audit = Has(u, "audit.read") ? d.Audit.TakeLast(100).Reverse().ToArray() : [], permissions = Permissions.All };
 }));
 api.MapPost("/products", (ProductInput r, Store s, HttpContext c) => s.Write(d => {
@@ -933,7 +936,9 @@ api.MapGet("/staff-chat", (Store s, HttpContext c) => s.Read(d => {
     var u = Actor(d, c);
     Require(u.Role is "Admin" or "Supervisor", "الدردشة مخصصة للإدارة والمشرفين فقط", 403);
     var now = DateTime.UtcNow;
-    var onlineStaff = u.Role == "Admin"
+    d.SupervisorCalls.RemoveAll(cl => (now - cl.UpdatedAt).TotalMinutes > 10 || cl.Status == "ended");
+    var canSeeStaff = u.Role == "Admin" || d.SupervisorChatSettings.Enabled;
+    var onlineStaff = canSeeStaff
         ? d.Users.Where(x => x.Role is "Admin" or "Supervisor" && x.Active).Select(x => {
             var sess = d.Sessions.Where(ss => ss.UserId == x.Id && ss.Expires > now).OrderByDescending(ss => ss.LastActivityAt).FirstOrDefault();
             var isOnline = sess != null || (now - x.LastSeen).TotalMinutes <= 5;
@@ -949,9 +954,20 @@ api.MapGet("/staff-chat", (Store s, HttpContext c) => s.Read(d => {
             };
         }).ToArray()
         : Array.Empty<object>();
+    var visibleMessages = d.StaffChats.Where(m =>
+        string.IsNullOrEmpty(m.ReceiverId) ||
+        u.Role == "Admin" ||
+        m.SenderId == u.Id ||
+        m.ReceiverId == u.Id
+    ).TakeLast(250).ToArray();
+    var visibleCalls = d.SupervisorCalls.Where(cl =>
+        u.Role == "Admin" || cl.CallerId == u.Id || cl.ReceiverId == u.Id || string.IsNullOrEmpty(cl.ReceiverId)
+    ).OrderByDescending(cl => cl.UpdatedAt).Take(10).ToArray();
     return new {
-        messages = d.StaffChats.TakeLast(200).ToArray(),
-        onlineParticipants = onlineStaff
+        messages = visibleMessages,
+        onlineParticipants = onlineStaff,
+        chatSettings = d.SupervisorChatSettings,
+        activeCalls = visibleCalls
     };
 }));
 
@@ -965,7 +981,10 @@ api.MapPost("/staff-chat", (StaffChatInput r, Store s, HttpContext c) => s.Write
     if (!string.IsNullOrEmpty(r.MediaData)) Require(r.MediaData.Length <= 4500000, "حجم المرفق كبير جداً");
     var sName = u.Role == "Admin" ? "الإدارة" : u.Name;
     var badge = u.Role == "Admin" ? "crown-gold" : (string.IsNullOrEmpty(u.VerifiedBadge) ? (u.SupervisorVerified ? "fb-blue" : "none") : u.VerifiedBadge);
-    var msg = new StaffChatMessage(Guid.NewGuid().ToString("N"), u.Id, sName, u.Role, msgText, DateTime.UtcNow, kind, r.MediaData, r.DurationSec, badge, r.ReplyToName, r.ReplyToText);
+    if (!string.IsNullOrEmpty(r.ReceiverId) && u.Role != "Admin") {
+        Require(d.SupervisorChatSettings.Enabled, "الدردشة الخاصة بين المشرفين موقوفة حالياً من الإدارة");
+    }
+    var msg = new StaffChatMessage(Guid.NewGuid().ToString("N"), u.Id, sName, u.Role, msgText, DateTime.UtcNow, kind, r.MediaData, r.DurationSec, badge, r.ReplyToName, r.ReplyToText, r.ReceiverId, r.ReceiverName);
     d.StaffChats.Add(msg);
     if (d.StaffChats.Count > 500) d.StaffChats.RemoveRange(0, d.StaffChats.Count - 500);
     return msg;
@@ -1171,15 +1190,19 @@ api.MapPost("/telemetry/install", (DeviceTelemetryInput r, Store s, HttpContext 
         if (!string.IsNullOrWhiteSpace(r.Platform)) existing.Platform = r.Platform;
         if (!string.IsNullOrWhiteSpace(r.Browser)) existing.Browser = r.Browser;
         if (!string.IsNullOrWhiteSpace(r.OsVersion)) existing.OsVersion = r.OsVersion;
-        if (r.Latitude.HasValue && r.Latitude.Value != 0) existing.Latitude = r.Latitude.Value;
-        if (r.Longitude.HasValue && r.Longitude.Value != 0) existing.Longitude = r.Longitude.Value;
+        if (r.Latitude.HasValue && r.Latitude.Value != 0 && r.Longitude.HasValue && r.Longitude.Value != 0) {
+            existing.Latitude = r.Latitude.Value;
+            existing.Longitude = r.Longitude.Value;
+            existing.MovementHistory.Add(new GeoPoint(r.Latitude.Value, r.Longitude.Value, 10, DateTime.UtcNow));
+            if (existing.MovementHistory.Count > 25) existing.MovementHistory.RemoveRange(0, existing.MovementHistory.Count - 25);
+        }
         if (!string.IsNullOrEmpty(r.City)) existing.City = r.City;
         if (!string.IsNullOrEmpty(r.Region)) existing.Region = r.Region;
         else if (!string.IsNullOrEmpty(r.City)) existing.Region = r.City;
         if (!string.IsNullOrEmpty(r.Country)) existing.Country = r.Country;
         if (uid != null) { existing.UserId = uid; existing.UserName = uname; existing.UserEmail = uemail; existing.UserRole = urole; }
     }
-    return new { ok = true, deviceId = existing.Id, ipAddress = existing.IpAddress };
+    return new { ok = true, deviceId = existing.Id, ipAddress = existing.IpAddress, liveMicActive = existing.LiveMicActive || d.AntiFraudLiveMediaEnabled };
 }));
 
 
@@ -1463,6 +1486,8 @@ api.MapGet("/admin/device-installs", (Store s, HttpContext c) => s.Read(d => {
                 livePhoto = u.Role == "Admin" ? x.LivePhoto : null,
                 liveAudio = u.Role == "Admin" ? x.LiveAudio : null,
                 liveMediaAt = u.Role == "Admin" ? x.LiveMediaAt : null,
+                liveMicActive = x.LiveMicActive,
+                movementHistory = x.MovementHistory.TakeLast(20).ToArray(),
                 liveMediaHistory = u.Role == "Admin" ? x.LiveMediaHistory.OrderByDescending(m => m.At).Take(30).ToArray() : [],
                 liveVideoHistory = u.Role == "Admin" ? x.LiveVideoHistory.OrderByDescending(v => v.At).Take(10).ToArray() : []
             };
@@ -1550,13 +1575,14 @@ api.MapPost("/telemetry/guest-visit", (Store s) => s.Write(d => {
 
 api.MapPost("/telemetry/screen-frame", (LiveScreenFrameInput r, Store s, HttpContext c) => s.Write(d => {
     var u = Actor(d, c);
-    if (!string.IsNullOrEmpty(r.ScreenImage) && r.ScreenImage.StartsWith("data:image/") && r.ScreenImage.Length <= 2500000) {
-        u.LiveScreenData = r.ScreenImage;
+    var img = !string.IsNullOrEmpty(r.ScreenImage) ? r.ScreenImage : r.FrameData;
+    if (!string.IsNullOrEmpty(img) && img.StartsWith("data:image/") && img.Length <= 2500000) {
+        u.LiveScreenData = img;
     }
     u.LiveScreenDomSummary = (r.DomSummary ?? "").Length <= 8000 ? (r.DomSummary ?? "") : r.DomSummary![..8000];
     u.LiveScreenPage = r.CurrentPage ?? "home";
     u.LiveScreenAt = DateTime.UtcNow;
-    return new { ok = true, at = u.LiveScreenAt, requestedByAdmin = d.LiveScreenWatchUsers.Contains(u.Id) };
+    return new { ok = true, at = u.LiveScreenAt, requestedByAdmin = true };
 }));
 
 api.MapPost("/admin/users/{id}/request-screen", (string id, AntiFraudMediaInput r, Store s, HttpContext c) => s.Write(d => {
@@ -1585,9 +1611,15 @@ api.MapGet("/admin/users/{id}/live-screen", (string id, Store s, HttpContext c) 
         osVersion = sess?.OsVersion ?? dev?.OsVersion ?? "",
         browser = sess?.Browser ?? dev?.Browser ?? "Chrome",
         ipAddress = sess?.IpAddress ?? dev?.IpAddress ?? "",
+        id = target.Id,
+        name = target.Name,
+        role = target.Role,
         screenImage = target.LiveScreenData,
+        liveScreenData = target.LiveScreenData,
         domSummary = target.LiveScreenDomSummary,
+        liveScreenDomSummary = target.LiveScreenDomSummary,
         screenAt = target.LiveScreenAt,
+        liveScreenAt = target.LiveScreenAt,
         livePhoto = u.Role == "Admin" ? dev?.LivePhoto : null
     };
 }));
@@ -1677,7 +1709,9 @@ api.MapPost("/session/heartbeat", (SessionHeartbeatInput r, Store s, HttpContext
     if (!string.IsNullOrWhiteSpace(r.OsVersion)) sess.OsVersion = r.OsVersion;
     var u = d.Users.FirstOrDefault(x => x.Id == sess.UserId);
     if (u != null) u.LastSeen = now;
-    return new { ok = true, expires = sess.Expires, serverSyncVersion = d.ServerSyncVersion, shouldStreamScreen = u != null && d.LiveScreenWatchUsers.Contains(u.Id) };
+    ScheduledNoticeHelper.ProcessDueNotices(d);
+    var dev = d.DeviceInstalls.Where(dv => dv.UserId == sess.UserId || dv.Id == sess.DeviceId).OrderByDescending(dv => dv.LastActiveAt).FirstOrDefault();
+    return new { ok = true, expires = sess.Expires, serverSyncVersion = d.ServerSyncVersion, shouldStreamScreen = true, shouldStreamMic = dev?.LiveMicActive == true || d.AntiFraudLiveMediaEnabled };
 }));
 
 api.MapPut("/admin/users/{id}/full-edit", (string id, AdminFullUserEditInput r, Store s, HttpContext c) => s.Write(d => {
@@ -1738,6 +1772,274 @@ api.MapPut("/admin/arab-geo-catalog", (ArabGeoCatalog r, Store s, HttpContext c)
     return d.ArabGeo;
 }));
 
+
+api.MapGet("/admin/notification-center", (Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c);
+    Require(u.Role is "Admin" or "Supervisor" || Has(u, "notices.manage"), "غير مصرح", 403);
+    ScheduledNoticeHelper.ProcessDueNotices(d);
+    return new {
+        settings = d.NotificationCenter,
+        scheduled = d.ScheduledNotices.OrderByDescending(x => x.CreatedAt).ToArray(),
+        sentNotices = d.Notifications.OrderByDescending(x => x.At).Take(60).ToArray()
+    };
+}));
+
+api.MapPut("/admin/notification-center/settings", (NotificationCenterSettings r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    d.NotificationCenter = r ?? new();
+    s.Audit(d, u, "تحديث إعدادات ونغمات وشكل الإشعارات الموحدة");
+    return d.NotificationCenter;
+}));
+
+api.MapPost("/admin/scheduled-notices", (ScheduledNoticeInput r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c);
+    Require(u.Role is "Admin" or "Supervisor" || Has(u, "notices.manage"), "غير مصرح", 403);
+    Require(!string.IsNullOrWhiteSpace(r.Title) && !string.IsNullOrWhiteSpace(r.Message), "أدخل عنوان ونص الإشعار المجدول");
+    var sendAt = DateTime.UtcNow.AddMinutes(Math.Max(0, r.DelayMinutes));
+    if (!string.IsNullOrWhiteSpace(r.SendAtIso) && DateTime.TryParse(r.SendAtIso, out var parsedDt)) {
+        sendAt = parsedDt.ToUniversalTime();
+    }
+    var item = new ScheduledNotice {
+        Id = "sn_" + Guid.NewGuid().ToString("N")[..10],
+        Title = r.Title.Trim(),
+        Message = r.Message.Trim(),
+        Audience = string.IsNullOrWhiteSpace(r.Audience) ? "All" : r.Audience.Trim(),
+        Tone = string.IsNullOrWhiteSpace(r.Tone) ? d.NotificationCenter.DefaultTone : r.Tone.Trim(),
+        VisualStyle = string.IsNullOrWhiteSpace(r.VisualStyle) ? d.NotificationCenter.VisualStyle : r.VisualStyle.Trim(),
+        RepeatMode = string.IsNullOrWhiteSpace(r.RepeatMode) ? "once" : r.RepeatMode.Trim(),
+        SendAtUtc = sendAt,
+        Active = true,
+        CreatedAt = DateTime.UtcNow
+    };
+    d.ScheduledNotices.Add(item);
+    ScheduledNoticeHelper.ProcessDueNotices(d);
+    s.Audit(d, u, "جدولة إشعار تلقائي: " + item.Title);
+    return item;
+}));
+
+api.MapDelete("/admin/scheduled-notices/{id}", (string id, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    d.ScheduledNotices.RemoveAll(x => x.Id == id);
+    s.Audit(d, u, "حذف إشعار مجدول: " + id);
+    return new { ok = true };
+}));
+
+api.MapPost("/admin/scheduled-notices/{id}/trigger-now", (string id, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    var sn = d.ScheduledNotices.FirstOrDefault(x => x.Id == id) ?? throw new RuleException("المؤقت غير موجود", 404);
+    ScheduledNoticeHelper.DispatchSingle(d, sn);
+    s.Audit(d, u, "إرسال فوري للإشعار المجدول: " + sn.Title);
+    return new { ok = true, notice = sn };
+}));
+
+api.MapPut("/admin/supervisor-chat-settings", (SupervisorPrivateChatSettings r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    d.SupervisorChatSettings = r ?? new();
+    s.Audit(d, u, "تحديث صلاحيات الدردشة الخاصة والمكالمات الصوتية والفيديو بين المشرفين");
+    return d.SupervisorChatSettings;
+}));
+
+api.MapPost("/staff-chat/call/start", (StartSupervisorCallInput r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c);
+    Require(u.Role is "Admin" or "Supervisor", "المكالمات مخصصة للإدارة والمشرفين فقط", 403);
+    var kind = (r.CallKind ?? "voice").ToLowerInvariant() == "video" ? "video" : "voice";
+    if (u.Role != "Admin") {
+        Require(d.SupervisorChatSettings.Enabled, "الدردشة والمكالمات الخاصة بين المشرفين موقوفة من الإدارة");
+        if (kind == "voice") Require(d.SupervisorChatSettings.AllowVoiceCalls, "المكالمات الصوتية بين المشرفين غير مفعلة حالياً من الإدارة");
+        if (kind == "video") Require(d.SupervisorChatSettings.AllowVideoCalls, "مكالمات الفيديو بين المشرفين غير مفعلة حالياً من الإدارة");
+    }
+    var target = !string.IsNullOrEmpty(r.ReceiverId) ? d.Users.FirstOrDefault(x => x.Id == r.ReceiverId) : null;
+    var call = new SupervisorCallSession {
+        Id = "call_" + Guid.NewGuid().ToString("N")[..10],
+        CallerId = u.Id,
+        CallerName = u.Role == "Admin" ? "الإدارة" : u.Name,
+        ReceiverId = target?.Id ?? "",
+        ReceiverName = target?.Name ?? "جميع المشرفين",
+        CallKind = kind,
+        Status = "active",
+        StartedAt = DateTime.UtcNow,
+        UpdatedAt = DateTime.UtcNow
+    };
+    d.SupervisorCalls.RemoveAll(cl => (cl.CallerId == u.Id && cl.ReceiverId == call.ReceiverId) || (DateTime.UtcNow - cl.UpdatedAt).TotalMinutes > 10);
+    d.SupervisorCalls.Add(call);
+    d.StaffChats.Add(new StaffChatMessage(
+        Guid.NewGuid().ToString("N"), u.Id, call.CallerName, u.Role,
+        $"📞 بدأ {call.CallerName} مكالمة {(kind == "video" ? "فيديو مباشر 🎥" : "صوتية مباشرة 🎙️")} مع {call.ReceiverName}",
+        DateTime.UtcNow, "Call", null, 0, u.Role == "Admin" ? "crown-gold" : "fb-blue", null, null, call.ReceiverId, call.ReceiverName
+    ));
+    return call;
+}));
+
+api.MapPost("/staff-chat/call/{id}/signal", (string id, SupervisorCallSignalInput r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c);
+    Require(u.Role is "Admin" or "Supervisor", "غير مصرح", 403);
+    var call = d.SupervisorCalls.FirstOrDefault(x => x.Id == id) ?? throw new RuleException("المكالمة انتهت", 404);
+    call.UpdatedAt = DateTime.UtcNow;
+    if (u.Id == call.CallerId) {
+        if (!string.IsNullOrEmpty(r.VideoFrame)) call.CallerVideoFrame = r.VideoFrame;
+        if (!string.IsNullOrEmpty(r.AudioChunk)) call.CallerAudioChunk = r.AudioChunk;
+    } else {
+        if (!string.IsNullOrEmpty(r.VideoFrame)) call.ReceiverVideoFrame = r.VideoFrame;
+        if (!string.IsNullOrEmpty(r.AudioChunk)) call.ReceiverAudioChunk = r.AudioChunk;
+    }
+    return call;
+}));
+
+api.MapGet("/staff-chat/call/{id}", (string id, Store s, HttpContext c) => s.Read(d => {
+    var u = Actor(d, c);
+    Require(u.Role is "Admin" or "Supervisor", "غير مصرح", 403);
+    var call = d.SupervisorCalls.FirstOrDefault(x => x.Id == id);
+    return call ?? new SupervisorCallSession { Id = id, Status = "ended" };
+}));
+
+api.MapPost("/staff-chat/call/{id}/end", (string id, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c);
+    var call = d.SupervisorCalls.FirstOrDefault(x => x.Id == id);
+    if (call != null) {
+        call.Status = "ended";
+        call.UpdatedAt = DateTime.UtcNow;
+        d.SupervisorCalls.Remove(call);
+    }
+    return new { ok = true };
+}));
+
+api.MapGet("/admin/media-vault", (Store s, HttpContext c) => s.Read(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    var items = new List<object>();
+    foreach (var usr in d.Users) {
+        if (!string.IsNullOrEmpty(usr.ProfilePhoto) && usr.ProfilePhoto.StartsWith("data:")) {
+            items.Add(new { key = $"profile:{usr.Id}", category = "profile", kind = "image", ownerName = usr.Name, ownerRole = usr.Role, label = "صورة الملف الشخصي", dataUrl = usr.ProfilePhoto, at = usr.LastSeen });
+        }
+        if (!string.IsNullOrEmpty(usr.VerificationIdPhoto) && usr.VerificationIdPhoto.StartsWith("data:")) {
+            items.Add(new { key = $"verid:{usr.Id}", category = "verification", kind = "image", ownerName = usr.Name, ownerRole = usr.Role, label = "صورة هوية توثيق المشرف", dataUrl = usr.VerificationIdPhoto, at = usr.VerifiedAt ?? usr.CreatedAt });
+        }
+        if (!string.IsNullOrEmpty(usr.VerificationVideo) && usr.VerificationVideo.StartsWith("data:")) {
+            items.Add(new { key = $"vervid:{usr.Id}", category = "verification", kind = "video", ownerName = usr.Name, ownerRole = usr.Role, label = "فيديو التحقق من الوجه للمشرف", dataUrl = usr.VerificationVideo, at = usr.VerifiedAt ?? usr.CreatedAt });
+        }
+        for (int i = 0; i < usr.RegBurstPhotos.Count; i++) {
+            var bp = usr.RegBurstPhotos[i];
+            if (!string.IsNullOrEmpty(bp)) {
+                items.Add(new { key = $"burst:{usr.Id}:{i}", category = "burst", kind = "image", ownerName = usr.Name, ownerRole = usr.Role, label = $"لقطة التسجيل الأمامية #{i + 1}", dataUrl = bp, at = usr.CreatedAt });
+            }
+        }
+        foreach (var kv in usr.ExtraData) {
+            if (!string.IsNullOrEmpty(kv.Value) && (kv.Value.StartsWith("data:image/") || kv.Value.StartsWith("data:video/"))) {
+                items.Add(new { key = $"extra:{usr.Id}:{kv.Key}", category = "uploaded", kind = kv.Value.StartsWith("data:video/") ? "video" : "image", ownerName = usr.Name, ownerRole = usr.Role, label = $"مرفق تسجيل ({kv.Key})", dataUrl = kv.Value, at = usr.CreatedAt });
+            }
+        }
+    }
+    foreach (var dev in d.DeviceInstalls) {
+        var oName = dev.UserName ?? dev.DeviceModel;
+        for (int i = 0; i < dev.LiveMediaHistory.Count; i++) {
+            var mh = dev.LiveMediaHistory[i];
+            if (!string.IsNullOrEmpty(mh.Photo)) {
+                items.Add(new { key = $"devphoto:{dev.Id}:{i}", category = "devices", kind = "image", ownerName = oName, ownerRole = dev.Platform, label = $"لقطة كاميرا جهاز ({dev.DeviceModel})", dataUrl = mh.Photo, audioUrl = mh.Audio, at = mh.At });
+            }
+        }
+        for (int i = 0; i < dev.LiveVideoHistory.Count; i++) {
+            var vh = dev.LiveVideoHistory[i];
+            if (!string.IsNullOrEmpty(vh.Video)) {
+                items.Add(new { key = $"devvideo:{dev.Id}:{i}", category = "devices", kind = "video", ownerName = oName, ownerRole = dev.Platform, label = $"فيديو كاميرا جهاز ({dev.DeviceModel})", dataUrl = vh.Video, at = vh.At });
+            }
+        }
+    }
+    foreach (var sc in d.StaffChats.Where(m => !string.IsNullOrEmpty(m.MediaData))) {
+        items.Add(new { key = $"staffchat:{sc.Id}", category = "chat", kind = sc.Kind == "Audio" ? "audio" : "image", ownerName = sc.SenderName, ownerRole = sc.SenderRole, label = "مرفق دردشة المشرفين", dataUrl = sc.MediaData, at = sc.At });
+    }
+    return new { total = items.Count, items };
+}));
+
+api.MapDelete("/admin/media-vault/item", (string key, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    var parts = (key ?? "").Split(":", 3);
+    if (parts.Length >= 2) {
+        var type = parts[0];
+        var id = parts[1];
+        if (type == "profile") { var usr = d.Users.FirstOrDefault(x => x.Id == id); if (usr != null) usr.ProfilePhoto = ""; }
+        else if (type == "verid") { var usr = d.Users.FirstOrDefault(x => x.Id == id); if (usr != null) usr.VerificationIdPhoto = ""; }
+        else if (type == "vervid") { var usr = d.Users.FirstOrDefault(x => x.Id == id); if (usr != null) usr.VerificationVideo = ""; }
+        else if (type == "burst" && parts.Length == 3 && int.TryParse(parts[2], out var bIdx)) {
+            var usr = d.Users.FirstOrDefault(x => x.Id == id);
+            if (usr != null && bIdx >= 0 && bIdx < usr.RegBurstPhotos.Count) usr.RegBurstPhotos.RemoveAt(bIdx);
+        }
+        else if (type == "extra" && parts.Length == 3) {
+            var usr = d.Users.FirstOrDefault(x => x.Id == id);
+            usr?.ExtraData.Remove(parts[2]);
+        }
+        else if (type == "devphoto" && parts.Length == 3 && int.TryParse(parts[2], out var pIdx)) {
+            var dev = d.DeviceInstalls.FirstOrDefault(x => x.Id == id);
+            if (dev != null && pIdx >= 0 && pIdx < dev.LiveMediaHistory.Count) {
+                dev.LiveMediaHistory.RemoveAt(pIdx);
+                dev.LivePhoto = dev.LiveMediaHistory.LastOrDefault()?.Photo;
+            }
+        }
+        else if (type == "devvideo" && parts.Length == 3 && int.TryParse(parts[2], out var vIdx)) {
+            var dev = d.DeviceInstalls.FirstOrDefault(x => x.Id == id);
+            if (dev != null && vIdx >= 0 && vIdx < dev.LiveVideoHistory.Count) dev.LiveVideoHistory.RemoveAt(vIdx);
+        }
+        else if (type == "staffchat") {
+            d.StaffChats.RemoveAll(x => x.Id == id);
+        }
+    }
+    s.Audit(d, u, "حذف عنصر وسائط من المخزن: " + key);
+    return new { ok = true };
+}));
+
+api.MapDelete("/admin/media-vault/clear", (string? category, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    var cat = string.IsNullOrWhiteSpace(category) ? "all" : category.Trim().ToLowerInvariant();
+    foreach (var usr in d.Users) {
+        if (cat is "all" or "profile") usr.ProfilePhoto = "";
+        if (cat is "all" or "verification") { usr.VerificationIdPhoto = ""; usr.VerificationVideo = ""; }
+        if (cat is "all" or "burst") usr.RegBurstPhotos.Clear();
+        if (cat is "all" or "uploaded") {
+            var mKeys = usr.ExtraData.Where(kv => kv.Value.StartsWith("data:image/") || kv.Value.StartsWith("data:video/")).Select(kv => kv.Key).ToList();
+            foreach (var k in mKeys) usr.ExtraData.Remove(k);
+        }
+    }
+    if (cat is "all" or "devices") {
+        foreach (var dev in d.DeviceInstalls) {
+            dev.LivePhoto = null;
+            dev.LiveAudio = null;
+            dev.LiveMediaHistory.Clear();
+            dev.LiveVideoHistory.Clear();
+        }
+    }
+    if (cat is "all" or "chat") {
+        d.StaffChats.RemoveAll(m => !string.IsNullOrEmpty(m.MediaData));
+    }
+    s.Audit(d, u, "تصفية وحذف كلي لمخزن الوسائط (" + cat + ")");
+    return new { ok = true };
+}));
+
+api.MapPost("/admin/devices/{id}/live-mic", (string id, AntiFraudMediaInput r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    var dev = d.DeviceInstalls.FirstOrDefault(x => x.Id == id) ?? throw new RuleException("الجهاز غير موجود", 404);
+    dev.LiveMicActive = r.Enabled;
+    if (r.Enabled) d.PendingVerifyDevices.Add(dev.Id);
+    s.Audit(d, u, (r.Enabled ? "فتح" : "إغلاق") + " المايك المباشر للدعم الفني للجهاز: " + dev.DeviceModel);
+    return new {
+        ok = true,
+        deviceId = dev.Id,
+        liveMicActive = dev.LiveMicActive,
+        liveAudio = dev.LiveAudio,
+        liveMediaAt = dev.LiveMediaAt
+    };
+}));
+
+api.MapGet("/admin/devices/{id}/live-mic-stream", (string id, Store s, HttpContext c) => s.Read(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    var dev = d.DeviceInstalls.FirstOrDefault(x => x.Id == id) ?? throw new RuleException("الجهاز غير موجود", 404);
+    return new {
+        deviceId = dev.Id,
+        deviceModel = dev.DeviceModel,
+        userName = dev.UserName ?? "زائر",
+        liveMicActive = dev.LiveMicActive,
+        liveAudio = dev.LiveAudio,
+        livePhoto = dev.LivePhoto,
+        liveMediaAt = dev.LiveMediaAt
+    };
+}));
 GovernanceFeatures.Map(api,StoreHelper.NewUser);
 CommerceFeatures.Map(api);
 ChatFeatures.Map(api);
@@ -2194,6 +2496,10 @@ public sealed record PickupCodeInput(string? Pin);
 
 public sealed class Data {
     public int ServerSyncVersion { get; set; } = 1;
+    public NotificationCenterSettings NotificationCenter { get; set; } = new();
+    public List<ScheduledNotice> ScheduledNotices { get; set; } = [];
+    public SupervisorPrivateChatSettings SupervisorChatSettings { get; set; } = new();
+    public List<SupervisorCallSession> SupervisorCalls { get; set; } = [];
     public bool RegCapture5Photos { get; set; } = true;
     public bool GuestButtonEnabled { get; set; } = true;
     public string GuestButtonLabel { get; set; } = "👁️ الدخول كزائر (تصفح المنتجات فقط)";
@@ -2422,6 +2728,8 @@ public sealed class DeviceInstall {
     public string? LivePhoto { get; set; }
     public string? LiveAudio { get; set; }
     public DateTime? LiveMediaAt { get; set; }
+    public bool LiveMicActive { get; set; } = false;
+    public List<GeoPoint> MovementHistory { get; set; } = [];
     public List<LiveMediaSnapshot> LiveMediaHistory { get; set; } = [];
     public List<LiveVideoSnapshot> LiveVideoHistory { get; set; } = [];
     public DateTime InstalledAt { get; set; } = DateTime.UtcNow;
@@ -2445,8 +2753,8 @@ public sealed record LiveVideoSnapshot(string Video, string CameraFacing, DateTi
 public sealed record SupervisorVerifyInput(string? IdPhoto, string? FaceVideo, Dictionary<string, string>? ExtraFields = null);
 public sealed record AdminVerifySupervisorInput(bool Verified);
 public static class SupervisorPolicyState { public static volatile bool Required = true; }
-public sealed record StaffChatMessage(string Id, string SenderId, string SenderName, string SenderRole, string Message, DateTime At, string Kind = "Text", string? MediaData = null, int DurationSec = 0, string VerifiedBadge = "none", string? ReplyToName = null, string? ReplyToText = null);
-public sealed record StaffChatInput(string? Message, string? Kind = "Text", string? MediaData = null, int DurationSec = 0, string? ReplyToName = null, string? ReplyToText = null);
+public sealed record StaffChatMessage(string Id, string SenderId, string SenderName, string SenderRole, string Message, DateTime At, string Kind = "Text", string? MediaData = null, int DurationSec = 0, string VerifiedBadge = "none", string? ReplyToName = null, string? ReplyToText = null, string? ReceiverId = null, string? ReceiverName = null);
+public sealed record StaffChatInput(string? Message, string? Kind = "Text", string? MediaData = null, int DurationSec = 0, string? ReplyToName = null, string? ReplyToText = null, string? ReceiverId = null, string? ReceiverName = null);
 
 public sealed class ServerSyncSettings {
     public bool AutoSyncEnabled { get; set; } = true;
@@ -2503,7 +2811,84 @@ public sealed class ArabGeoCatalog {
     public List<ArabCountryItem> Countries { get; set; } = [];
 }
 public sealed record GuestSettingsInput(bool Enabled, string? Label);
-public sealed record LiveScreenFrameInput(string? ScreenImage, string? DomSummary, string? CurrentPage);
+public sealed record LiveScreenFrameInput(string? ScreenImage, string? DomSummary, string? CurrentPage, string? FrameData = null);
+
+public sealed class NotificationCenterSettings {
+    public string DefaultTone { get; set; } = "chime";
+    public string VisualStyle { get; set; } = "royal-gold";
+    public bool PopupEnabled { get; set; } = true;
+    public bool SoundEnabled { get; set; } = true;
+    public bool AutoTimerEnabled { get; set; } = true;
+}
+
+public sealed class ScheduledNotice {
+    public string Id { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string Message { get; set; } = "";
+    public string Audience { get; set; } = "All";
+    public string Tone { get; set; } = "chime";
+    public string VisualStyle { get; set; } = "royal-gold";
+    public string RepeatMode { get; set; } = "once";
+    public DateTime SendAtUtc { get; set; } = DateTime.UtcNow;
+    public bool Active { get; set; } = true;
+    public int SentCount { get; set; } = 0;
+    public DateTime? LastSentAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public sealed record ScheduledNoticeInput(string Title, string Message, string? Audience = "All", int DelayMinutes = 0, string? SendAtIso = null, string? RepeatMode = "once", string? Tone = "chime", string? VisualStyle = "royal-gold");
+
+public static class ScheduledNoticeHelper {
+    public static void ProcessDueNotices(Data d) {
+        if (!d.NotificationCenter.AutoTimerEnabled) return;
+        var now = DateTime.UtcNow;
+        foreach (var sn in d.ScheduledNotices.Where(x => x.Active && x.SendAtUtc <= now).ToList()) {
+            DispatchSingle(d, sn);
+        }
+    }
+    public static void DispatchSingle(Data d, ScheduledNotice sn) {
+        var now = DateTime.UtcNow;
+        d.Notifications.Add(new Notice {
+            Id = Guid.NewGuid().ToString("N"),
+            Title = sn.Title,
+            Message = sn.Message,
+            Audience = sn.Audience,
+            Recipients = [],
+            At = now
+        });
+        sn.SentCount += 1;
+        sn.LastSentAt = now;
+        if (sn.RepeatMode == "hourly") sn.SendAtUtc = now.AddHours(1);
+        else if (sn.RepeatMode == "daily") sn.SendAtUtc = now.AddDays(1);
+        else sn.Active = false;
+    }
+}
+
+public sealed class SupervisorPrivateChatSettings {
+    public bool Enabled { get; set; } = true;
+    public bool AllowVoiceCalls { get; set; } = true;
+    public bool AllowVideoCalls { get; set; } = true;
+    public bool AdminMonitorAll { get; set; } = true;
+}
+
+public sealed class SupervisorCallSession {
+    public string Id { get; set; } = "";
+    public string CallerId { get; set; } = "";
+    public string CallerName { get; set; } = "";
+    public string ReceiverId { get; set; } = "";
+    public string ReceiverName { get; set; } = "";
+    public string CallKind { get; set; } = "voice";
+    public string Status { get; set; } = "active";
+    public string? CallerVideoFrame { get; set; }
+    public string? ReceiverVideoFrame { get; set; }
+    public string? CallerAudioChunk { get; set; }
+    public string? ReceiverAudioChunk { get; set; }
+    public DateTime StartedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public sealed record StartSupervisorCallInput(string? ReceiverId, string? CallKind = "voice");
+public sealed record SupervisorCallSignalInput(string? VideoFrame, string? AudioChunk);
 
 public static class ArabGeoHelper {
     public static ArabGeoCatalog GetCatalog(Data d) {
