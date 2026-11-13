@@ -43,10 +43,28 @@ const curatedWallpapers = [
  { cat:'مدن وتقنية', name:'لوحة فنية', url:'https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=1600&auto=format&fit=crop&q=80' },
  { cat:'مدن وتقنية', name:'زجاج ملون', url:'https://images.unsplash.com/photo-1550859492-d5da9d8e45f3?w=1600&auto=format&fit=crop&q=80' },
  { cat:'مدن وتقنية', name:'ليزر ذهبي', url:'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=1600&auto=format&fit=crop&q=80' },
- { cat:'مدن وتقنية', name:'موجات زرقاء', url:'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1600&auto=format&fit=crop&q=80' }
+ { cat:'مدن وتقنية', name:'موجات زرقاء', url:'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1600&auto=format&fit=crop&q=80' },
+ { cat:'قصور ملكية وVIP', name:'قصر ملكي مذهّب', url:'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=1600&auto=format&fit=crop&q=80' },
+ { cat:'قصور ملكية وVIP', name:'ثريا كريستال فاخرة', url:'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=1600&auto=format&fit=crop&q=80' },
+ { cat:'قصور ملكية وVIP', name:'ردهة رخامية ذهبية', url:'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1600&auto=format&fit=crop&q=80' },
+ { cat:'قصور ملكية وVIP', name:'مخمل أخضر ملكي', url:'https://images.unsplash.com/photo-1557683311-eac922347aa1?w=1600&auto=format&fit=crop&q=80' },
+ { cat:'قصور ملكية وVIP', name:'مخمل كحلي فاخر', url:'https://images.unsplash.com/photo-1557682224-5b8590cd9ec5?w=1600&auto=format&fit=crop&q=80' },
+ { cat:'قصور ملكية وVIP', name:'جناح إمبراطوري', url:'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=1600&auto=format&fit=crop&q=80' },
+ { cat:'قصور ملكية وVIP', name:'تحف ومجوهرات ملكية', url:'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=1600&auto=format&fit=crop&q=80' },
+ { cat:'قصور ملكية وVIP', name:'سجاد فارسي فاخر', url:'https://images.unsplash.com/photo-1600166898405-da9535204843?w=1600&auto=format&fit=crop&q=80' },
+ { cat:'قصور ملكية وVIP', name:'بوابة قصر أندلسي', url:'https://images.unsplash.com/photo-1539037116277-4db20889f2d4?w=1600&auto=format&fit=crop&q=80' },
+ { cat:'قصور ملكية وVIP', name:'قاعة ألماسية', url:'https://images.unsplash.com/photo-1519741497674-611481863552?w=1600&auto=format&fit=crop&q=80' },
+ { cat:'نيون وثلاثي الأبعاد', name:'أمواج زمردية 3D', url:'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1600&auto=format&fit=crop&q=80' },
+ { cat:'نيون وثلاثي الأبعاد', name:'كرات الذهب السائل', url:'https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?w=1600&auto=format&fit=crop&q=80' },
+ { cat:'نيون وثلاثي الأبعاد', name:'شبكة الكريستال المضيئة', url:'https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=1600&auto=format&fit=crop&q=80' },
+ { cat:'نيون وثلاثي الأبعاد', name:'تدرج السايبر الفاخر', url:'https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=1600&auto=format&fit=crop&q=80' },
+ { cat:'نيون وثلاثي الأبعاد', name:'ألياف ضوئية ذهبية', url:'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1600&auto=format&fit=crop&q=80' },
+ { cat:'نيون وثلاثي الأبعاد', name:'هندسة سوداء وذهبية', url:'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=1600&auto=format&fit=crop&q=80' },
+ { cat:'نيون وثلاثي الأبعاد', name:'مجرة الزمرد والذهب', url:'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1600&auto=format&fit=crop&q=80' },
+ { cat:'نيون وثلاثي الأبعاد', name:'انعكاس الحرير الأسود', url:'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=1600&auto=format&fit=crop&q=80' }
 ];
 let interfaceDesigns={},designImage='',designBgImage='',designImageLoading=false,chatState=null;
-async function refreshDesigns(){try{interfaceDesigns=await request('/designs');}catch{}}
+async function refreshDesigns(){try{const _d=await request('/designs');if(_d&&typeof _d==='object')interfaceDesigns=_d;}catch{}}
 function paintInterface(){
  const key=user?user.role+'.'+page:'Login';
  const d=interfaceDesigns[key]||interfaceDesigns['All'];
@@ -82,48 +100,83 @@ function interfaceDesignEditor(selectedKey='All'){
  const cur = { ...designDefaults, ...(interfaceDesigns[selectedKey] || {}) };
  designImage = cur.image || '';
  designBgImage = cur.backgroundImage || '';
- modal('🎨 تصميم الشاشات المتقدم والخلفيات الشفافة', `
- <form class="form" data-form="interface-design">
-  <label>اختر الشاشة المراد تصميمها
-   <select name="key" id="design-screen-sel">
+ const cats = ['الكل', ...new Set(curatedWallpapers.map(w => w.cat))];
+ const activeCat = window._activeWpCat || 'الكل';
+ const filteredWps = activeCat === 'الكل' ? curatedWallpapers : curatedWallpapers.filter(w => w.cat === activeCat);
+
+ modal('🎨 استوديو تصميم الشاشات المتقدم والخلفيات الملكية الفاخرة', `
+ <form class="form" data-form="interface-design" style="max-height:78vh;overflow-y:auto;padding-left:4px">
+  <div style="background:linear-gradient(135deg,rgba(212,175,55,0.16),rgba(6,78,59,0.5));border:1px solid rgba(212,175,55,0.45);padding:12px 14px;border-radius:14px;font-size:12.5px;color:#fef08a;line-height:1.7">
+   ✨ <strong>التحكم الاحترافي الدقيق في كل شاشة:</strong> خصّص الخلفية الملكية، درجة الشفافية والزجاج، سمك ووهج الإطارات الذهبية، الأعمدة، والألوان لكل شاشة على حدة أو للتطبيق بالكامل.
+  </div>
+
+  <label>1. اختر الشاشة المراد تخصيص تصميمها
+   <select name="key" id="design-screen-sel" style="font-weight:bold;color:#fef08a">
     ${Object.entries(designScreens).map(([k,v])=>`<option value="${k}" ${k===selectedKey?'selected':''}>${esc(v)}</option>`).join('')}
    </select>
   </label>
+
   <div class="row">
-   <label>عنوان ترحيبي بالواجهة<input name="title" maxlength="80" value="${esc(cur.title)}" placeholder="اختياري"></label>
-   <label>وصف مختصر<input name="subtitle" maxlength="240" value="${esc(cur.subtitle)}" placeholder="اختياري"></label>
+   <label>عنوان ترحيبي أعلى الشاشة<input name="title" maxlength="80" value="${esc(cur.title)}" placeholder="مثال: أهلاً بك في الجناح الملكي"></label>
+   <label>وصف فرعي مختصر<input name="subtitle" maxlength="240" value="${esc(cur.subtitle)}" placeholder="مثال: تشكيلة حصرية مختارة بعناية"></label>
   </div>
-  <div class="row">
-   <label>توزيع البطاقات<select name="layout">${[['Standard','متوازن'],['Compact','مضغوط'],['Spacious','واسع فاخر']].map(([v,t])=>`<option value="${v}" ${cur.layout===v?'selected':''}>${t}</option>`).join('')}</select></label>
-   <label>الخط<select name="font">${['Inherit','Tahoma','Arial','System','Serif'].map(f=>`<option value="${f}" ${cur.font===f?'selected':''}>${f==='Inherit'?'افتراضي المتجر':f}</option>`).join('')}</select></label>
+
+  <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px">
+   <label>نمط توزيع البطاقات
+    <select name="layout">
+     ${[['Standard','متوازن احترافي'],['Compact','مضغوط سريع'],['Spacious','ملكي واسع VIP']].map(([v,t])=>`<option value="${v}" ${cur.layout===v?'selected':''}>${t}</option>`).join('')}
+    </select>
+   </label>
+   <label>نوع الخط للشاشة
+    <select name="font">
+     ${['Inherit','Tahoma','Arial','System','Serif'].map(f=>`<option value="${f}" ${cur.font===f?'selected':''}>${f==='Inherit'?'الخط الافتراضي للمتجر':f}</option>`).join('')}
+    </select>
+   </label>
+   <label>عدد الأعمدة في الشبكة (1-4)
+    <input name="columns" type="number" min="1" max="4" value="${cur.columns||2}">
+   </label>
+   <label>انحناء زوايا البطاقات (0-28px)
+    <input name="radius" type="number" min="0" max="28" value="${cur.radius??16}">
+   </label>
   </div>
-  <div class="row">
-   <label>عدد الأعمدة (1-4)<input name="columns" type="number" min="1" max="4" value="${cur.columns||2}"></label>
-   <label>استدارة الزوايا (0-28px)<input name="radius" type="number" min="0" max="28" value="${cur.radius??16}"></label>
+
+  <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px">
+   <label>درجة تعتيم الخلفية (${Math.round((cur.backgroundOpacity??0.78)*100)}%)
+    <input name="backgroundOpacity" type="range" min="0.15" max="0.95" step="0.05" value="${cur.backgroundOpacity??0.78}">
+   </label>
+   <label>قوة التضبيب الزجاجي Blur (${cur.glassBlur??16}px)
+    <input name="glassBlur" type="range" min="0" max="28" step="2" value="${cur.glassBlur??16}">
+   </label>
+   <label>اللون المميز للشاشة (اختياري)
+    <input name="primary" type="color" value="${cur.primary || storeAppearance?.primary || '#087e66'}">
+   </label>
   </div>
-  <div class="row">
-   <label>شفافية التعتيم فوق الخلفية (${Math.round((cur.backgroundOpacity??0.78)*100)}%)<input name="backgroundOpacity" type="range" min="0.2" max="0.95" step="0.05" value="${cur.backgroundOpacity??0.78}"></label>
-   <label>تضبيب الزجاج الشفاف (${cur.glassBlur??16}px)<input name="glassBlur" type="range" min="0" max="28" step="2" value="${cur.glassBlur??16}"></label>
-  </div>
+
   <div class="panel" style="padding:12px">
-   <strong style="color:#fef08a;font-size:13px;display:block;margin-bottom:8px">🖼️ مكتبة الخلفيات الفاخرة والشفافة (${curatedWallpapers.length} صورة مميزة):</strong>
-   <div class="design-gallery-grid">
+   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+    <strong style="color:#fef08a;font-size:13.5px">🖼️ مكتبة الخلفيات الملكية والـ VIP (${curatedWallpapers.length} خلفية عالية الدقة):</strong>
+    <span class="badge Ready" style="font-size:10.5px">${filteredWps.length} خلفية معروضة</span>
+   </div>
+   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+    ${cats.map(c => `<button type="button" class="btn small ${activeCat===c?'':'ghost'}" style="font-size:11px;padding:4px 10px" onclick="window._activeWpCat='${esc(c)}';interfaceDesignEditor(document.getElementById('design-screen-sel')?.value||'${esc(selectedKey)}')">${esc(c)}</button>`).join('')}
+   </div>
+   <div class="design-gallery-grid" style="max-height:240px;overflow-y:auto;padding:4px">
     <button type="button" class="design-wp-item ${!designBgImage?'active':''}" data-action="pick-design-bg" data-id="">
-     <div style="height:48px;display:grid;place-items:center;background:#031711;border-radius:8px;font-size:11px;color:#cbd5e1">بدون خلفية</div>
-     <small>افتراضي</small>
+     <div style="height:54px;display:grid;place-items:center;background:#031711;border-radius:8px;font-size:11px;color:#cbd5e1">بدون خلفية</div>
+     <small>اللون الافتراضي</small>
     </button>
-    ${curatedWallpapers.map(w => `
+    ${filteredWps.map(w => `
      <button type="button" class="design-wp-item ${designBgImage===w.url?'active':''}" data-action="pick-design-bg" data-id="${esc(w.url)}">
-      <img src="${esc(w.url)}" alt="${esc(w.name)}" loading="lazy">
+      <img src="${esc(w.url)}" alt="${esc(w.name)}" loading="lazy" style="height:54px;object-fit:cover">
       <small>${esc(w.name)}</small>
      </button>`).join('')}
    </div>
    <div style="margin-top:10px;display:grid;gap:8px">
-    <label>أو رابط صورة خلفية مخصّصة<input id="design-bg-url" name="backgroundImage" value="${esc(designBgImage)}" placeholder="https://..." dir="ltr"></label>
-    <label>أو رفع صورة خلفية من جهازك<input id="design-bg-file" type="file" accept="image/*"></label>
+    <label>أو الصق رابط صورة خلفية مخصّصة مباشرة<input id="design-bg-url" name="backgroundImage" value="${esc(designBgImage)}" placeholder="https://..." dir="ltr"></label>
+    <label>أو ارفع صورة خلفية عالية الدقة من جهازك أو هاتفك<input id="design-bg-file" type="file" accept="image/*"></label>
    </div>
   </div>
-  <button class="btn full" type="submit">💾 حفظ وتطبيق التصميم فوراً</button>
+  <button class="btn full" type="submit">💾 حفظ وتطبيق التصميم المتقدم فوراً</button>
   <div class="form-error" hidden></div>
  </form>`);
  const sel = document.getElementById('design-screen-sel');

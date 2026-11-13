@@ -601,30 +601,160 @@ function inferNoticeTargetPage(n){
 }
 async function noticesCenter(){
  await updateNotices();
- modal('إشعاراتي',`<div class="stack">
-  <p class="hint">اضغط على أي إشعار للانتقال مباشرة إلى مكان التنبيه.</p>
+ const isAdminOrSup = user && (user.role === 'Admin' || user.role === 'Supervisor' || (typeof has === 'function' && has('notices.manage')));
+ const vStyle = localStorage.getItem('ts-notice-visual-style') || dashboard?.notificationCenter?.visualStyle || 'royal-gold';
+ modal('🔔 مركز الإشعارات الموحد والنغمات والمؤقت التلقائي',`<div class="stack" style="max-height:76vh;overflow-y:auto;padding-left:4px">
+  ${isAdminOrSup ? `
+  <div style="display:flex;gap:8px;flex-wrap:wrap;padding:10px;border-radius:12px;background:rgba(212,175,55,0.12);border:1px solid rgba(212,175,55,0.4)">
+   <button type="button" class="btn small" data-action="compose-notice">📣 إرسال إشعار فوري أو ضبط مؤقت تلقائي</button>
+   <button type="button" class="btn small secondary" data-action="notification-style">🎵 نغمات وشكل الإشعارات</button>
+   <button type="button" class="btn small ghost" data-action="test-phone-notification">📲 تجربة إشعار حي</button>
+  </div>` : `
+  <div class="inline" style="justify-content:space-between">
+   <button type="button" class="btn small secondary" data-action="notification-style">🎵 نغمة وشكل الإشعارات</button>
+   <button type="button" class="btn small" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="test-phone-notification">📲 تجربة إشعار على الجوال</button>
+  </div>`}
+  <p class="hint" style="margin:0">اضغط على أي إشعار للانتقال مباشرة إلى القسم المرتبط به:</p>
   ${noticeCache.map(n => {
    const target = inferNoticeTargetPage(n);
-   return `<article class="ticket-message ${n.read?'':'notice-unread'}" style="cursor:pointer" data-action="open-notice-target" data-id="${esc(n.id)}" data-target="${esc(target)}">
+   return `<article class="ticket-message notice-style-${esc(vStyle)} ${n.read?'':'notice-unread'}" style="cursor:pointer" data-action="open-notice-target" data-id="${esc(n.id)}" data-target="${esc(target)}">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-     <h3 style="margin:0">${esc(n.title)}</h3>
+     <h3 style="margin:0;color:#fef08a">${esc(n.title)}</h3>
      <span class="badge Ready" style="font-size:10px">انتقال مباشر ⬅</span>
     </div>
-    <p style="margin:6px 0">${esc(n.message)}</p>
+    <p style="margin:6px 0;color:#f8fafc">${esc(n.message)}</p>
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-     <small>${new Date(n.at).toLocaleString('ar-SA')} ${n.read?'· مقروء':'· جديد'}</small>
+     <small style="color:#cbd5e1">${new Date(n.at).toLocaleString('ar-SA')} ${n.read?'· مقروء':'· 🟢 جديد'}</small>
      ${!n.read ? `<button class="btn small secondary" type="button" data-action="read-notice" data-id="${esc(n.id)}">تحديد كمقروء</button>` : ''}
     </div>
    </article>`;
   }).join('') || '<p class="hint">لا توجد إشعارات لك بعد.</p>'}
-  <div class="inline">
-   <button class="btn small" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="test-phone-notification">📲 تجربة إشعار على شاشة الجوال الآن</button>
-   <button class="btn small secondary" data-action="notices">تحديث القائمة</button>
-  </div>
  </div>`);
 }
-async function composeNotice(){const sent=await request('/notifications/sent');modal('إرسال إشعارات العملاء والمناديب',`<div class="stack"><form class="form" data-form="compose-notice"><label>المستلمون<select name="audience"><option value="Customer">جميع العملاء</option><option value="Courier">جميع مندوبي التوصيل</option><option value="Merchant">جميع التجار</option><option value="All">جميع الحسابات الفعالة</option><option value="Public">📲 جميع التطبيقات المثبتة (حتى بدون تسجيل دخول)</option>${dashboard.users?.length?'<option value="User">حساب محدد</option>':''}</select></label>${dashboard.users?.length?`<label>الحساب عند اختيار «حساب محدد»<select name="userId">${dashboard.users.filter(u=>u.active).map(u=>`<option value="${esc(u.id)}">${esc(u.name)} · ${roles[u.role]}</option>`).join('')}</select></label>`:''}<label>عنوان الإشعار<input name="title" required minlength="2" maxlength="100"></label><label>الرسالة<textarea name="message" required minlength="2" maxlength="1000"></textarea></label><p class="hint">يُرسل فورًا إلى صندوق الإشعارات داخل الحسابات المختارة. لا يتضمن إرسال SMS أو بريد أو تنبيه والهاتف مغلق.</p><button class="btn" type="submit">إرسال الإشعار الآن</button><div class="form-error" hidden></div></form><h3>سجل الإرسال</h3>${sent.map(n=>`<article class="ticket-message"><strong>${esc(n.title)}</strong><p>${esc(n.message)}</p><small>${({Customer:'العملاء',Courier:'المناديب',Merchant:'التجار',All:'الجميع',Public:'التطبيقات المثبتة',User:'حساب محدد'})[n.audience]} · ${n.sentCount} مستلم · ${n.readCount} قراءة · ${new Date(n.at).toLocaleString('ar-SA')}</small></article>`).join('')||'<p class="hint">لم ترسل رسائل بعد.</p>'}</div>`);}
 
+async function composeNotice(){
+ let sent = [];
+ let scheduled = dashboard?.scheduledNotices || [];
+ let ncSettings = dashboard?.notificationCenter || { defaultTone: activeChimeType || 'gold-chime', visualStyle: localStorage.getItem('ts-notice-visual-style')||'royal-gold', autoTimerEnabled: true };
+ try {
+  if(apiBase){
+   const [sRes, ncRes] = await Promise.all([
+    request('/notifications/sent').catch(()=>[]),
+    request('/admin/notification-center').catch(()=>null)
+   ]);
+   if(Array.isArray(sRes)) sent = sRes;
+   if(ncRes){
+    scheduled = ncRes.scheduled || [];
+    ncSettings = ncRes.settings || ncSettings;
+   }
+  } else {
+   const d = demoData();
+   sent = d.notifications || [];
+   scheduled = d.scheduledNotices || [];
+  }
+ } catch(e){}
+
+ modal('🔔 المركز الشامل للإشعارات، النغمات، الشكل، والمؤقت التلقائي', `<div class="stack" style="max-height:78vh;overflow-y:auto;padding-left:4px">
+  <!-- 1. ضبط نغمات وشكل الإشعارات الموحد -->
+  <form class="form panel" data-form="save-notification-center-all" style="padding:14px">
+   <strong style="color:#fef08a;font-size:14px">🎵 1. ضبط نغمات الإشعارات وشكل بطاقة الإشعار:</strong>
+   <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px">
+    <label>نغمة الإشعار الافتراضية
+     <select name="defaultTone" id="sel-chime-type">
+      <option value="gold-chime" ${ncSettings.defaultTone==='gold-chime'?'selected':''}>🔔 رنين ذهبي فاخر</option>
+      <option value="crystal-bell" ${ncSettings.defaultTone==='crystal-bell'?'selected':''}>💎 جرس كريستال ناعم</option>
+      <option value="royal-harp" ${ncSettings.defaultTone==='royal-harp'?'selected':''}>🎵 نغمة ملكية ثلاثية</option>
+      <option value="urgent-radar" ${ncSettings.defaultTone==='urgent-radar'?'selected':''}>🚨 تنبيه رادار سريع للطلبات</option>
+      <option value="soft-pop" ${ncSettings.defaultTone==='soft-pop'?'selected':''}>✨ نقرة هادئة سريعة</option>
+     </select>
+    </label>
+    <label>شكل وتصميم بطاقة الإشعار
+     <select name="visualStyle">
+      <option value="royal-gold" ${ncSettings.visualStyle==='royal-gold'?'selected':''}>👑 ذهبي ملكي فاخر</option>
+      <option value="neon-emerald" ${ncSettings.visualStyle==='neon-emerald'?'selected':''}>💚 زمردي نيون مضيء</option>
+      <option value="glass-modern" ${ncSettings.visualStyle==='glass-modern'?'selected':''}>💎 زجاجي سماوي حديث</option>
+      <option value="urgent-crimson" ${ncSettings.visualStyle==='urgent-crimson'?'selected':''}>🔥 أحمر عاجل ومهم</option>
+     </select>
+    </label>
+   </div>
+   <div class="inline" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <button type="button" class="btn small secondary" data-action="preview-selected-chime">🔊 سماع ومعاينة النغمة</button>
+    <button type="submit" class="btn small">💾 حفظ النغمة والشكل</button>
+   </div>
+  </form>
+
+  <!-- 2. ضبط مؤقت لإرسال إشعارات تلقائية في أوقات معينة -->
+  <form class="form panel" data-form="schedule-auto-notice" style="padding:14px;border:1px solid rgba(56,189,248,0.4)">
+   <strong style="color:#7dd3fc;font-size:14px">⏱️ 2. ضبط مؤقت لإرسال إشعارات في أوقات معينة تلقائياً:</strong>
+   <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">
+    <label>الفئة المستهدفة
+     <select name="audience">
+      <option value="All">جميع الحسابات الفعالة</option>
+      <option value="Customer">جميع العملاء</option>
+      <option value="Courier">جميع مندوبي التوصيل</option>
+      <option value="Merchant">جميع التجار</option>
+      <option value="Supervisor">جميع المشرفين</option>
+     </select>
+    </label>
+    <label>الإرسال التلقائي بعد (بالدقائق)
+     <input name="delayMinutes" type="number" min="0" max="10080" value="5" placeholder="مثال: 5 دقائق">
+    </label>
+    <label>أو حدد تاريخ ووقت الإرسال الدقيق
+     <input name="sendAtIso" type="datetime-local" dir="ltr">
+    </label>
+    <label>تكرار المؤقت التلقائي
+     <select name="repeatMode">
+      <option value="once">إرسال مرة واحدة في الوقت المحدد</option>
+      <option value="hourly">تلقائياً كل ساعة 🔁</option>
+      <option value="daily">تلقائياً كل يوم في نفس الموعد 📅</option>
+     </select>
+    </label>
+   </div>
+   <div class="row">
+    <label>عنوان الإشعار المجدول<input name="title" required placeholder="مثال: عروض المساء الملكية بدأت الآن!"></label>
+    <label>نص الإشعار التلقائي<input name="message" required placeholder="مثال: استمتع بخصومات حصرية وتوصيل فوري..."></label>
+   </div>
+   <button class="btn small" type="submit" style="background:linear-gradient(135deg,#0284c7,#1d4ed8);color:#fff">⏱️ حفظ وتفعيل المؤقت التلقائي للإشعار</button>
+  </form>
+
+  <!-- قائمة المؤقتات المجدولة -->
+  ${scheduled.length ? `
+  <div class="panel" style="padding:12px">
+   <strong style="color:#fef08a;font-size:13.5px;display:block;margin-bottom:8px">📋 المؤقتات التلقائية المجدولة (${scheduled.length}):</strong>
+   <div style="display:grid;gap:8px">
+    ${scheduled.map(sn => `
+     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(212,175,55,0.25)">
+      <div>
+       <strong style="color:#fff;font-size:13px">⏱️ ${esc(sn.title)}</strong>
+       <span class="badge ${sn.active?'Ready':'Cancelled'}" style="font-size:10px">${sn.active?'نشط بالانتظار':'تم الإرسال'} (${sn.repeatMode==='daily'?'يومياً':sn.repeatMode==='hourly'?'كل ساعة':'مرة واحدة'})</span>
+       <div style="font-size:11.5px;color:#cbd5e1;margin-top:3px">${esc(sn.message)} · الموعد: ${sn.sendAtUtc ? new Date(sn.sendAtUtc).toLocaleString('ar-SA') : '-'} · أُرسل (${sn.sentCount||0}) مرة</div>
+      </div>
+      <div class="inline" style="gap:6px">
+       <button type="button" class="btn small secondary" data-action="trigger-scheduled-notice" data-id="${esc(sn.id)}">🚀 إرسال الآن</button>
+       <button type="button" class="btn small danger" data-action="delete-scheduled-notice" data-id="${esc(sn.id)}">🗑️ حذف</button>
+      </div>
+     </div>
+    `).join('')}
+   </div>
+  </div>` : ''}
+
+  <!-- 3. إرسال إشعار فوري -->
+  <form class="form panel" data-form="compose-notice" style="padding:14px">
+   <strong style="color:#4ade80;font-size:14px">📣 3. إرسال إشعار فوري مباشر الآن:</strong>
+   <div class="row">
+    <label>المستلمون<select name="audience"><option value="Customer">جميع العملاء</option><option value="Courier">جميع مندوبي التوصيل</option><option value="Merchant">جميع التجار</option><option value="All">جميع الحسابات الفعالة</option><option value="Public">📲 جميع التطبيقات المثبتة</option>${dashboard?.users?.length?'<option value="User">حساب محدد</option>':''}</select></label>
+    ${dashboard?.users?.length?`<label>الحساب عند اختيار «حساب محدد»<select name="userId">${dashboard.users.filter(u=>u.active).map(u=>`<option value="${esc(u.id)}">${esc(u.name)} · ${roles[u.role]||u.role}</option>`).join('')}</select></label>`:`''`}
+   </div>
+   <label>عنوان الإشعار الفوري<input name="title" required minlength="2" maxlength="100"></label>
+   <label>نص الرسالة<textarea name="message" required minlength="2" maxlength="1000" rows="2"></textarea></label>
+   <button class="btn" type="submit">🚀 إرسال الإشعار الفوري الآن</button>
+   <div class="form-error" hidden></div>
+  </form>
+
+  <h3 style="margin:4px 0">📜 سجل الإشعارات المرسلة (${sent.length})</h3>
+  ${sent.slice(0, 20).map(n=>`<article class="ticket-message"><strong>${esc(n.title)}</strong><p>${esc(n.message)}</p><small>${({Customer:'العملاء',Courier:'المناديب',Merchant:'التجار',All:'الجميع',Public:'التطبيقات المثبتة',User:'حساب محدد'})[n.audience]||n.audience||'الجميع'} · ${n.sentCount||1} مستلم · ${new Date(n.at).toLocaleString('ar-SA')}</small></article>`).join('')||'<p class="hint">لم ترسل رسائل بعد.</p>'}
+ </div>`);
+}
 async function appearanceAction(name,id,el){
  if(name==='appearance'){appearanceEditor();return true;}
  if(name==='app-icon-bubbles'){appIconAndBubblesModal();return true;}
@@ -697,6 +827,29 @@ async function appearanceAction(name,id,el){
   return true;
  }
  if(name==='compose-notice'){await composeNotice();return true;}
+ if(name==='delete-scheduled-notice'){
+  if(!apiBase){
+   const d = demoData(); d.scheduledNotices = (d.scheduledNotices||[]).filter(x => x.id !== id); persistDemo(d);
+   if(dashboard) dashboard.scheduledNotices = d.scheduledNotices;
+  } else {
+   await request('/admin/scheduled-notices/' + id, 'DELETE');
+  }
+  await composeNotice();
+  toast('🗑️ تم حذف المؤقت المجدول');
+  return true;
+ }
+ if(name==='trigger-scheduled-notice'){
+  if(!apiBase){
+   const d = demoData(); const sn = (d.scheduledNotices||[]).find(x => x.id === id);
+   if(sn){ sn.sentCount = (sn.sentCount||0)+1; d.notifications.unshift({ id:'n_'+Date.now(), title:sn.title, message:sn.message, audience:sn.audience, at:new Date().toISOString() }); persistDemo(d); }
+  } else {
+   await request('/admin/scheduled-notices/' + id + '/trigger-now', 'POST', {});
+  }
+  playSelectedNotificationChime();
+  await composeNotice();
+  toast('🚀 تم إرسال الإشعار المجدول فوراً لجميع المستهدفين');
+  return true;
+ }
  if(name==='read-notice'){await request('/notifications/'+id+'/read','PUT');await noticesCenter();return true;}
  if(name==='open-notice-target'){
   const target = arguments[2]?.dataset?.target || 'home';
@@ -710,6 +863,41 @@ async function appearanceAction(name,id,el){
 }
 
 async function appearanceForm(kind,id,f,form){
+ if(kind==='save-notification-center-all'){
+  activeChimeType = f.defaultTone || 'gold-chime';
+  localStorage.setItem('ts-notification-chime', activeChimeType);
+  localStorage.setItem('ts-notice-visual-style', f.visualStyle || 'royal-gold');
+  const payload = { defaultTone: activeChimeType, visualStyle: f.visualStyle || 'royal-gold', popupEnabled: true, soundEnabled: true, autoTimerEnabled: true };
+  if(dashboard) dashboard.notificationCenter = payload;
+  if(apiBase) await request('/admin/notification-center/settings', 'PUT', payload);
+  playSelectedNotificationChime(activeChimeType);
+  toast('✅ تم حفظ نغمة وشكل الإشعارات الموحد');
+  return true;
+ }
+ if(kind==='schedule-auto-notice'){
+  const payload = {
+   title: f.title,
+   message: f.message,
+   audience: f.audience || 'All',
+   delayMinutes: Number(f.delayMinutes)||0,
+   sendAtIso: f.sendAtIso || null,
+   repeatMode: f.repeatMode || 'once',
+   tone: activeChimeType || 'gold-chime',
+   visualStyle: localStorage.getItem('ts-notice-visual-style') || 'royal-gold'
+  };
+  if(!apiBase){
+   const d = demoData(); d.scheduledNotices = d.scheduledNotices || [];
+   const sendAt = f.sendAtIso ? new Date(f.sendAtIso).toISOString() : new Date(Date.now() + (Number(f.delayMinutes)||0)*60000).toISOString();
+   d.scheduledNotices.unshift({ id:'sn_'+Date.now(), ...payload, sendAtUtc: sendAt, active: true, sentCount: 0, createdAt: new Date().toISOString() });
+   persistDemo(d);
+   if(dashboard) dashboard.scheduledNotices = d.scheduledNotices;
+  } else {
+   await request('/admin/scheduled-notices', 'POST', payload);
+  }
+  await composeNotice();
+  toast('⏱️ تم ضبط وتفعيل المؤقت التلقائي لإرسال الإشعار بنجاح!');
+  return true;
+ }
  if(kind==='save-notification-style'){
   activeChimeType = f.chime || 'gold-chime';
   activeVibeType = f.vibration || 'standard';

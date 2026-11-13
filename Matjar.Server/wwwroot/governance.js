@@ -1,6 +1,6 @@
 const blankFee=()=>({enabled:false,percent:0,fixed:0});
 let governance={commissions:{version:1,customer:blankFee(),merchant:blankFee(),courier:blankFee()},policies:{version:1,published:false,requireAcceptance:true,autoApproveCustomers:true,allowMerchants:true,allowCouriers:true,registration:'يرجى قراءة اتفاقية التسجيل وبيانات المتجر والعمولات قبل تقديم الطلب.',terms:'تظهر الأسعار ورسوم التوصيل وعمولة العميل قبل تأكيد الطلب. يراجع المتجر الدفع يدويًا.',deletion:'يُحذف الحساب بعد إتمام الالتزامات والطلبات المفتوحة، مع الاحتفاظ بالسجلات المالية الضرورية.'}};
-async function refreshGovernance(){try{governance=await request('/governance');}catch{}}
+async function refreshGovernance(){try{const _g=await request('/governance');if(_g?.commissions&&_g?.policies)governance=_g;}catch{}}
 function feeValue(rule,basis,cap=false){if(!rule.enabled)return 0;const value=Number((basis*rule.percent/100+rule.fixed).toFixed(currencyDigits(commerce.currency)));return cap?Math.min(basis,value):value;}
 function customerFee(subtotal){return feeValue(governance.commissions.customer,subtotal);}
 function commissionCartLine(subtotal){return customerFee(subtotal)?`<div class="bill-line"><span>${tr('عمولة المتجر من العميل','Customer platform fee')}</span><b>${money(customerFee(subtotal))} ${currencyLabel(commerce.currency)}</b></div>`:'';}

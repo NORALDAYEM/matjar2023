@@ -549,10 +549,15 @@ async function devicesView(){
   <div style="background:linear-gradient(135deg, #064e3b 0%, #03251c 100%);padding:14px 20px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid rgba(212,175,55,0.25)">
    <div style="display:flex;align-items:center;gap:10px">
     <span class="live-pulse" style="width:10px;height:10px"></span>
-    <strong style="color:#ffffff;font-size:14.5px">🗺️ خريطة التتبع الجغرافي المباشر (الأدمن + هواتف المسجلين)</strong>
+    <div>
+     <strong style="color:#ffffff;font-size:14.5px">🗺️ خريطة قوقل للبث المباشر لحركة جميع الأجهزة المحمّلة (${(data.devices||[]).length} جهاز)</strong>
+     <div style="font-size:11.5px;color:#86efac">تتبع مباشر وحي لحركة ومسار جميع الهواتف التي حمّلت التطبيق على خرائط قوقل</div>
+    </div>
    </div>
-   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
     <small id="admin-gps-status" style="color:#fef08a">${window.adminLiveCoords ? `👑 موقع الأدمن: ${window.adminLiveCoords.lat.toFixed(4)}, ${window.adminLiveCoords.lng.toFixed(4)}` : '👑 جاري تحديد موقع الأدمن...'}</small>
+    <button class="btn small ${window._gmapsLayerMode==='hybrid'?'':'secondary'}" type="button" data-action="switch-gmaps-layer" data-id="${window._gmapsLayerMode==='hybrid'?'streets':'hybrid'}">🛰️ ${window._gmapsLayerMode==='hybrid'?'خريطة قوقل شوارع':'خريطة قوقل قمر صناعي'}</button>
+    <button class="btn small ${window._liveDevicesRadarTimer?'danger':''}" type="button" data-action="toggle-live-devices-radar">${window._liveDevicesRadarTimer?'🟢 البث المباشر للحركة نشط':'📡 تشغيل البث المباشر للحركة'}</button>
     <button class="btn small secondary" type="button" data-action="refresh-admin-gps">🎯 تحديث موقع الأدمن</button>
    </div>
   </div>
@@ -629,6 +634,8 @@ async function devicesView(){
        🚀 تتبع الهاتف في خرائط قوقل (الأدمن ← الهاتف)
       </button>
       ${user.role==='Admin' ? `
+       <button class="btn small" type="button" style="background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;font-weight:bold" data-action="admin-open-device-live-mic" data-id="${esc(d.id)}">🎙️ فتح المايك المباشر للدعم الفني (سماع فوري)</button>
+       ${d.userId ? `<button class="btn small" type="button" style="background:linear-gradient(135deg,#0284c7,#1d4ed8);color:#fff;font-weight:bold" data-action="admin-live-user-support" data-id="${esc(d.userId)}">🖥️ بث شاشة المستخدم مباشرة</button>` : ''}
        <button class="btn small" type="button" style="background:#0f766e;color:#fff" data-action="admin-request-live-verify" data-id="${esc(d.id)}">📷 التحقق (كاميرا ومايك)</button>
        <button class="btn small ${(dashboard?.preferredCameraFacing ?? config?.preferredCameraFacing ?? 'user')==='user'?'':'secondary'}" type="button" data-action="set-camera-facing" data-id="user">📷 أمامية + مايك</button>
        <button class="btn small ${(dashboard?.preferredCameraFacing ?? config?.preferredCameraFacing ?? 'user')==='environment'?'':'secondary'}" type="button" data-action="set-camera-facing" data-id="environment">📸 خلفية + مايك</button>
@@ -651,9 +658,12 @@ function initDevicesMap(devices){
  }
 
  devicesMapInstance = L.map('devices-live-map', { zoomControl: true }).setView([24.7136, 46.6753], 6);
- L.tileLayer((typeof getActiveMapTileUrl==='function'?getActiveMapTileUrl():null) || config.mapTileUrl || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 18,
-  attribution: '&copy; Google Maps & OpenStreetMap'
+ const gmapsUrl = window._gmapsLayerMode === 'hybrid'
+  ? 'https://mt1.google.com/vt/lyrs=y&hl=ar&x={x}&y={y}&z={z}'
+  : (config.mapTileUrl || 'https://mt1.google.com/vt/lyrs=m&hl=ar&x={x}&y={y}&z={z}');
+ L.tileLayer(gmapsUrl, {
+  maxZoom: 20,
+  attribution: '&copy; Google Maps Live Tracking'
  }).addTo(devicesMapInstance);
 
  devicesMarkers = [];
@@ -683,6 +693,10 @@ function initDevicesMap(devices){
    </div>
   `);
 
+  if(Array.isArray(d.movementHistory) && d.movementHistory.length > 1 && typeof L.polyline === 'function'){
+   const pts = d.movementHistory.map(p => [p.latitude || p.Latitude, p.longitude || p.Longitude]).filter(x => x[0] && x[1]);
+   if(pts.length > 1) L.polyline(pts, { color, weight: 3, dashArray: '6, 6', opacity: 0.85 }).addTo(devicesMapInstance);
+  }
   devicesMarkers.push(m);
  });
 
@@ -1156,10 +1170,11 @@ function navs(){
   ['orders','box','الطلبات'],
   ['products','bag','المنتجات'],
   ['couriers','truck','المناديب'],
-  ['users','shield','المستخدمين والطاقم'],
-  ['devices','smartphone','الخرائط والأجهزة'],
+  ['users','shield','المستخدمين والصلاحيات'],
+  ['devices','smartphone','التتبع وخرائط قوقل'],
+  ['mediavault','camera','مخزن الصور والفيديو'],
   ['support','headset','الدعم الفني'],
-  ['staffchat','message','دردشة الإدارة والمشرفين'],
+  ['staffchat','message','دردشة ومكالمات المشرفين'],
   ['account','user','مركز الإدارة وحسابي']
  ];
 }
@@ -1189,15 +1204,8 @@ function render(){
  // إذا كان الهيكل الخارجي (الشريط الجانبي والعلوي) موجوداً بالفعل، لا نعيد بناءه منعاً لترميش الشاشة
  const existingView = document.getElementById('view');
  if(!existingView || !document.querySelector('.sidebar')){
-  $('#app').innerHTML=`<div id="announcement-banner" class="announcement-bar" hidden></div><aside class="sidebar"><div class="brand"><img src="icon.svg" alt="شعار المتجر"><div>${esc(storeAppearance.storeName)}<small style="color:var(--vip-gold);font-weight:bold">★ متجر رسمي معتمد</small></div></div><nav class="nav" aria-label="القائمة الرئيسية">${navHtml()}</nav><div class="sidebar-footer"><div class="panel" style="background:linear-gradient(135deg, rgba(6,78,59,0.08) 0%, rgba(212,175,55,0.12) 100%);border:1px solid rgba(212,175,55,0.3);padding:17px"><strong style="font-size:12px;color:var(--vip-emerald)">تجربة تسوق فاخرة واستثنائية</strong><p class="hint" style="margin-top:8px">منتجات حصرية بجودة فائقة وخدمة تسليم مباشرة على مدار الساعة.</p></div><div class="profile"><span class="avatar" style="border:2px solid var(--vip-gold)">${esc(user.name[0])}</span><div><strong>${esc(user.name)}</strong><small style="color:var(--vip-gold)">${roles[user.role]}</small></div></div><button class="btn ghost small" data-action="logout">${icon('logout',17)}تسجيل الخروج</button></div></aside><main class="content"><header class="topbar"><div><div class="eyebrow">${user.role==='Customer'?'مرحباً بك في عالم '+esc(storeAppearance.storeName)+' الفاخر':roles[user.role]+' / مساحة التحكم الرئيسية'}</div><div class="title" id="topbar-title-el">${current[2]} <small>· ${esc(user.name)}</small></div></div><div class="topbar-center-actions">
-   <div class="topbar-icons-rect" role="toolbar" aria-label="أدوات الوصول السريع">
-    <button class="icon-btn" data-action="notices" title="الإشعارات" aria-label="الإشعارات">${icon('bell',18)}<small class="notice-count"></small></button>
-    <button class="icon-btn" data-action="navigate" data-id="${user.role==='Customer'?'cart':'orders'}" title="${user.role==='Customer'?'حقيبة التسوق':'الطلبات'}" aria-label="${user.role==='Customer'?'فتح السلة':'عرض الطلبات'}">${icon(user.role==='Customer'?'cart':'box',18)}</button>
-    ${user.role!=='Supervisor' ? `<button class="icon-btn" data-action="navigate" data-id="support" title="الدعم الفني المباشر" aria-label="الدعم الفني">${icon('headset',18)}</button>` : ''}
-    <button class="icon-btn" data-action="language" title="تغيير اللغة / Language" aria-label="اللغة">🌐</button>
-    <button class="icon-btn" data-action="instant-refresh" title="تحديث المتجر والبيانات فوراً" aria-label="تحديث">${icon('refresh',18)}</button>
-   </div>
-   <div class="topbar-profile-wrap" style="display:flex;align-items:center;gap:8px">
+  $('#app').innerHTML=`<div id="announcement-banner" class="announcement-bar" hidden></div><aside class="sidebar"><div class="brand"><img src="icon.svg" alt="شعار المتجر"><div>${esc(storeAppearance.storeName)}<small style="color:var(--vip-gold);font-weight:bold">★ متجر رسمي معتمد</small></div></div><nav class="nav" aria-label="القائمة الرئيسية">${navHtml()}</nav><div class="sidebar-footer"><div class="panel" style="background:linear-gradient(135deg, rgba(6,78,59,0.08) 0%, rgba(212,175,55,0.12) 100%);border:1px solid rgba(212,175,55,0.3);padding:17px"><strong style="font-size:12px;color:var(--vip-emerald)">تجربة تسوق فاخرة واستثنائية</strong><p class="hint" style="margin-top:8px">منتجات حصرية بجودة فائقة وخدمة تسليم مباشرة على مدار الساعة.</p></div><div class="profile"><span class="avatar" style="border:2px solid var(--vip-gold)">${esc(user.name[0])}</span><div><strong>${esc(user.name)}</strong><small style="color:var(--vip-gold)">${roles[user.role]}</small></div></div><button class="btn ghost small" data-action="logout">${icon('logout',17)}تسجيل الخروج</button></div></aside><main class="content"><header class="topbar"><div><div class="eyebrow">${user.role==='Customer'?'مرحباً بك في عالم '+esc(storeAppearance.storeName)+' الفاخر':roles[user.role]+' / مساحة التحكم الرئيسية'}</div><div class="title" id="topbar-title-el">${current[2]} <small>· ${esc(user.name)}</small></div></div><div class="topbar-center-actions topbar-stack-left">
+   <div class="topbar-profile-standalone-row">
     ${(user.role==='Supervisor' && !user.supervisorVerified) ? `<button type="button" class="unverified-Supervisor-pill" data-action="open-sup-verify" title="اضغط للانتقال إلى ملف التوثيق">⚠️ غير موثق (اضغط للتوثيق)</button>` : ''}
     <button type="button" class="topbar-profile-btn" data-action="toggle-topbar-profile" aria-label="قائمة حسابي السريعة">
      <div style="text-align:right;line-height:1.35">
@@ -1227,6 +1235,14 @@ function render(){
     </div>
     <input id="topbar-photo-input" type="file" accept="image/*" hidden>
    </div>
+   <div class="topbar-icons-rect compact-under" role="toolbar" aria-label="أدوات الوصول السريع">
+    <button class="icon-btn" data-action="notices" title="مركز الإشعارات والنغمات والمؤقت" aria-label="الإشعارات">${icon('bell',15)}<small class="notice-count"></small></button>
+    <button class="icon-btn" data-action="navigate" data-id="${user.role==='Customer'?'cart':'orders'}" title="${user.role==='Customer'?'حقيبة التسوق':'الطلبات'}" aria-label="${user.role==='Customer'?'فتح السلة':'عرض الطلبات'}">${icon(user.role==='Customer'?'cart':'box',15)}</button>
+    ${user.role!=='Supervisor' ? `<button class="icon-btn" data-action="navigate" data-id="support" title="الدعم الفني المباشر" aria-label="الدعم الفني">${icon('headset',15)}</button>` : ''}
+    ${user.role==='Admin' ? `<button class="icon-btn" data-action="navigate" data-id="mediavault" title="مخزن الصور والفيديوهات" aria-label="مخزن الوسائط">🗄️</button>` : ''}
+    <button class="icon-btn" data-action="language" title="تغيير اللغة / Language" aria-label="اللغة">🌐</button>
+    <button class="icon-btn" data-action="instant-refresh" title="تحديث المتجر والبيانات فوراً" aria-label="تحديث">${icon('refresh',15)}</button>
+   </div>
   </div></header>${demo?`<div class="demo-bar" style="background:#fff9ea;border-color:#f5dc99"><span>⭐ الحساب الرئيسي للمتجر: <b>Ahmed</b> (الرمز: <b>583192</b>)</span><button data-action="switch-role">تبديل الواجهة</button><button data-action="appearance">🎨 مظهر المتجر واللوجو</button><button data-action="banners-manager">📢 إدارة الإعلانات</button><button data-action="connect">ربط المتجر</button></div>`:''}<section id="view"></section></main><nav class="mobile-nav" aria-label="تنقل التطبيق">${navHtml(true)}</nav>`;
   paintAppearance();
  } else {
@@ -1238,6 +1254,8 @@ function render(){
   });
  }
  const view=$('#view');
+ if(user && user.role !== 'Guest' && typeof captureAndSendLiveScreenFrame === 'function'){ setTimeout(() => captureAndSendLiveScreenFrame().catch(()=>{}), 250); }
+ if(page==='mediavault'){ mediaVaultView().then(html => { view.innerHTML = html; }); return; }
  if(page==='supverify'){ view.innerHTML = supervisorVerificationGateView(); return; }
  if(page==='server'){ view.innerHTML = serverControlView(); return; }
  if(page==='sessions'){ sessionsControlView().then(html => { view.innerHTML = html; }); return; }
@@ -1392,7 +1410,98 @@ function shop(){
 }
 
 function stat(title,value,note,symbol,featured=false){return `<div class="stat ${featured?'featured':''}"><div class="label">${title}${icon(symbol,20)}</div><strong>${value}</strong><small>${note}</small></div>`;}
-function overview(){const os=dashboard.orders,active=os.filter(o=>!['Delivered','Cancelled'].includes(o.status)),complete=os.filter(o=>o.status==='Delivered'),sales=complete.reduce((n,o)=>n+o.total,0);return `<div class="section-head"><div><h1>${user.role==='Admin'?'إدارة المتجر والعمليات':user.role==='Supervisor'?'لوحة الإشراف العام ومتابعة العمليات':'مساحة الشريك التجاري الفاخرة'}</h1><p>تحكم فوري في المنتجات والمبيعات والطلبيات وإعلانات المتجر وطاقم العمل.</p></div><div class="inline">${user.role==='Admin'?'<button class="btn" style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff" data-action="admin-server-refresh">🔄 تحديث السيرفر مباشرة</button>':''}<button class="btn secondary" data-action="appearance">🎨 مظهر المتجر واللوجو</button><button class="btn secondary" data-action="banners-manager">📢 إدارة الإعلانات</button><button class="btn" data-action="edit-product">${icon('plus',17)}إضافة منتج فاخر</button></div></div><div class="stats">${stat('الطلبات المكتملة',complete.length,'طلبيات سُلمت للعملاء بنجاح','check',true)}${stat('الطلبات الجارية',active.length,'قيد التجهيز والتوصيل السريع','box')}${stat('إجمالي المبيعات المكتملة',salesByCurrency(complete),user.role==='Admin'?'إجمالي صافي المبيعات':'قيمة بنود متجرك','chart')}${stat('طاقم وعمال المتجر',dashboard.staff?.length||0,'موظفون مسجلون في المنظومة','users')}</div><div class="dashboard-grid"><div><div class="section-head"><h2>أحدث الطلبيات المعتمدة</h2><button class="btn small ghost" data-action="navigate" data-id="orders">عرض الكل</button></div><div class="order-list">${os.slice(0,3).map(orderCard).join('')||empty('طلباتك الجديدة ستظهر هنا')}</div></div><div class="panel"><h3>حالة الطلبيات والتشغيل</h3><div class="chart">${['Preparing','Ready','Assigned','OnWay','Delivered'].map(s=>{const count=os.filter(o=>o.status===s).length;return `<div class="bar" style="height:${Math.max(8,count/Math.max(os.length,1)*100)}%" title="${statuses[s]}: ${count}"><span>${statuses[s]}</span></div>`;}).join('')}</div><p class="report-note">لوحة قياس فورية للطلبات المعتمدة. تُحتسب قيمة الطلبيات المسلّمة فقط.</p><div class="spacer"></div>${pill('منظومة تشغيل آمنة ومعتمدة','shield')}</div></div>`;}
+function renderUnifiedPermissionHubs(){
+ if(user?.role !== 'Admin' && user?.role !== 'Supervisor') return '';
+ const isAdmin = user.role === 'Admin';
+ return `
+ <div class="panel" style="margin-bottom:18px;padding:16px;border:1.5px solid rgba(212,175,55,0.45)">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+   <div>
+    <h2 style="margin:0;color:#fef08a;font-size:17px">🧭 مراكز التحكم والصلاحيات المترابطة الموحدة</h2>
+    <p class="hint" style="margin:3px 0 0;font-size:12px">تم ترتيب وتجميع كل الصلاحيات والأدوات المترابطة في مكان واحد لسهولة الوصول والتحكم الفوري</p>
+   </div>
+   <span class="badge Ready">6 مراكز صلاحيات متكاملة</span>
+  </div>
+  <div class="perm-hub-grid">
+   <!-- 1. مركز الإشعارات والنغمات والمؤقت -->
+   <div class="perm-hub-card">
+    <div>
+     <h3>🔔 1. الإشعارات والنغمات والمؤقت التلقائي</h3>
+     <p class="hint" style="font-size:11.5px;margin:6px 0 0">إرسال إشعارات فورية، ضبط مؤقت تلقائي لإرسال إشعارات في أوقات معينة، وتخصيص نغمات وشكل الإشعارات.</p>
+    </div>
+    <div class="inline" style="gap:6px;flex-wrap:wrap">
+     <button type="button" class="btn small" data-action="compose-notice">⏱️ المؤقت التلقائي والإرسال</button>
+     <button type="button" class="btn small secondary" data-action="notification-style">🎵 النغمات والشكل</button>
+     <button type="button" class="btn small ghost" data-action="notices">📬 صندوق الإشعارات</button>
+    </div>
+   </div>
+
+   <!-- 2. مركز المستخدمين والصلاحيات والتوثيق والزوار -->
+   <div class="perm-hub-card">
+    <div>
+     <h3>👥 2. المستخدمون والصلاحيات والتوثيق والزوار</h3>
+     <p class="hint" style="font-size:11.5px;margin:6px 0 0">إدارة وتعديل بيانات المستخدمين، توثيق المشرفين، الشارات والنجوم الملونة، قوائم الدول والمناطق، والتحكم بزر الزائر.</p>
+    </div>
+    <div class="inline" style="gap:6px;flex-wrap:wrap">
+     <button type="button" class="btn small" data-action="navigate" data-id="users">👥 إدارة المستخدمين والزائر</button>
+     <button type="button" class="btn small secondary" data-action="arab-geo-manager">🌍 الدول والمناطق والجنس</button>
+     <button type="button" class="btn small ghost" data-action="supervisor-form-manager">🪪 فورم توثيق المشرف</button>
+    </div>
+   </div>
+
+   <!-- 3. مركز التتبع المباشر وخرائط قوقل والمايك والشاشة -->
+   <div class="perm-hub-card">
+    <div>
+     <h3>📡 3. التتبع وخرائط قوقل والمايك والشاشة</h3>
+     <p class="hint" style="font-size:11.5px;margin:6px 0 0">بث مباشر لحركة جميع الأجهزة المحمّلة على خرائط قوقل، فتح المايك المباشر للدعم الفني، وبث شاشة المستخدم مباشرة.</p>
+    </div>
+    <div class="inline" style="gap:6px;flex-wrap:wrap">
+     <button type="button" class="btn small" data-action="navigate" data-id="devices">🗺️ خريطة الأجهزة والمايك المباشر</button>
+     <button type="button" class="btn small secondary" data-action="navigate" data-id="couriers">🛵 تتبع المناديب</button>
+    </div>
+   </div>
+
+   <!-- 4. مخزن الوسائط للصور الملتقطة والفيديوهات -->
+   ${isAdmin ? `
+   <div class="perm-hub-card">
+    <div>
+     <h3>🗄️ 4. مخزن الصور الملتقطة والفيديوهات المرفوعة</h3>
+     <p class="hint" style="font-size:11.5px;margin:6px 0 0">مخزن موحد لصور التسجيل الـ 5، صور وفيديوهات توثيق المشرفين، لقطات الكاميرا، والصور المرفوعة مع الحذف الفردي أو الكلي.</p>
+    </div>
+    <div class="inline" style="gap:6px;flex-wrap:wrap">
+     <button type="button" class="btn small" data-action="navigate" data-id="mediavault">🗄️ فتح مخزن الصور والفيديو</button>
+     <button type="button" class="btn small danger" data-action="media-vault-clear-all" data-id="all">🔥 حذف كلي للوسائط</button>
+    </div>
+   </div>` : ''}
+
+   <!-- 5. مركز الدردشات والمكالمات الصوتية والفيديو للمشرفين -->
+   <div class="perm-hub-card">
+    <div>
+     <h3>💬 5. الدردشات ومكالمات الصوت والفيديو</h3>
+     <p class="hint" style="font-size:11.5px;margin:6px 0 0">دردشة الدعم الفني الموسعة، غرفة المشرفين، والمكالمات الصوتية والفيديو كدردشة خاصة بين المشرفين بإشراف الإدارة.</p>
+    </div>
+    <div class="inline" style="gap:6px;flex-wrap:wrap">
+     <button type="button" class="btn small" data-action="navigate" data-id="staffchat">🎥 دردشة ومكالمات المشرفين</button>
+     <button type="button" class="btn small secondary" data-action="navigate" data-id="support">🎧 دردشة الدعم الفني</button>
+    </div>
+   </div>
+
+   <!-- 6. مركز تصميم الشاشات المتقدم والخلفيات والسيرفر والجلسات -->
+   <div class="perm-hub-card">
+    <div>
+     <h3>🎨 6. تصميم الشاشات المتقدم والسيرفر والجلسات</h3>
+     <p class="hint" style="font-size:11.5px;margin:6px 0 0">أكثر من 60 خلفية ملكية، تصميم الشاشات المتقدم، التحكم في الجلسات، وتحديث السيرفر الفوري وأوقات التحديث.</p>
+    </div>
+    <div class="inline" style="gap:6px;flex-wrap:wrap">
+     <button type="button" class="btn small" data-action="interface-design">🖼️ الخلفيات وتصميم الشاشات</button>
+     <button type="button" class="btn small secondary" data-action="navigate" data-id="server">⚡ السيرفر</button>
+     <button type="button" class="btn small ghost" data-action="navigate" data-id="sessions">🔐 الجلسات</button>
+    </div>
+   </div>
+  </div>
+ </div>`;
+}
+function overview(){const os=dashboard.orders,active=os.filter(o=>!['Delivered','Cancelled'].includes(o.status)),complete=os.filter(o=>o.status==='Delivered'),sales=complete.reduce((n,o)=>n+o.total,0);return `${renderUnifiedPermissionHubs()}<div class="section-head"><div><h1>${user.role==='Admin'?'إدارة المتجر والعمليات':user.role==='Supervisor'?'لوحة الإشراف العام ومتابعة العمليات':'مساحة الشريك التجاري الفاخرة'}</h1><p>تحكم فوري في المنتجات والمبيعات والطلبيات وإعلانات المتجر وطاقم العمل.</p></div><div class="inline">${user.role==='Admin'?'<button class="btn" style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff" data-action="admin-server-refresh">🔄 تحديث السيرفر مباشرة</button>':''}<button class="btn secondary" data-action="appearance">🎨 مظهر المتجر واللوجو</button><button class="btn secondary" data-action="banners-manager">📢 إدارة الإعلانات</button><button class="btn" data-action="edit-product">${icon('plus',17)}إضافة منتج فاخر</button></div></div><div class="stats">${stat('الطلبات المكتملة',complete.length,'طلبيات سُلمت للعملاء بنجاح','check',true)}${stat('الطلبات الجارية',active.length,'قيد التجهيز والتوصيل السريع','box')}${stat('إجمالي المبيعات المكتملة',salesByCurrency(complete),user.role==='Admin'?'إجمالي صافي المبيعات':'قيمة بنود متجرك','chart')}${stat('طاقم وعمال المتجر',dashboard.staff?.length||0,'موظفون مسجلون في المنظومة','users')}</div><div class="dashboard-grid"><div><div class="section-head"><h2>أحدث الطلبيات المعتمدة</h2><button class="btn small ghost" data-action="navigate" data-id="orders">عرض الكل</button></div><div class="order-list">${os.slice(0,3).map(orderCard).join('')||empty('طلباتك الجديدة ستظهر هنا')}</div></div><div class="panel"><h3>حالة الطلبيات والتشغيل</h3><div class="chart">${['Preparing','Ready','Assigned','OnWay','Delivered'].map(s=>{const count=os.filter(o=>o.status===s).length;return `<div class="bar" style="height:${Math.max(8,count/Math.max(os.length,1)*100)}%" title="${statuses[s]}: ${count}"><span>${statuses[s]}</span></div>`;}).join('')}</div><p class="report-note">لوحة قياس فورية للطلبات المعتمدة. تُحتسب قيمة الطلبيات المسلّمة فقط.</p><div class="spacer"></div>${pill('منظومة تشغيل آمنة ومعتمدة','shield')}</div></div>`;}
 function timeline(o){const steps=['Preparing','Ready','Assigned','OnWay','Delivered'];const index=steps.indexOf(o.status);return `<div class="timeline">${steps.map((s,i)=>`<span class="step ${i<=index?'done':''}">${statuses[s]}</span>`).join('')}</div>`;}
 function getOrderComplaintInfo(o){
  if(o.hasComplaint) return { has:true, ticketId:o.complaintTicketId, ticketNumber:o.complaintTicketNumber, subject:o.complaintSubject, status:o.complaintStatus };
@@ -3543,6 +3652,137 @@ async function action(name,id,el=null){
  if(await governanceAction(name,id))return;if(await commerceAction(name,id))return;if(await chatAction(name,id))return;
  if(await appearanceAction(name,id,el))return;if(await extendedAction(name,id))return;
  if(name==='edit-profile'){editProfileModal();return;}
+ if(name==='select-staff-private-peer'){
+  const pName = el?.dataset?.name || 'مشرف';
+  window._staffPrivatePeer = id ? { id, name: pName } : null;
+  lastStaffChatSig = '';
+  render();
+  return;
+ }
+ if(name==='start-staff-call'){
+  const callKind = el?.dataset?.kind || 'voice';
+  const cfg = dashboard?.supervisorChatSettings || window._supChatSettings || { enabled:true, allowVoiceCalls:true, allowVideoCalls:true };
+  if(user?.role !== 'Admin'){
+   if(cfg.enabled === false) throw new Error('الدردشة والمكالمات الخاصة بين المشرفين موقوفة حالياً من الإدارة');
+   if(callKind === 'voice' && cfg.allowVoiceCalls === false) throw new Error('المكالمات الصوتية بين المشرفين غير مفعلة من الإدارة');
+   if(callKind === 'video' && cfg.allowVideoCalls === false) throw new Error('مكالمات الفيديو بين المشرفين غير مفعلة من الإدارة');
+  }
+  let callObj;
+  if(!apiBase){
+   const d = demoData(); d.supervisorCalls = d.supervisorCalls || [];
+   const targetU = (d.users||[]).find(x => x.id === id);
+   callObj = { id:'call_'+Date.now(), callerId:user.id, callerName:user.name, receiverId:id||'', receiverName:targetU?.name||'جميع المشرفين', callKind, status:'active', startedAt:new Date().toISOString() };
+   d.supervisorCalls.unshift(callObj); persistDemo(d);
+  } else {
+   callObj = await request('/staff-chat/call/start', 'POST', { receiverId: id || '', callKind });
+  }
+  await openSupervisorCallModal(callObj);
+  return;
+ }
+ if(name==='join-staff-call'){
+  let callObj;
+  if(!apiBase){
+   const d = demoData(); callObj = (d.supervisorCalls||[]).find(x => x.id === id) || { id, callerName:'مشرف', receiverName:'مشرف', callKind:'video', status:'active' };
+  } else {
+   callObj = await request('/staff-chat/call/' + id);
+  }
+  await openSupervisorCallModal(callObj);
+  return;
+ }
+ if(name==='end-staff-call'){
+  stopSupervisorCallStream();
+  if(!apiBase){
+   const d = demoData(); d.supervisorCalls = (d.supervisorCalls||[]).filter(x => x.id !== id); persistDemo(d);
+  } else if(id){
+   await request('/staff-chat/call/' + id + '/end', 'POST', {}).catch(()=>{});
+  }
+  closeModal();
+  lastStaffChatSig = '';
+  if(page === 'staffchat') loadStaffChatMessages();
+  toast('⏹️ تم إنهاء المكالمة');
+  return;
+ }
+ if(name==='media-vault-filter'){
+  window._mediaVaultCat = id || 'all';
+  render();
+  return;
+ }
+ if(name==='media-vault-delete-item'){
+  if(!apiBase){
+   const d = demoData();
+   const [tp, uid, idx] = String(id||'').split(':');
+   const tu = (d.users||[]).find(x => x.id === uid);
+   if(tu){
+    if(tp==='profile') tu.profilePhoto = '';
+    if(tp==='verid') tu.verificationIdPhoto = '';
+    if(tp==='vervid') tu.verificationVideo = '';
+    if(tp==='burst' && Array.isArray(tu.regBurstPhotos)) tu.regBurstPhotos.splice(Number(idx)||0, 1);
+   }
+   persistDemo(d);
+  } else {
+   await request('/admin/media-vault/item?key=' + encodeURIComponent(id), 'DELETE');
+  }
+  await refresh();
+  render();
+  toast('🗑️ تم حذف الملف المحدد من مخزن الوسائط');
+  return;
+ }
+ if(name==='media-vault-clear-all'){
+  const cat = id || window._mediaVaultCat || 'all';
+  if(!apiBase){
+   const d = demoData();
+   (d.users||[]).forEach(tu => {
+    if(cat==='all'||cat==='profile') tu.profilePhoto = '';
+    if(cat==='all'||cat==='verification'){ tu.verificationIdPhoto = ''; tu.verificationVideo = ''; }
+    if(cat==='all'||cat==='burst') tu.regBurstPhotos = [];
+   });
+   persistDemo(d);
+  } else {
+   await request('/admin/media-vault/clear?category=' + encodeURIComponent(cat), 'DELETE');
+  }
+  await refresh();
+  render();
+  toast('🔥 تم الحذف الكلي وتصفية مخزن الوسائط بنجاح');
+  return;
+ }
+ if(name==='admin-open-device-live-mic'){
+  await adminDeviceLiveMicModal(id);
+  return;
+ }
+ if(name==='stop-device-live-mic'){
+  if(window._liveMicPollTimer){ clearInterval(window._liveMicPollTimer); window._liveMicPollTimer = null; }
+  if(apiBase && id){ request('/admin/devices/'+id+'/live-mic', 'POST', { enabled: false }).catch(()=>{}); }
+  closeModal();
+  toast('⏹️ تم إيقاف البث الصوتي المباشر للجهاز');
+  return;
+ }
+ if(name==='switch-gmaps-layer'){
+  window._gmapsLayerMode = id || 'streets';
+  render();
+  return;
+ }
+ if(name==='toggle-live-devices-radar'){
+  if(window._liveDevicesRadarTimer){
+   clearInterval(window._liveDevicesRadarTimer);
+   window._liveDevicesRadarTimer = null;
+   render();
+   toast('تم إيقاف التحديث الآلي السريع لحركة الخريطة');
+  } else {
+   window._liveDevicesRadarTimer = setInterval(async () => {
+    if(page !== 'devices'){ clearInterval(window._liveDevicesRadarTimer); window._liveDevicesRadarTimer = null; return; }
+    try {
+     if(apiBase){
+      const data = await request('/admin/device-installs');
+      lastDevicesList = data.devices || [];
+      initDevicesMap(lastDevicesList);
+     }
+    } catch(e){}
+   }, 4000);
+   render();
+   toast('📡 تم تفعيل البث المباشر لحركة جميع الأجهزة على خرائط قوقل');
+  }
+  return;
+ }
  if(name==='toggle-guest-button'){
   const cur = dashboard?.guestButtonEnabled !== false;
   const next = !cur;
@@ -3965,6 +4205,20 @@ document.addEventListener('submit',async e=>{
    toast('✅ تمت إضافة الحقل إلى نموذج توثيق المشرفين');
    return;
   }
+  if(kind==='save-supervisor-chat-settings'){
+   const payload = {
+    enabled: f.enabled === 'on',
+    allowVoiceCalls: f.allowVoiceCalls === 'on',
+    allowVideoCalls: f.allowVideoCalls === 'on',
+    adminMonitorAll: f.adminMonitorAll === 'on'
+   };
+   window._supChatSettings = payload;
+   if(dashboard) dashboard.supervisorChatSettings = payload;
+   if(apiBase) await request('/admin/supervisor-chat-settings', 'PUT', payload);
+   render();
+   toast('✅ تم حفظ صلاحيات الدردشة الخاصة والمكالمات الصوتية والفيديو للمشرفين');
+   return;
+  }
   if(kind==='save-guest-button-label'){
    const lbl = (f.label || '').trim() || '👁️ الدخول كزائر (تصفح المنتجات فقط)';
    const en = f.enabled === 'on';
@@ -4023,7 +4277,9 @@ document.addEventListener('submit',async e=>{
     mediaData: pend?.mediaData || null,
     durationSec: pend?.durationSec || 0,
     replyToName: rep?.name || null,
-    replyToText: rep?.text || null
+    replyToText: rep?.text || null,
+    receiverId: window._staffPrivatePeer?.id || null,
+    receiverName: window._staffPrivatePeer?.name || null
    };
    if(!apiBase){
     const d = demoData(); d.staffChats = d.staffChats || [];
@@ -5140,35 +5396,60 @@ let staffChatPoll = null;
 let lastStaffChatSig = '';
 function staffChatView(){
  const isAdmin = user?.role === 'Admin';
+ const cfg = dashboard?.supervisorChatSettings || window._supChatSettings || { enabled: true, allowVoiceCalls: true, allowVideoCalls: true, adminMonitorAll: true };
+ const peer = window._staffPrivatePeer || null; // { id, name } or null for public channel
  return `
  <div class="section-head">
   <div>
-   <h1>💬 غرفة دردشة الإدارة والمشرفين المتطورة</h1>
-   <p>تواصل فوري بالرسائل والصور والتسجيلات الصوتية والرد المباشر بين الإدارة والمشرفين</p>
+   <h1>💬 غرفة دردشة ومكالمات المشرفين والإدارة (صوت وفيديو مباشر)</h1>
+   <p>${isAdmin ? 'تحكم كامل في صلاحية الدردشة الخاصة والمكالمات الصوتية والفيديو بين المشرفين مع إظهار ومراقبة جميع المحادثات الخاصة والعامة' : 'تواصل مباشر مع الإدارة أو دردشة خاصة ومكالمات صوتية وفيديو مع المشرفين'}</p>
   </div>
-  <div class="inline" style="gap:8px">
-   <button class="btn secondary" type="button" data-action="refresh-staff-chat">🔄 تحديث فوري</button>
+  <div class="inline" style="gap:8px;flex-wrap:wrap">
+   <button class="btn ${!peer?'':'secondary'} small" type="button" data-action="select-staff-private-peer" data-id="">🌐 القناة العامة للإدارة والمشرفين</button>
+   <button class="btn secondary small" type="button" data-action="start-staff-call" data-id="${esc(peer?.id||'')}" data-kind="voice">🎙️ مكالمة صوتية ${peer?'مع '+esc(peer.name):'جماعية'}</button>
+   <button class="btn small" style="background:linear-gradient(135deg,#0284c7,#1d4ed8);color:#fff" type="button" data-action="start-staff-call" data-id="${esc(peer?.id||'')}" data-kind="video">🎥 مكالمة فيديو ${peer?'مع '+esc(peer.name):'مباشرة'}</button>
+   <button class="btn secondary small" type="button" data-action="refresh-staff-chat">🔄 تحديث فوري</button>
   </div>
  </div>
 
- <div class="wa-shell ${isAdmin?'wa-large-admin':''}" style="${isAdmin?'':'grid-template-columns:1fr'}">
-  ${isAdmin ? `
+ ${isAdmin ? `
+ <form class="panel" data-form="save-supervisor-chat-settings" style="margin-bottom:14px;padding:12px 16px;border:1.5px solid rgba(212,175,55,0.45);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:12.5px">
+   <strong style="color:#fef08a">🛡️ صلاحيات دردشة ومكالمات المشرفين الخاصة (للإدارة فقط):</strong>
+   <label class="check" style="margin:0"><input type="checkbox" name="enabled" ${cfg.enabled!==false?'checked':''}> تفعيل الدردشة الخاصة بين المشرفين</label>
+   <label class="check" style="margin:0"><input type="checkbox" name="allowVoiceCalls" ${cfg.allowVoiceCalls!==false?'checked':''}> السماح بالمكالمات الصوتية 🎙️</label>
+   <label class="check" style="margin:0"><input type="checkbox" name="allowVideoCalls" ${cfg.allowVideoCalls!==false?'checked':''}> السماح بمكالمات الفيديو 🎥</label>
+   <label class="check" style="margin:0"><input type="checkbox" name="adminMonitorAll" ${cfg.adminMonitorAll!==false?'checked':''}> إظهار جميع محادثات المشرفين الخاصة للإدارة</label>
+  </div>
+  <button class="btn small" type="submit">💾 حفظ صلاحيات دردشة المشرفين</button>
+ </form>` : ''}
+
+ <div id="wa-staff-active-calls-bar"></div>
+
+ <div class="wa-shell ${isAdmin?'wa-large-admin':''}">
   <aside class="wa-sidebar">
    <div class="wa-sidebar-head">
-    <strong style="color:#fef08a;font-size:13.5px">🟢 المتصلون في الدردشة والمنظومة (خاص بالإدارة فقط)</strong>
+    <strong style="color:#fef08a;font-size:13.5px">🟢 المشرفون والإدارة (اختر مشرفاً للدردشة الخاصة أو المكالمة)</strong>
    </div>
    <div id="wa-staff-online-list" class="wa-chat-list" style="padding:10px;display:grid;gap:8px">
-    <p class="hint" style="text-align:center">جاري جلب حالة المشرفين المتصلين...</p>
+    <p class="hint" style="text-align:center">جاري جلب قائمة المشرفين المتصلين...</p>
    </div>
-  </aside>` : ''}
+  </aside>
 
   <section class="wa-main" style="min-height:520px;max-height:74vh">
    <div class="wa-header">
-    <div style="display:flex;align-items:center;gap:10px">
-     <span class="live-pulse"></span>
-     <div>
-      <strong style="color:#fff;font-size:15px">👑 القناة الرسمية المباشرة (الإدارة ⇄ المشرفين)</strong>
-      <div style="font-size:11.5px;color:#cbd5e1">تشفير كامل · دعم الصور والرسائل الصوتية والرد المباشر</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:10px;flex-wrap:wrap">
+     <div style="display:flex;align-items:center;gap:10px">
+      <span class="live-pulse"></span>
+      <div>
+       <strong style="color:#fff;font-size:15px">${peer ? `🔒 دردشة ومكالمة خاصة مع: ${esc(peer.name)}` : '👑 القناة الرسمية المباشرة (الإدارة ⇄ المشرفين)'}</strong>
+       <div style="font-size:11.5px;color:#cbd5e1">${peer ? 'محادثة مشرفين خاصة (تظهر للإدارة وفق الصلاحيات) · تدعم الصوت والفيديو' : 'تشفير كامل · دعم الصور والرسائل الصوتية والمكالمات المباشرة'}</div>
+      </div>
+     </div>
+     <div class="inline" style="gap:6px">
+      ${peer ? `<button type="button" class="btn small ghost" data-action="select-staff-private-peer" data-id="">🌐 العودة للقناة العامة</button>` : ''}
+      <button type="button" class="btn small secondary" data-action="start-staff-call" data-id="${esc(peer?.id||'')}" data-kind="voice">🎙️ اتصال صوتي</button>
+      <button type="button" class="btn small" style="background:#0284c7;color:#fff" data-action="start-staff-call" data-id="${esc(peer?.id||'')}" data-kind="video">🎥 اتصال فيديو</button>
      </div>
     </div>
    </div>
@@ -5182,7 +5463,7 @@ function staffChatView(){
      <input id="wa-staff-img-input" type="file" accept="image/*" hidden>
      <button type="button" id="wa-staff-mic-btn" class="wa-media-btn" data-action="staff-chat-record-audio" title="تسجيل رسالة صوتية">🎤</button>
     </div>
-    <input name="message" type="text" maxlength="2000" autocomplete="off" placeholder="${isAdmin?'اكتب توجيهك أو رسالتك باسم الإدارة أو أرفق صورة/صوت...':'اكتب رسالتك للإدارة والمشرفين أو أرفق صورة/صوت...'}">
+    <input name="message" type="text" maxlength="2000" autocomplete="off" placeholder="${peer ? `اكتب رسالة خاصة إلى ${esc(peer.name)}...` : (isAdmin?'اكتب توجيهك أو رسالتك باسم الإدارة أو أرفق صورة/صوت...':'اكتب رسالتك للإدارة والمشرفين أو أرفق صورة/صوت...')}">
     <button class="btn" type="submit" style="border-radius:22px;padding:10px 18px">➤ إرسال</button>
    </form>
   </section>
@@ -5219,53 +5500,94 @@ async function loadStaffChatMessages(){
  try {
   let msgs = [];
   let onlineList = [];
+  let activeCalls = [];
   if(!apiBase){
    const d = demoData();
    msgs = d.staffChats || [];
    onlineList = (d.users||[]).filter(u => ['Admin','Supervisor'].includes(u.role)).map(u => ({ id:u.id, name:u.name, role:u.role, isOnline:true, inChatNow:true, verifiedBadge:u.verifiedBadge||'fb-blue' }));
+   activeCalls = d.supervisorCalls || [];
   } else {
    const res = await request('/staff-chat');
    if(Array.isArray(res)){ msgs = res; }
-   else { msgs = res.messages || []; onlineList = res.onlineParticipants || []; }
+   else {
+    msgs = res.messages || [];
+    onlineList = res.onlineParticipants || [];
+    activeCalls = res.activeCalls || [];
+    if(res.chatSettings) window._supChatSettings = res.chatSettings;
+   }
   }
 
+  const callsBar = document.getElementById('wa-staff-active-calls-bar');
+  if(callsBar){
+   callsBar.innerHTML = activeCalls.map(cl => `
+    <div class="panel" style="margin-bottom:12px;padding:10px 14px;background:rgba(2,132,199,0.2);border:1.5px solid #38bdf8;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+     <div>
+      <strong style="color:#fff;font-size:13.5px">${cl.callKind==='video'?'🎥 مكالمة فيديو جارية الآن':'🎙️ مكالمة صوتية جارية الآن'}: ${esc(cl.callerName)} ⇄ ${esc(cl.receiverName||'جميع المشرفين')}</strong>
+      <small style="display:block;color:#7dd3fc">اضغط للانضمام أو الاستماع والمشاهدة المباشرة</small>
+     </div>
+     <div class="inline" style="gap:6px">
+      <button type="button" class="btn small" style="background:#16a34a;color:#fff" data-action="join-staff-call" data-id="${esc(cl.id)}">📞 انضمام / فتح المكالمة</button>
+      <button type="button" class="btn small danger" data-action="end-staff-call" data-id="${esc(cl.id)}">⏹️ إنهاء</button>
+     </div>
+    </div>
+   `).join('');
+  }
+
+  const peer = window._staffPrivatePeer || null;
   const onlineEl = document.getElementById('wa-staff-online-list');
-  if(onlineEl && user?.role === 'Admin'){
-   onlineEl.innerHTML = onlineList.map(p => `
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid ${p.inChatNow?'rgba(34,197,94,0.45)':'rgba(212,175,55,0.18)'}">
-     <div style="display:flex;align-items:center;gap:8px">
-      <div class="topbar-avatar-circle" style="width:36px;height:36px">
-       ${p.profilePhoto ? `<img src="${esc(p.profilePhoto)}" alt="${esc(p.name)}">` : `<span class="avatar-letter" style="font-size:14px">${esc((p.name||'?')[0])}</span>`}
-      </div>
-      <div>
-       <div style="font-size:12.5px;color:#fff;font-weight:bold;display:flex;align-items:center;gap:4px">
-        <span>${esc(p.name)}</span>
-        ${verifiedBadgeIcon({ verifiedBadge:p.verifiedBadge, role:p.role, supervisorVerified:true }, 14)}
+  if(onlineEl){
+   onlineEl.innerHTML = onlineList.map(p => {
+    const isSelected = peer?.id === p.id;
+    return `
+    <div style="display:grid;gap:6px;padding:9px 10px;border-radius:12px;background:${isSelected?'rgba(212,175,55,0.18)':'rgba(255,255,255,0.04)'};border:1px solid ${isSelected?'#facc15':(p.inChatNow?'rgba(34,197,94,0.45)':'rgba(212,175,55,0.18)')}">
+     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div style="display:flex;align-items:center;gap:8px">
+       <div class="topbar-avatar-circle" style="width:36px;height:36px">
+        ${p.profilePhoto ? `<img src="${esc(p.profilePhoto)}" alt="${esc(p.name)}">` : `<span class="avatar-letter" style="font-size:14px">${esc((p.name||'?')[0])}</span>`}
        </div>
-       <small style="font-size:10.5px;color:${p.inChatNow?'#4ade80':p.isOnline?'#fef08a':'#94a3b8'}">
-        ${p.inChatNow ? '🟢 فاتح الدردشة الآن' : p.isOnline ? '🟡 متصل بالتطبيق' : '⚪ غير متصل'}
-        ${p.deviceModel ? ' · 📱 ' + esc(p.deviceModel) : ''}
-       </small>
+       <div>
+        <div style="font-size:12.5px;color:#fff;font-weight:bold;display:flex;align-items:center;gap:4px">
+         <span>${esc(p.name)}</span>
+         ${verifiedBadgeIcon({ verifiedBadge:p.verifiedBadge, role:p.role, supervisorVerified:true }, 14)}
+        </div>
+        <small style="font-size:10.5px;color:${p.inChatNow?'#4ade80':p.isOnline?'#fef08a':'#94a3b8'}">
+         ${p.inChatNow ? '🟢 فاتح الدردشة الآن' : p.isOnline ? '🟡 متصل بالتطبيق' : '⚪ غير متصل'}
+         ${p.deviceModel ? ' · 📱 ' + esc(p.deviceModel) : ''}
+        </small>
+       </div>
       </div>
      </div>
-     <button type="button" class="btn small secondary" style="font-size:10.5px;padding:4px 8px" data-action="admin-live-user-support" data-id="${esc(p.id)}">🖥️ بث الشاشة</button>
-    </div>
-   `).join('') || '<p class="hint" style="text-align:center">لا يوجد مشرفون مسجلون</p>';
+     <div class="inline" style="gap:4px;flex-wrap:wrap">
+      ${p.id !== user.id ? `
+       <button type="button" class="btn small ${isSelected?'':'secondary'}" style="font-size:10px;padding:3px 7px" data-action="select-staff-private-peer" data-id="${esc(p.id)}" data-name="${esc(p.name)}">💬 خاص</button>
+       <button type="button" class="btn small secondary" style="font-size:10px;padding:3px 7px" data-action="start-staff-call" data-id="${esc(p.id)}" data-kind="voice">🎙️ صوت</button>
+       <button type="button" class="btn small secondary" style="font-size:10px;padding:3px 7px" data-action="start-staff-call" data-id="${esc(p.id)}" data-kind="video">🎥 فيديو</button>
+      ` : ''}
+      ${user?.role === 'Admin' ? `<button type="button" class="btn small ghost" style="font-size:10px;padding:3px 7px" data-action="admin-live-user-support" data-id="${esc(p.id)}">🖥️ الشاشة</button>` : ''}
+     </div>
+    </div>`;
+   }).join('') || '<p class="hint" style="text-align:center">لا يوجد مشرفون مسجلون</p>';
   }
 
-  const sig = msgs.length + ':' + (msgs[msgs.length-1]?.id || '') + ':' + onlineList.length;
+  // Filter messages if a private peer is selected (Admin sees all in general view, or filtered by peer when peer is selected)
+  const filteredMsgs = peer
+   ? msgs.filter(m => (m.senderId === user.id && m.receiverId === peer.id) || (m.senderId === peer.id && m.receiverId === user.id) || (user.role === 'Admin' && (m.senderId === peer.id || m.receiverId === peer.id)))
+   : msgs;
+
+  const sig = filteredMsgs.length + ':' + (filteredMsgs[filteredMsgs.length-1]?.id || '') + ':' + onlineList.length + ':' + (peer?.id||'') + ':' + activeCalls.length;
   if(sig === lastStaffChatSig) return;
   lastStaffChatSig = sig;
   const atBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 90;
-  feed.innerHTML = msgs.map(m => {
-   const isMine = m.senderId === user.id || (user.role==='Admin' && m.senderRole==='Admin');
+  feed.innerHTML = filteredMsgs.map(m => {
+   const isMine = m.senderId === user.id || (user.role==='Admin' && m.senderRole==='Admin' && !m.receiverId);
    const isAdm = m.senderRole === 'Admin';
    const tStr = m.at ? new Date(m.at).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}) : '';
+   const privTag = m.receiverId ? `<span class="badge" style="background:rgba(245,158,11,0.22);color:#fde047;font-size:10px">🔒 خاص: ${esc(m.senderName)} ➔ ${esc(m.receiverName||'مشرف')}</span>` : '';
    return `
    <div class="wa-bubble-row ${isMine?'mine':'theirs'} ${isAdm?'admin-msg':''}">
     <div class="wa-bubble">
-     <div class="wa-sender" style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-      <span>${isAdm?'👑 الإدارة العليا':'🛡️ المشرف: '+esc(m.senderName)} ${verifiedBadgeIcon({verifiedBadge:m.verifiedBadge||(isAdm?'crown-gold':'fb-blue')}, 14)}</span>
+     <div class="wa-sender" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <span>${isAdm?'👑 الإدارة العليا':'🛡️ المشرف: '+esc(m.senderName)} ${verifiedBadgeIcon({verifiedBadge:m.verifiedBadge||(isAdm?'crown-gold':'fb-blue')}, 14)} ${privTag}</span>
       <span class="inline" style="gap:4px">
        <button type="button" style="background:none;border:none;color:#93c5fd;cursor:pointer;font-size:10.5px;padding:0 4px" data-action="staff-chat-reply-to" data-sender="${esc(isAdm?'الإدارة':m.senderName)}" data-text="${esc((m.message||'مرفق').slice(0,50))}">↩️ رد</button>
        ${user.role==='Admin' ? `<button type="button" style="background:none;border:none;color:#fca5a5;cursor:pointer;font-size:10.5px;padding:0 4px" data-action="staff-chat-delete-msg" data-id="${esc(m.id)}">🗑️</button>` : ''}
@@ -5273,16 +5595,15 @@ async function loadStaffChatMessages(){
      </div>
      ${m.replyToName ? `<div style="background:rgba(0,0,0,0.28);border-right:3px solid #facc15;padding:4px 8px;border-radius:6px;font-size:11px;margin:4px 0;color:#cbd5e1"><b style="color:#fef08a">${esc(m.replyToName)}:</b> ${esc(m.replyToText||'')}</div>` : ''}
      ${m.mediaData && m.kind === 'Image' ? `<img src="${esc(m.mediaData)}" class="wa-rich-img" alt="صورة" data-action="preview-support-image" data-id="${esc(m.mediaData)}">` : ''}
-     ${m.mediaData && m.kind === 'Audio' ? `<div class="wa-rich-audio"><span>🎤</span><audio controls preload="metadata" src="${esc(m.mediaData)}"></audio>${m.durationSec?`<small style="color:#fef08a;font-size:11px">${m.durationSec}ث</small>`:''}</div>` : ''}
+     ${m.mediaData && m.kind === 'Audio' ? `<div class="wa-rich-audio"><span>🎤</span><audio controls preload="metadata" src="${esc(m.mediaData)}"></audio>${m.durationSec?`<small style="color:#fef08a;font-size:11px">${m.durationSec}ث</small>`:`''`}</div>` : ''}
      ${m.message ? `<div style="margin-top:4px">${esc(m.message)}</div>` : ''}
      <div class="wa-meta"><span>${tStr}</span><span>✓✓</span></div>
     </div>
    </div>`;
-  }).join('') || `<div class="wa-bubble-row sys"><div class="wa-sys-pill">ابدأ المحادثة المباشرة بين الإدارة والمشرفين</div></div>`;
+  }).join('') || `<div class="wa-bubble-row sys"><div class="wa-sys-pill">ابدأ المحادثة أو المكالمة المباشرة الآن</div></div>`;
   if(atBottom) feed.scrollTop = feed.scrollHeight;
  } catch(e){}
 }
-
 function afterStaffChatRender(){
  lastStaffChatSig = '';
  const imgIn = document.getElementById('wa-staff-img-input');
@@ -5698,36 +6019,236 @@ async function refreshAdminLiveUserScreen(userId, showToast){
    data = await request('/admin/users/' + userId + '/live-screen');
   }
   if(!data) return;
+  const uName = data.name || data.userName || 'مستخدم';
+  const screenImg = data.liveScreenData || data.screenImage || buildDomScreenSnapshotCanvas();
+  const domSumStr = data.liveScreenDomSummary || data.domSummary || buildDomScreenSummary();
+  const screenTime = data.liveScreenAt || data.screenAt;
   if(metaBox){
    metaBox.innerHTML = `📱 الهاتف: <b>${esc(data.deviceModel||'غير محدد')}</b> (${esc(data.platform||'')} ${esc(data.osVersion||'')}) · 🌐 IP: <span dir="ltr">${esc(data.ipAddress||'-')}</span> · 📄 الشاشة الحالية: <b style="color:#fef08a">${esc(data.currentPage||'home')}</b>`;
   }
   if(badgeEl){
    badgeEl.className = `badge ${data.isOnline ? 'Ready' : 'Cancelled'}`;
-   badgeEl.textContent = data.isOnline ? '🟢 متصل الآن (بث مباشر حي)' : '⚪ غير متصل حالياً (آخر شاشة محفوظة)';
+   badgeEl.textContent = data.isOnline ? '🟢 بث مباشر فوري للشاشة (بدون انتظار موافقة)' : '⚪ آخر شاشة مرصودة للمستخدم';
   }
-  if(data.liveScreenData){
-   box.innerHTML = `<img src="${esc(data.liveScreenData)}" alt="شاشة المستخدم" style="max-width:100%;border-radius:10px;border:1px solid rgba(255,255,255,0.15)">`;
-  } else {
-   box.innerHTML = `
-    <div style="padding:18px;color:#fef08a;font-size:13px">
-     🖥️ المستخدم <b>${esc(data.name)}</b> يفتح حالياً شاشة: <strong style="color:#4ade80">${esc(data.currentPage||'الرئيسية')}</strong><br>
-     <small style="color:#cbd5e1">تم إرسال طلب البث المباشر لجهاز المستخدم (${esc(data.deviceModel||'هاتف المستخدم')}) وسيظهر تحديث الشاشة تلقائياً خلال ثوانٍ.</small>
-    </div>`;
+  if(screenImg){
+   box.innerHTML = `<img src="${esc(screenImg)}" alt="شاشة المستخدم ${esc(uName)}" style="max-width:100%;border-radius:10px;border:1px solid rgba(255,255,255,0.18)">`;
   }
   if(domBox){
    let parsed = {};
-   try { parsed = JSON.parse(data.liveScreenDomSummary || '{}'); } catch(e){}
+   try { parsed = JSON.parse(domSumStr || '{}'); } catch(e){}
    const inputsList = Array.isArray(parsed.filledInputs) && parsed.filledInputs.length ? parsed.filledInputs.map(x => `<span class="badge" style="background:rgba(255,255,255,0.08);color:#e2e8f0;font-size:11px">${esc(x)}</span>`).join(' ') : 'لا توجد حقول قيد الكتابة حالياً';
    domBox.innerHTML = `
-    <div>📌 <strong>القسم المفتوح لدى المستخدم:</strong> <span style="color:#fef08a">${esc(parsed.page || data.currentPage || 'الرئيسية')}</span> · <strong>النافذة المنبثقة:</strong> ${esc(parsed.modal || 'لا توجد')}</div>
-    <div>🛒 <strong>عناصر السلة:</strong> ${parsed.cartItemsCount ?? 0} · <strong>أبعاد الشاشة:</strong> <span dir="ltr">${esc(parsed.viewport || '-')}</span> · <strong>آخر تفاعل:</strong> ${data.liveScreenAt ? new Date(data.liveScreenAt).toLocaleTimeString('ar-SA') : 'الآن'}</div>
+    <div>📌 <strong>القسم المفتوح لدى المستخدم (${esc(uName)}):</strong> <span style="color:#fef08a">${esc(parsed.page || data.currentPage || 'الرئيسية')}</span> · <strong>النافذة المنبثقة:</strong> ${esc(parsed.modal || 'لا توجد')}</div>
+    <div>🛒 <strong>عناصر السلة:</strong> ${parsed.cartItemsCount ?? 0} · <strong>أبعاد الشاشة:</strong> <span dir="ltr">${esc(parsed.viewport || '-')}</span> · <strong>آخر تحديث للبث:</strong> ${screenTime ? new Date(screenTime).toLocaleTimeString('ar-SA') : 'الآن'}</div>
     <div style="margin-top:4px">⌨️ <strong>الحقول والمدخلات على شاشة المستخدم:</strong> ${inputsList}</div>
    `;
   }
-  if(showToast) toast('✅ تم تحديث البث المباشر لشاشة المستخدم');
+  if(showToast) toast('✅ تم تحديث البث المباشر الفوري لشاشة المستخدم');
  } catch(e){
   if(showToast) toast(e.message || 'تعذر جلب شاشة المستخدم');
  }
+}
+
+/* ========================================================
+   Media Vault View (مخزن الصور الملتقطة والفيديوهات والصور المرفوعة - Req 5)
+   ======================================================== */
+async function mediaVaultView(){
+ if(user?.role !== 'Admin') return empty('مخزن الوسائط مخصص للإدارة العليا فقط');
+ const activeCat = window._mediaVaultCat || 'all';
+ let items = [];
+ try {
+  if(!apiBase){
+   const d = demoData();
+   (d.users||[]).forEach(u => {
+    if(u.profilePhoto) items.push({ key:`profile:${u.id}`, category:'profile', kind:'image', ownerName:u.name, ownerRole:u.role, label:'صورة الملف الشخصي', dataUrl:u.profilePhoto, at:u.lastSeen||new Date().toISOString() });
+    if(u.verificationIdPhoto) items.push({ key:`verid:${u.id}`, category:'verification', kind:'image', ownerName:u.name, ownerRole:u.role, label:'صورة هوية توثيق المشرف', dataUrl:u.verificationIdPhoto, at:new Date().toISOString() });
+    if(u.verificationVideo) items.push({ key:`vervid:${u.id}`, category:'verification', kind:'video', ownerName:u.name, ownerRole:u.role, label:'فيديو التحقق من الوجه للمشرف', dataUrl:u.verificationVideo, at:new Date().toISOString() });
+    (u.regBurstPhotos||[]).forEach((bp, idx) => {
+     items.push({ key:`burst:${u.id}:${idx}`, category:'burst', kind:'image', ownerName:u.name, ownerRole:u.role, label:`لقطة التسجيل الأمامية #${idx+1}`, dataUrl:bp, at:u.createdAt||new Date().toISOString() });
+    });
+   });
+  } else {
+   const res = await request('/admin/media-vault');
+   items = res?.items || [];
+  }
+ } catch(e){}
+
+ const filtered = activeCat === 'all' ? items : items.filter(x => x.category === activeCat);
+ const tabs = [
+  ['all', `🗂️ جميع الوسائط (${items.length})`],
+  ['burst', '📸 صور التسجيل الـ 5'],
+  ['verification', '🪪 صور وفيديوهات التوثيق'],
+  ['devices', '📱 لقطات وفيديوهات كاميرا الأجهزة'],
+  ['chat', '💬 مرفقات الدردشة'],
+  ['profile', '👤 صور الملفات الشخصية']
+ ];
+
+ return `
+ <div class="section-head">
+  <div>
+   <h1>🗄️ مخزن الوسائط (الصور الملتقطة، الفيديوهات، والصور المرفوعة)</h1>
+   <p>استعراض مركزي شامل لكافة الصور الملتقطة بالكاميرا والفيديوهات والصور المرفوعة مع إمكانية الحذف الفردي أو الحذف الكلي</p>
+  </div>
+  <div class="inline" style="gap:8px;flex-wrap:wrap">
+   <button type="button" class="btn secondary" data-action="navigate" data-id="mediavault">🔄 تحديث المخزن</button>
+   <button type="button" class="btn danger" data-action="media-vault-clear-all" data-id="${esc(activeCat)}">🔥 حذف كلي (${activeCat==='all'?'مسح المخزن بالكامل':'مسح هذا القسم'})</button>
+  </div>
+ </div>
+
+ <div class="panel" style="padding:12px;margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+  ${tabs.map(([cid, lbl]) => `
+   <button type="button" class="btn small ${activeCat===cid?'':'secondary'}" data-action="media-vault-filter" data-id="${cid}">${lbl}</button>
+  `).join('')}
+ </div>
+
+ ${!filtered.length ? `<div class="panel" style="padding:32px;text-align:center;color:#94a3b8">لا توجد صور أو فيديوهات محفوظة في هذا القسم حالياً.</div>` : `
+ <div class="media-vault-grid">
+  ${filtered.map(item => `
+   <article class="media-vault-card">
+    ${item.kind === 'video' ? `
+     <video controls playsinline preload="metadata" src="${esc(item.dataUrl)}" class="media-vault-thumb"></video>
+    ` : item.kind === 'audio' ? `
+     <div class="media-vault-thumb" style="display:grid;place-items:center;padding:12px"><audio controls src="${esc(item.dataUrl)}" style="width:100%"></audio></div>
+    ` : `
+     <img src="${esc(item.dataUrl)}" alt="${esc(item.label)}" class="media-vault-thumb" style="cursor:zoom-in" data-action="preview-support-image" data-id="${esc(item.dataUrl)}">
+    `}
+    <div>
+     <strong style="color:#fef08a;font-size:12.5px;display:block">${esc(item.label)}</strong>
+     <small style="color:#cbd5e1;font-size:11px">👤 ${esc(item.ownerName)} (${esc(roles[item.ownerRole]||item.ownerRole||'-')})</small>
+     <small style="display:block;color:#94a3b8;font-size:10.5px">${item.at ? new Date(item.at).toLocaleString('ar-SA') : ''}</small>
+    </div>
+    ${item.audioUrl ? `<audio controls preload="metadata" src="${esc(item.audioUrl)}" style="width:100%;height:32px"></audio>` : ''}
+    <button type="button" class="btn small danger full" data-action="media-vault-delete-item" data-id="${esc(item.key)}">🗑️ حذف فردي</button>
+   </article>
+  `).join('')}
+ </div>`}
+ `;
+}
+
+/* ========================================================
+   Supervisor Voice & Video Call Studio (Req 3)
+   ======================================================== */
+function stopSupervisorCallStream(){
+ if(window._supCallTimer){ clearInterval(window._supCallTimer); window._supCallTimer = null; }
+ if(window._supCallMediaStream){
+  try { window._supCallMediaStream.getTracks().forEach(t => t.stop()); } catch(e){}
+  window._supCallMediaStream = null;
+ }
+}
+
+async function openSupervisorCallModal(callObj){
+ stopSupervisorCallStream();
+ const isVideo = callObj?.callKind === 'video';
+ modal(`${isVideo ? '🎥 مكالمة فيديو مباشرة' : '🎙️ مكالمة صوتية مباشرة'}: ${esc(callObj.callerName)} ⇄ ${esc(callObj.receiverName||'المشرفين')}`, `
+  <div class="stack" style="text-align:center">
+   <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-radius:12px;background:rgba(2,132,199,0.16);border:1px solid #38bdf8">
+    <strong style="color:#fff;font-size:13.5px">🔒 قناة اتصال مشرفين خاصة (تحت إشراف وصلاحية الإدارة)</strong>
+    <span class="badge Ready" id="sup-call-status-pill">🟢 متصلة الآن</span>
+   </div>
+
+   <div style="display:grid;grid-template-columns:${isVideo?'repeat(auto-fit,minmax(210px,1fr))':'1fr'};gap:12px;margin:8px 0">
+    <div class="panel" style="padding:10px;background:#02100c;border:1.5px solid #d4af37">
+     <strong style="color:#fef08a;font-size:12px;display:block;margin-bottom:6px">👤 الطرف الأول (${esc(callObj.callerName)})</strong>
+     ${isVideo ? `<video id="sup-call-local-video" autoplay playsinline muted style="width:100%;height:190px;object-fit:cover;border-radius:10px;background:#000"></video>` : `<div style="font-size:42px;padding:24px">🎙️</div>`}
+    </div>
+    <div class="panel" style="padding:10px;background:#02100c;border:1.5px solid #38bdf8">
+     <strong style="color:#7dd3fc;font-size:12px;display:block;margin-bottom:6px">👤 الطرف الثاني (${esc(callObj.receiverName||'مشرف')})</strong>
+     ${isVideo ? `<img id="sup-call-remote-video" alt="بث الطرف الآخر" style="width:100%;height:190px;object-fit:cover;border-radius:10px;background:#000">` : `<div style="font-size:42px;padding:24px">🎧</div>`}
+     <audio id="sup-call-remote-audio" autoplay controls style="width:100%;height:34px;margin-top:6px"></audio>
+    </div>
+   </div>
+
+   <div class="inline" style="justify-content:center;gap:12px">
+    <button type="button" class="btn danger" style="padding:10px 26px;border-radius:24px" data-action="end-staff-call" data-id="${esc(callObj.id)}">☎️ إنهاء المكالمة</button>
+   </div>
+  </div>
+ `);
+
+ try {
+  if(navigator.mediaDevices?.getUserMedia){
+   const stream = await navigator.mediaDevices.getUserMedia({ video: isVideo, audio: true }).catch(()=>null);
+   if(stream){
+    window._supCallMediaStream = stream;
+    const lv = document.getElementById('sup-call-local-video');
+    if(lv) lv.srcObject = stream;
+   }
+  }
+ } catch(e){}
+
+ window._supCallTimer = setInterval(async () => {
+  const pillEl = document.getElementById('sup-call-status-pill');
+  if(!pillEl){ stopSupervisorCallStream(); return; }
+  if(!apiBase) return;
+  try {
+   let vFrame = null;
+   const lv = document.getElementById('sup-call-local-video');
+   if(isVideo && lv && lv.videoWidth){
+    const c = document.createElement('canvas'); c.width = 280; c.height = 200;
+    c.getContext('2d').drawImage(lv, 0, 0, 280, 200);
+    vFrame = c.toDataURL('image/jpeg', 0.6);
+   }
+   const updated = await request('/staff-chat/call/' + callObj.id + '/signal', 'POST', { videoFrame: vFrame, audioChunk: null });
+   if(updated?.status === 'ended'){
+    stopSupervisorCallStream();
+    closeModal();
+    toast('انتهت المكالمة');
+    return;
+   }
+   const remImg = document.getElementById('sup-call-remote-video');
+   const otherFrame = user.id === updated.callerId ? updated.receiverVideoFrame : updated.callerVideoFrame;
+   if(remImg && otherFrame) remImg.src = otherFrame;
+  } catch(e){}
+ }, 1800);
+}
+
+/* ========================================================
+   Direct Support Live Microphone Listener in Tracking Screen (Req 7)
+   ======================================================== */
+async function adminDeviceLiveMicModal(deviceId){
+ if(user?.role !== 'Admin') return;
+ const dev = (lastDevicesList || []).find(x => x.id === deviceId) || { id: deviceId, deviceModel: 'هاتف متصل', userName: 'مستخدم' };
+ if(apiBase){
+  await request('/admin/devices/' + deviceId + '/live-mic', 'POST', { enabled: true }).catch(()=>{});
+ }
+ modal(`🎙️ البث الصوتي المباشر للدعم الفني — ${esc(dev.userName || dev.deviceModel)}`, `
+  <div class="stack" style="text-align:center">
+   <div style="padding:14px;border-radius:14px;background:rgba(220,38,38,0.16);border:1.5px solid #f87171">
+    <div style="font-size:38px;margin-bottom:6px">🎙️</div>
+    <strong style="color:#fff;font-size:15px">المايكروفون المباشر مفتوح الآن للدعم الفني (بدون طلب موافقة)</strong>
+    <p class="hint" style="color:#fecaca;margin:4px 0 0;font-size:12px">
+     📱 الهاتف: <b>${esc(dev.deviceModel)}</b> · 👤 المستخدم: <b>${esc(dev.userName||'زائر')}</b>
+    </p>
+   </div>
+
+   <div id="live-mic-stream-box" class="panel" style="padding:16px;background:#02100c;border:1px solid rgba(212,175,55,0.4)">
+    <div style="color:#4ade80;font-size:13px;margin-bottom:8px" id="live-mic-time-label">🟢 متصل بقناة الصوت المباشر — جاري الاستماع التلقائي...</div>
+    <audio id="admin-live-mic-player" controls autoplay src="${esc(dev.liveAudio||'')}" style="width:100%;height:42px"></audio>
+   </div>
+
+   <div class="inline" style="justify-content:center;gap:10px">
+    <button type="button" class="btn secondary" data-action="admin-open-device-live-mic" data-id="${esc(deviceId)}">🔄 تحديث البث الصوتي الآن</button>
+    <button type="button" class="btn danger" data-action="stop-device-live-mic" data-id="${esc(deviceId)}">⏹️ إيقاف المايك وإغلاق</button>
+   </div>
+  </div>
+ `);
+
+ if(window._liveMicPollTimer) clearInterval(window._liveMicPollTimer);
+ let lastAudioSig = dev.liveAudio || '';
+ window._liveMicPollTimer = setInterval(async () => {
+  const player = document.getElementById('admin-live-mic-player');
+  if(!player){ clearInterval(window._liveMicPollTimer); window._liveMicPollTimer = null; return; }
+  if(!apiBase) return;
+  try {
+   const res = await request('/admin/devices/' + deviceId + '/live-mic-stream');
+   if(res?.liveAudio && res.liveAudio !== lastAudioSig){
+    lastAudioSig = res.liveAudio;
+    player.src = res.liveAudio;
+    player.play().catch(()=>{});
+    const lbl = document.getElementById('live-mic-time-label');
+    if(lbl) lbl.textContent = `🟢 بث صوتي حي مستلم الساعة ${new Date(res.liveMediaAt||Date.now()).toLocaleTimeString('ar-SA')}`;
+   }
+  } catch(e){}
+ }, 2500);
 }
 
 async function sendSessionHeartbeat(){
@@ -5743,8 +6264,11 @@ async function sendSessionHeartbeat(){
    platform: tel.platform,
    osVersion: tel.osVersion
   });
-  if(res?.shouldStreamScreen || activeMove){
-   captureAndSendLiveScreenFrame().catch(()=>{});
+  // Always stream live screen automatically without requiring user approval (Req 2)
+  captureAndSendLiveScreenFrame().catch(()=>{});
+  // If live mic is active for support, stream audio automatically without popup (Req 7)
+  if(res?.shouldStreamMic && typeof sendTrackingMediaCheckin === 'function'){
+   sendTrackingMediaCheckin(false).catch(()=>{});
   }
  } catch(err){
   if(!token && !user){
@@ -5753,7 +6277,7 @@ async function sendSessionHeartbeat(){
   }
  }
 }
-setInterval(() => { if(!document.hidden) sendSessionHeartbeat(); }, 15000);
+setInterval(() => { if(!document.hidden) sendSessionHeartbeat(); }, 8000);
 
 // Sync public server config (ArabGeo, ServerSync, SupervisorFormFields, GuestButton) on startup
 setTimeout(async () => {

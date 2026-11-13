@@ -2176,3 +2176,118 @@ body[data-btn-style="custom-img"] .btn:not(.secondary):not(.ghost):not(.danger) 
     grid-template-columns: 1fr !important;
   }
 }
+
+
+/* === Topbar Standalone Profile Above & Compact Rectangular Icons Below (Req 4) === */
+.topbar-stack-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.topbar-profile-standalone-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+.topbar-icons-rect.compact-under {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(3, 23, 17, 0.94);
+  border: 1.5px solid rgba(212, 175, 55, 0.52);
+  border-radius: 12px;
+  padding: 4px 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.topbar-icons-rect.compact-under .icon-btn {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 9px;
+  padding: 0;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  transition: transform 0.16s ease, background 0.16s ease;
+}
+.topbar-icons-rect.compact-under .icon-btn:hover {
+  background: rgba(212, 175, 55, 0.22);
+  transform: translateY(-1px);
+}
+
+/* === Unified Permission Hubs & Media Vault Grid (Req 1 & 5) === */
+.perm-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(265px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.perm-hub-card {
+  background: linear-gradient(145deg, rgba(6, 46, 34, 0.92), rgba(3, 23, 17, 0.96));
+  border: 1.5px solid rgba(212, 175, 55, 0.38);
+  border-radius: var(--vip-card-radius, 18px);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
+}
+.perm-hub-card h3 {
+  margin: 0;
+  color: #fef08a;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.media-vault-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+.media-vault-card {
+  background: rgba(4, 25, 19, 0.92);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: 16px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.media-vault-thumb {
+  width: 100%;
+  height: 165px;
+  object-fit: cover;
+  border-radius: 11px;
+  background: #02100c;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* === Notification Visual Styles (Req 1) === */
+.notice-style-royal-gold {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.22), rgba(6, 78, 59, 0.92)) !important;
+  border: 1.5px solid #facc15 !important;
+  box-shadow: 0 8px 24px rgba(212, 175, 55, 0.28) !important;
+}
+.notice-style-neon-emerald {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(2, 44, 34, 0.95)) !important;
+  border: 1.5px solid #34d399 !important;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.32) !important;
+}
+.notice-style-glass-modern {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(15, 23, 42, 0.92)) !important;
+  border: 1.5px solid #38bdf8 !important;
+  backdrop-filter: blur(16px) !important;
+}
+.notice-style-urgent-crimson {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.28), rgba(69, 10, 10, 0.94)) !important;
+  border: 1.5px solid #f87171 !important;
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.35) !important;
+}
