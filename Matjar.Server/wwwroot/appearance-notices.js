@@ -270,7 +270,7 @@ function paintAppearance(){
 }
 let paintQueued=false;new MutationObserver(()=>{if(paintQueued)return;paintQueued=true;setTimeout(()=>{paintQueued=false;paintAppearance();},0);}).observe(document.getElementById('app'),{childList:true,subtree:true});
 async function refreshAppearance(){try{storeAppearance={...defaultAppearance,...await request('/appearance')};paintAppearance();}catch{}}
-async function refreshBanners(){try{storeBanners=await request('/banners');}catch{}}
+async function refreshBanners(){try{{const _b=await request('/banners');if(Array.isArray(_b))storeBanners=_b;}}catch{}}
 async function updateNotices(){
   if(!user)return;
   try{

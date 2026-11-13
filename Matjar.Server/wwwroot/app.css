@@ -2125,3 +2125,54 @@ body[data-btn-style="custom-img"] .btn:not(.secondary):not(.ghost):not(.danger) 
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.05); }
 }
+
+
+/* Rectangular Topbar Icon Bar & Top-Left Profile Circle (Req 5 & 7) */
+.topbar {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 14px !important;
+  flex-wrap: wrap !important;
+}
+.topbar-center-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  margin-right: auto !important;
+}
+.topbar-icons-rect {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(6, 78, 59, 0.78), rgba(2, 23, 17, 0.94));
+  border: 1.5px solid rgba(212, 175, 55, 0.48);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.topbar-icons-rect .icon-btn {
+  width: 40px !important;
+  height: 38px !important;
+  border-radius: 11px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(212, 175, 55, 0.28) !important;
+  color: #fef08a !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  position: relative;
+  transition: all 0.2s ease;
+}
+.topbar-icons-rect .icon-btn:hover {
+  background: rgba(212, 175, 55, 0.22) !important;
+  transform: translateY(-1px);
+}
+.wa-shell.wa-large-admin {
+  min-height: 78vh !important;
+  grid-template-columns: 330px 1fr !important;
+}
+@media (max-width: 900px) {
+  .wa-shell.wa-large-admin {
+    grid-template-columns: 1fr !important;
+  }
+}

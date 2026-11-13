@@ -124,6 +124,10 @@ const DEFAULT_ARAB_GEO = {
  showCountryField: true,
  showCityField: true,
  showNationalityField: true,
+ showGenderField: true,
+ showBirthDateField: true,
+ genderRequired: true,
+ birthDateRequired: true,
  countries: [
   { code:'SA', name:'السعودية', nationality:'سعودي', enabled:true, cities:['الرياض','جدة','مكة المكرمة','المدينة المنورة','الدمام','الخبر','بريدة','عنيزة','تبوك','أبها','خميس مشيط','الطائف','حائل','جازان','نجران','الجبيل','ينبع','الأحساء','عرعر','سكاكا','الباحة'] },
   { code:'EG', name:'مصر', nationality:'مصري', enabled:true, cities:['القاهرة','الجيزة','الإسكندرية','القليوبية','الدقهلية','الشرقية','الغربية','المنوفية','البحيرة','كفر الشيخ','دمياط','بورسعيد','الإسماعيلية','السويس','الفيوم','بني سويف','المنيا','أسيوط','سوهاج','قنا','الأقصر','أسوان','البحر الأحمر','مطروح','شمال سيناء','جنوب سيناء'] },
@@ -170,14 +174,23 @@ function getActiveArabCountries(){
 
 function onRegCountryChange(countryName){
  const citySel = document.getElementById('reg-city-select');
+ const cityLbl = document.getElementById('reg-city-label');
+ const cityWrap = document.getElementById('reg-city-group-wrap');
  const natSel = document.getElementById('reg-nationality-select');
  const countries = getActiveArabCountries();
- const found = countries.find(c => c.name === countryName) || countries[0];
- if(citySel && found){
-  citySel.innerHTML = `<option value="">اختر المدينة / المحافظة في ${esc(found.name)}...</option>` +
+ const found = countries.find(c => c.name === countryName);
+ if(!found){
+  if(cityWrap) cityWrap.style.display = 'none';
+  if(citySel) citySel.innerHTML = '<option value="">اختر الدولة أولاً...</option>';
+  return;
+ }
+ if(cityWrap) cityWrap.style.display = '';
+ if(cityLbl) cityLbl.innerHTML = `🏙️ المنطقة / المحافظة التابعة لـ (${esc(found.name)}) <span style="color:#fef08a;font-weight:bold">*</span>`;
+ if(citySel){
+  citySel.innerHTML = `<option value="">اختر المنطقة / المحافظة في ${esc(found.name)} فقط...</option>` +
    (found.cities || []).map(ct => `<option value="${esc(ct)}">${esc(ct)}</option>`).join('');
  }
- if(natSel && found && !natSel.value){
+ if(natSel){
   natSel.value = found.nationality;
  }
 }
@@ -856,7 +869,7 @@ function adminDeleteUserModal(id){
 'use strict';
 const $ = s => document.querySelector(s);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const money = (v,currency=commerce.currency) => formatMoney(v,currency);
+const money = (v,currency=commerce?.currency||'SAR') => formatMoney(v,currency);
 const roles = {Customer:'عميل معتمد', Merchant:'تاجر / شريك تجاري', Courier:'مندوب توصيل', Supervisor:'مشرف عام', Support:'دعم فني', Admin:'الإدارة العليا', Guest:'زائر (عرض فقط)'};
 const statuses = {Preparing:'قيد التجهيز الفاخر',Ready:'جاهز للاستلام',Assigned:'تم إسناد مندوب التوصيل',OnWay:'في الطريق إليك الآن',Delivered:'تم التسليم بنجاح',Cancelled:'ملغي'};
 const rights = {'commissions.manage':'إدارة العمولات وكشفها','policies.manage':'إدارة الاتفاقيات وشروط المتجر','registrations.manage':'مراجعة تسجيل العملاء والتجار والمناديب','commerce.manage':'إدارة العملات واللغة وطرق الدفع','payments.review':'مراجعة إيصالات واعتماد الدفع','chat.read':'قراءة الدردشة','chat.delivery':'دردشة العميل والمندوب','chat.support':'دردشة الدعم','chat.text':'إرسال نص','chat.image':'إرسال صور','chat.audio':'تسجيل وإرسال صوت','chat.camera':'التصوير داخل الدردشة','appearance.manage':'تعديل ألوان وصورة وخط المتجر','notifications.send':'إرسال إشعارات للمستخدمين','support.manage':'إدارة تذاكر الدعم','tracking.read':'عرض مواقع الطلبات','orders.create':'إنشاء الطلبات','orders.cancel':'إلغاء الطلب قبل التوصيل','orders.prepare':'تجهيز طلبات المتجر','orders.manage':'إدارة جميع الطلبات','products.write':'إضافة وتعديل المنتجات','delivery.assign':'إسناد مندوب التوصيل','delivery.update':'استلام وتسليم الشحنات','users.manage':'إدارة المستخدمين والصلاحيات','audit.read':'عرض سجل النشاط','account.options':'إظهار خيارات حسابي المتقدمة وتخصيص النغمات (بموافقة الإدارة)'};
@@ -903,7 +916,7 @@ function art(name){
 }
 const palettes={bag:'#f1e8dd',shoe:'#e9eee3',headphones:'#e9edef',watch:'#e3ece5',shirt:'#f6e8d8',lamp:'#f3edde',coffee:'#eaf0e1',bottle:'#e0edeb'};
 let config={}, user=null, page='home', category='الكل', search='', dashboard=null, products=[], cart=JSON.parse(localStorage.getItem('ts-cart')||'{}'), favorites=JSON.parse(localStorage.getItem('ts-favorites')||'[]'), busy=false;
-let demo=sessionStorage.getItem('ts-demo')==='true', token=sessionStorage.getItem('ts-token')||'', apiBase=localStorage.getItem('ts-server')||'', authMode='login', setupNeeded=false, deferredInstallPrompt=null;
+let demo=sessionStorage.getItem('ts-demo')==='true', token=localStorage.getItem('ts-token')||sessionStorage.getItem('ts-token')||'', apiBase=localStorage.getItem('ts-server')||'', authMode='login', setupNeeded=false, deferredInstallPrompt=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstallPrompt=e;});
 function isNativeWrapper(){return ['appassets.androidplatform.net','appassets.iosplatform.net'].includes(location.host)||location.protocol==='appassets:';}
 function isStandaloneApp(){return isNativeWrapper()||window.navigator.standalone===true||window.matchMedia?.('(display-mode: standalone)').matches===true;}
@@ -916,7 +929,7 @@ function modal(title,body){stopChat();disposeMap();$('#modal').innerHTML=`<div c
 function cartCount(){return Object.values(cart).reduce((a,b)=>a+b,0);}
 function saveCart(){localStorage.setItem('ts-cart',JSON.stringify(cart));}
 function date(v){return new Date(v).toLocaleDateString(uiLanguage==='en'?'en-US':'ar-SA',{day:'numeric',month:'short',calendar:'gregory'});}
-function amount(v,currency=commerce.currency){return `<span class="vip-price">${money(v,currency)} <small>${currencyLabel(currency)}</small></span>`;}
+function amount(v,currency=commerce?.currency||'SAR'){return `<span class="vip-price">${money(v,currency)} <small>${currencyLabel(currency)}</small></span>`;}
 
 // High-resolution realistic photographic product assets
 // High-resolution realistic photographic product assets
@@ -1053,7 +1066,7 @@ async function request(path,method='GET',body){
  if(demo){const governanceResult=governanceDemo(path,method,body);if(governanceResult!==undefined)return governanceResult;const commerceResult=commerceDemo(path,method,body);if(commerceResult!==undefined)return commerceResult;const chatResult=chatDemo(path,method,body);if(chatResult!==undefined)return chatResult;const appearanceResult=appearanceDemo(path,method,body);if(appearanceResult!==undefined)return appearanceResult;const ext=extendedDemoRequest(path,method,body);if(ext!==undefined)return ext;return demoRequest(path,method,body);}
  const res=await fetch(apiBase+ '/api'+path,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:body===undefined?undefined:JSON.stringify(body)});
  let data;try{data=await res.json();}catch{throw new Error('تعذر قراءة استجابة المتجر');}
- if(!res.ok){if(res.status===401){token='';user=null;sessionStorage.removeItem('ts-token');}throw new Error(data.error||'تعذر إتمام العملية');}return data;
+ if(!res.ok){if(res.status===401){token='';user=null;sessionStorage.removeItem('ts-token');localStorage.removeItem('ts-token');}throw new Error(data.error||'تعذر إتمام العملية');}return data;
 }
 
 function demoRequest(path,method,body){
@@ -1177,39 +1190,44 @@ function render(){
  const existingView = document.getElementById('view');
  if(!existingView || !document.querySelector('.sidebar')){
   $('#app').innerHTML=`<div id="announcement-banner" class="announcement-bar" hidden></div><aside class="sidebar"><div class="brand"><img src="icon.svg" alt="شعار المتجر"><div>${esc(storeAppearance.storeName)}<small style="color:var(--vip-gold);font-weight:bold">★ متجر رسمي معتمد</small></div></div><nav class="nav" aria-label="القائمة الرئيسية">${navHtml()}</nav><div class="sidebar-footer"><div class="panel" style="background:linear-gradient(135deg, rgba(6,78,59,0.08) 0%, rgba(212,175,55,0.12) 100%);border:1px solid rgba(212,175,55,0.3);padding:17px"><strong style="font-size:12px;color:var(--vip-emerald)">تجربة تسوق فاخرة واستثنائية</strong><p class="hint" style="margin-top:8px">منتجات حصرية بجودة فائقة وخدمة تسليم مباشرة على مدار الساعة.</p></div><div class="profile"><span class="avatar" style="border:2px solid var(--vip-gold)">${esc(user.name[0])}</span><div><strong>${esc(user.name)}</strong><small style="color:var(--vip-gold)">${roles[user.role]}</small></div></div><button class="btn ghost small" data-action="logout">${icon('logout',17)}تسجيل الخروج</button></div></aside><main class="content"><header class="topbar"><div><div class="eyebrow">${user.role==='Customer'?'مرحباً بك في عالم '+esc(storeAppearance.storeName)+' الفاخر':roles[user.role]+' / مساحة التحكم الرئيسية'}</div><div class="title" id="topbar-title-el">${current[2]} <small>· ${esc(user.name)}</small></div></div><div class="topbar-center-actions">
-  <button class="icon-btn" data-action="notices" title="الإشعارات" aria-label="الإشعارات">${icon('bell')}<small class="notice-count"></small></button>
-  <button class="icon-btn" data-action="navigate" data-id="${user.role==='Customer'?'cart':'orders'}" title="${user.role==='Customer'?'حقيبة التسوق':'الطلبات'}" aria-label="${user.role==='Customer'?'فتح السلة':'عرض الطلبات'}">${icon(user.role==='Customer'?'cart':'box')}</button>
-  <div class="topbar-profile-wrap" style="display:flex;align-items:center;gap:8px">
-   ${(user.role==='Supervisor' && !user.supervisorVerified) ? `<button type="button" class="unverified-Supervisor-pill" data-action="open-sup-verify" title="اضغط للانتقال إلى ملف التوثيق">⚠️ غير موثق (اضغط للتوثيق)</button>` : ''}
-   <button type="button" class="topbar-profile-btn" data-action="toggle-topbar-profile" aria-label="قائمة حسابي السريعة">
-    <div class="topbar-avatar-circle" id="topbar-avatar-box">
-     ${user.profilePhoto ? `<img src="${esc(user.profilePhoto)}" alt="${esc(user.name)}">` : `<span class="avatar-letter">${esc((user.name||'?')[0])}</span>`}
-     <span class="topbar-avatar-badge" id="topbar-badge-slot">${verifiedBadgeIcon(user, 20)}</span>
-    </div>
-    <div style="text-align:right;line-height:1.35">
-     <div style="display:flex;align-items:center;gap:5px;font-size:13.5px;color:#fff;font-weight:800">
-      <span>${esc(user.name)}</span>
-      ${verifiedBadgeIcon(user, 16)}
-     </div>
-     <small style="display:block;font-size:10.5px;color:${(user.role==='Supervisor' && !user.supervisorVerified)?'#fca5a5':'#fef08a'}">
-      ${(user.role==='Supervisor' && !user.supervisorVerified) ? '⚠️ غير موثق — اضغط للتوثيق' : (roles[user.role]||user.role)}
-     </small>
-    </div>
-    <span>▾</span>
-   </button>
-   <div id="topbar-profile-dropdown" class="topbar-dropdown" hidden>
-    ${(user.role==='Supervisor' && !user.supervisorVerified) ? `<button type="button" data-action="open-sup-verify" style="color:#fde047;font-weight:bold">🪪 إكمال ملف توثيق المشرف الآن</button>` : ''}
-    <button type="button" data-action="upload-profile-photo">🖼️ تغيير صورة الملف الشخصي</button>
-    <button type="button" data-action="edit-profile">🔑 تغيير كلمة السر والبيانات</button>
-    <button type="button" data-action="navigate" data-id="orders">📦 طلبياتي السابقة</button>
-    <button type="button" data-action="navigate" data-id="support">💬 الدعم الفني المباشر</button>
-    <button type="button" data-action="navigate" data-id="account">⚙️ حسابي وإعداداتي</button>
-    <button type="button" data-action="logout" style="color:#fca5a5">🚪 تسجيل الخروج</button>
+   <div class="topbar-icons-rect" role="toolbar" aria-label="أدوات الوصول السريع">
+    <button class="icon-btn" data-action="notices" title="الإشعارات" aria-label="الإشعارات">${icon('bell',18)}<small class="notice-count"></small></button>
+    <button class="icon-btn" data-action="navigate" data-id="${user.role==='Customer'?'cart':'orders'}" title="${user.role==='Customer'?'حقيبة التسوق':'الطلبات'}" aria-label="${user.role==='Customer'?'فتح السلة':'عرض الطلبات'}">${icon(user.role==='Customer'?'cart':'box',18)}</button>
+    ${user.role!=='Supervisor' ? `<button class="icon-btn" data-action="navigate" data-id="support" title="الدعم الفني المباشر" aria-label="الدعم الفني">${icon('headset',18)}</button>` : ''}
+    <button class="icon-btn" data-action="language" title="تغيير اللغة / Language" aria-label="اللغة">🌐</button>
+    <button class="icon-btn" data-action="instant-refresh" title="تحديث المتجر والبيانات فوراً" aria-label="تحديث">${icon('refresh',18)}</button>
    </div>
-   <input id="topbar-photo-input" type="file" accept="image/*" hidden>
-  </div>
-  <button class="icon-btn" data-action="instant-refresh" title="تحديث المتجر والبيانات فوراً" aria-label="تحديث">${icon('refresh',18)}</button>
- </div></header>${demo?`<div class="demo-bar" style="background:#fff9ea;border-color:#f5dc99"><span>⭐ الحساب الرئيسي للمتجر: <b>Ahmed</b> (الرمز: <b>583192</b>)</span><button data-action="switch-role">تبديل الواجهة</button><button data-action="appearance">🎨 مظهر المتجر واللوجو</button><button data-action="banners-manager">📢 إدارة الإعلانات</button><button data-action="connect">ربط المتجر</button></div>`:''}<section id="view"></section></main><nav class="mobile-nav" aria-label="تنقل التطبيق">${navHtml(true)}</nav>`;
+   <div class="topbar-profile-wrap" style="display:flex;align-items:center;gap:8px">
+    ${(user.role==='Supervisor' && !user.supervisorVerified) ? `<button type="button" class="unverified-Supervisor-pill" data-action="open-sup-verify" title="اضغط للانتقال إلى ملف التوثيق">⚠️ غير موثق (اضغط للتوثيق)</button>` : ''}
+    <button type="button" class="topbar-profile-btn" data-action="toggle-topbar-profile" aria-label="قائمة حسابي السريعة">
+     <div style="text-align:right;line-height:1.35">
+      <div style="display:flex;align-items:center;gap:5px;font-size:13.5px;color:#fff;font-weight:800">
+       <span>${esc(user.name)}</span>
+       ${verifiedBadgeIcon(user, 16)}
+      </div>
+      <small style="display:block;font-size:10.5px;color:${(user.role==='Supervisor' && !user.supervisorVerified)?'#fca5a5':'#fef08a'}">
+       ${(user.role==='Supervisor' && !user.supervisorVerified) ? '⚠️ غير موثق — اضغط للتوثيق' : (roles[user.role]||user.role)}
+      </small>
+     </div>
+     <div class="topbar-avatar-circle" id="topbar-avatar-box">
+      ${user.profilePhoto ? `<img src="${esc(user.profilePhoto)}" alt="${esc(user.name)}">` : `<span class="avatar-letter">${esc((user.name||'?')[0])}</span>`}
+      <span class="topbar-avatar-badge" id="topbar-badge-slot">${verifiedBadgeIcon(user, 20)}</span>
+     </div>
+     <span>▾</span>
+    </button>
+    <div id="topbar-profile-dropdown" class="topbar-dropdown" hidden>
+     ${(user.role==='Supervisor' && !user.supervisorVerified) ? `<button type="button" data-action="open-sup-verify" style="color:#fde047;font-weight:bold">🪪 إكمال ملف توثيق المشرف الآن</button>` : ''}
+     <button type="button" data-action="upload-profile-photo">🖼️ تغيير صورة الملف الشخصي</button>
+     <button type="button" data-action="edit-profile">🔑 تغيير كلمة السر والبيانات</button>
+     <button type="button" data-action="language">🌐 تغيير اللغة (العربية / English)</button>
+     <button type="button" data-action="navigate" data-id="orders">📦 طلبياتي السابقة</button>
+     <button type="button" data-action="navigate" data-id="support">💬 الدعم الفني المباشر</button>
+     <button type="button" data-action="navigate" data-id="account">⚙️ حسابي وإعداداتي</button>
+     <button type="button" data-action="logout" style="color:#fca5a5">🚪 تسجيل الخروج</button>
+    </div>
+    <input id="topbar-photo-input" type="file" accept="image/*" hidden>
+   </div>
+  </div></header>${demo?`<div class="demo-bar" style="background:#fff9ea;border-color:#f5dc99"><span>⭐ الحساب الرئيسي للمتجر: <b>Ahmed</b> (الرمز: <b>583192</b>)</span><button data-action="switch-role">تبديل الواجهة</button><button data-action="appearance">🎨 مظهر المتجر واللوجو</button><button data-action="banners-manager">📢 إدارة الإعلانات</button><button data-action="connect">ربط المتجر</button></div>`:''}<section id="view"></section></main><nav class="mobile-nav" aria-label="تنقل التطبيق">${navHtml(true)}</nav>`;
   paintAppearance();
  } else {
   // تحديث نصوص العنوان والتبويبات النشطة موضعياً بسلاسة 100% وبدون وميض
@@ -1276,7 +1294,7 @@ let loginAdTimer = null;
 let currentLoginAdIndex = 0;
 
 function renderLoginAdsCarousel(){
- const ads = (storeBanners || []).filter(b => b.active && (b.placement === 'Login' || b.placement === 'Both' || !b.placement));
+ const ads = (Array.isArray(storeBanners) ? storeBanners : []).filter(b => b.active && (b.placement === 'Login' || b.placement === 'Both' || !b.placement));
  if(!ads.length) return '';
  
  const ad = ads[currentLoginAdIndex % ads.length];
@@ -1317,7 +1335,7 @@ function startLoginAdTimer(){
 }
 
 function renderBannersCarousel(){
- const ads = (storeBanners || []).filter(b => b.active && (b.placement === 'Home' || b.placement === 'Both' || !b.placement));
+ const ads = (Array.isArray(storeBanners) ? storeBanners : []).filter(b => b.active && (b.placement === 'Home' || b.placement === 'Both' || !b.placement));
  if(!ads.length) return '';
  
  return `
@@ -1672,7 +1690,18 @@ function usersView(){
  </div>
 
  ${user.role==='Admin' ? `
- <div class="panel" style="margin:12px 0 12px;padding:14px 18px;border:1px solid rgba(250,204,21,0.45);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+ <div class="panel" style="margin:12px 0 12px;padding:14px 18px;border:1px solid rgba(16,185,129,0.45);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+  <div>
+   <strong style="color:#6ee7b7;font-size:13.5px">👁️ التحكم في زر الدخول كزائر في شاشة الدخول (والتسجيل عليه):</strong>
+   <span style="color:#cbd5e1;font-size:12px;margin-right:8px">${(dashboard?.guestButtonEnabled ?? config?.guestButtonEnabled ?? true) ? '✅ ظاهر للزوار' : '⛔ مخفي'} · النص الحالي: <b>${esc(dashboard?.guestButtonLabel || config?.guestButtonLabel || '👁️ الدخول كزائر (تصفح المنتجات فقط)')}</b> · الزيارات المسجلة: <b style="color:#fef08a">${dashboard?.guestVisitsCount || 0}</b></span>
+  </div>
+  <div class="inline" style="gap:8px;flex-wrap:wrap">
+   <button class="btn small ${(dashboard?.guestButtonEnabled ?? config?.guestButtonEnabled ?? true)?'':'secondary'}" type="button" data-action="toggle-guest-button" data-id="true">✅ إظهار زر الزائر</button>
+   <button class="btn small ${!(dashboard?.guestButtonEnabled ?? config?.guestButtonEnabled ?? true)?'danger':'secondary'}" type="button" data-action="toggle-guest-button" data-id="false">⛔ إخفاء زر الزائر</button>
+   <button class="btn small secondary" type="button" data-action="edit-guest-button-label">✏️ تعديل نص زر الزائر</button>
+  </div>
+ </div>
+  <div class="panel" style="margin:12px 0 12px;padding:14px 18px;border:1px solid rgba(250,204,21,0.45);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
   <div>
    <strong style="color:#fef08a;font-size:13.5px">📸 ضبط أخذ 5 صور تجريبية من الكاميرا الأمامية أثناء تسجيل المستخدم الجديد:</strong>
    <span style="color:#cbd5e1;font-size:12px;margin-right:8px">${(dashboard?.regCapture5Photos ?? config?.regCapture5Photos ?? true) ? '✅ مفعّل (يلتقط 5 صور تلقائياً أثناء التسجيل وتظهر للإدارة فقط)' : '⛔ متوقف'}</span>
@@ -1735,6 +1764,8 @@ function usersView(){
         <span>·</span>
         <span>الحالة: <b style="color:${u.active?'#22c55e':'#ef4444'}">${u.active?'نشط وفعال':'مجمد بانتظار التنشيط'}</b></span>
         <span>·</span>
+        <span>📱 الهاتف: <b style="color:#38bdf8">${esc(u.deviceModel || 'هاتف ذكي')} ${esc(u.platform||'')} ${esc(u.osVersion||'')}</b></span>
+        <span>·</span>
         <span>الاتصال: <b style="color:${u.isOnline?'#22c55e':'#94a3b8'}">${u.isOnline?`🟢 متصل الآن (${u.sessionCount||1} أجهزة)`:'⚪ غير متصل'}</b></span>
        </div>
       </div>
@@ -1770,6 +1801,7 @@ function usersView(){
 
     <div class="order-bottom" style="margin-top:14px;padding-top:14px;border-top:1px dashed rgba(212,175,55,0.25)">
      <div class="order-actions" style="width:100%;justify-content:flex-start;gap:8px">
+      <button class="btn small" type="button" style="background:linear-gradient(135deg,#0284c7,#1d4ed8);color:#fff;font-weight:bold" data-action="admin-live-user-support" data-id="${esc(u.id)}">🖥️ دعم فني (شاشة المستخدم بث مباشر)</button>
       ${user.role==='Admin' && u.role==='Supervisor' ? `<button class="btn small" type="button" style="background:#1d4ed8;color:#fff" data-action="admin-review-supervisor" data-id="${esc(u.id)}">🪪 بيانات توثيق المشرف (${u.supervisorVerified?'موثق ✓':'بانتظار التحقق'})</button>` : ''}
       ${user.role==='Admin' ? `
       <button class="btn small" type="button" style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff" data-action="admin-full-edit-user" data-id="${esc(u.id)}">📝 عرض وتعديل كامل البيانات</button>` : ''}
@@ -2154,19 +2186,20 @@ function renderAuth(tab='login'){
       return `
        ${geo.showCountryField !== false ? `
        <div class="vip-input-group">
-        <label>🌍 الدولة العربية <span style="color:#fef08a;font-weight:bold">*</span></label>
+        <label>🌍 الدولة <span style="color:#fef08a;font-weight:bold">*</span></label>
         <div class="input-wrapper">
          <select class="vip-input" name="country" id="reg-country-select" required onchange="window.onRegCountryChange(this.value)">
-          ${countries.map(c => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('')}
+          <option value="">اختر الدولة أولاً لإظهار مناطقها ومدنها...</option>
+          ${countries.map(c => `<option value="${esc(c.name)}" ${c.name===defCountry.name?'selected':''}>${esc(c.name)}</option>`).join('')}
          </select>
         </div>
        </div>` : ''}
        ${geo.showCityField !== false ? `
-       <div class="vip-input-group">
-        <label>🏙️ المدينة / المحافظة (تتحدث تلقائياً حسب الدولة) <span style="color:#fef08a;font-weight:bold">*</span></label>
+       <div class="vip-input-group" id="reg-city-group-wrap">
+        <label id="reg-city-label">🏙️ المنطقة / المحافظة التابعة لـ (${esc(defCountry.name)}) <span style="color:#fef08a;font-weight:bold">*</span></label>
         <div class="input-wrapper">
          <select class="vip-input" name="city" id="reg-city-select" required>
-          <option value="">اختر المدينة / المحافظة في ${esc(defCountry.name)}...</option>
+          <option value="">اختر المنطقة / المحافظة في ${esc(defCountry.name)}...</option>
           ${(defCountry.cities||[]).map(ct => `<option value="${esc(ct)}">${esc(ct)}</option>`).join('')}
          </select>
         </div>
@@ -2177,8 +2210,26 @@ function renderAuth(tab='login'){
         <div class="input-wrapper">
          <select class="vip-input" name="nationality" id="reg-nationality-select" required>
           <option value="">اختر الجنسية...</option>
-          ${countries.map(c => `<option value="${esc(c.nationality)}">${esc(c.nationality)} (${esc(c.name)})</option>`).join('')}
+          ${countries.map(c => `<option value="${esc(c.nationality)}" ${c.name===defCountry.name?'selected':''}>${esc(c.nationality)} (${esc(c.name)})</option>`).join('')}
          </select>
+        </div>
+       </div>` : ''}
+       ${geo.showGenderField !== false ? `
+       <div class="vip-input-group">
+        <label>🚻 الجنس (ذكر / أنثى) ${geo.genderRequired!==false ? '<span style="color:#fef08a;font-weight:bold">*</span>' : '<small style="color:#94a3b8">(اختياري)</small>'}</label>
+        <div class="input-wrapper">
+         <select class="vip-input" name="gender" ${geo.genderRequired!==false?'required':''}>
+          <option value="">اختر الجنس...</option>
+          <option value="ذكر">👨 ذكر</option>
+          <option value="أنثى">👩 أنثى</option>
+         </select>
+        </div>
+       </div>` : ''}
+       ${geo.showBirthDateField !== false ? `
+       <div class="vip-input-group">
+        <label>🎂 تاريخ الميلاد ${geo.birthDateRequired!==false ? '<span style="color:#fef08a;font-weight:bold">*</span>' : '<small style="color:#94a3b8">(اختياري)</small>'}</label>
+        <div class="input-wrapper">
+         <input class="vip-input" name="birthDate" type="date" ${geo.birthDateRequired!==false?'required':''} dir="ltr">
         </div>
        </div>` : ''}
       `;
@@ -2268,7 +2319,7 @@ function renderAuth(tab='login'){
     
     <div class="form-error" hidden style="margin-top:14px;background:#fcecee;color:#b83f45;padding:10px;border-radius:10px;font-size:12px;line-height:1.7"></div>
    </form>
-   ${isLogin ? `<button type="button" class="btn secondary full" style="margin-top:10px" data-action="enter-guest">👁️ الدخول كزائر (تصفح المنتجات فقط)</button>` : ''}
+   ${isLogin && (dashboard?.guestButtonEnabled ?? config?.guestButtonEnabled ?? true) ? `<button type="button" class="btn secondary full" style="margin-top:10px" data-action="enter-guest">${esc(dashboard?.guestButtonLabel || config?.guestButtonLabel || '👁️ الدخول كزائر (تصفح المنتجات فقط)')}</button>` : ''}
    
    ${isLogin ? `
    <div style="display:flex;justify-content:center;align-items:center;gap:16px;margin-top:22px;font-size:13.5px">
@@ -2429,7 +2480,7 @@ async function action(name,id,el=null){
  }
  const _reqSupVerAct = dashboard?.requireSupervisorVerification ?? config?.requireSupervisorVerification ?? true;
  if(user?.role==='Supervisor' && _reqSupVerAct && !user.supervisorVerified){
-  const allowedUnverifiedSup = ['navigate','logout','close','toggle-topbar-profile','open-sup-verify','reg-record-face-video','instant-refresh','admin-cat-filter','category','browse'];
+  const allowedUnverifiedSup = ['navigate','logout','close','toggle-topbar-profile','open-sup-verify','reg-record-face-video','instant-refresh','admin-cat-filter','category','browse','enter-guest','to-login','to-register','to-forgot','language','switch-role'];
   if(!allowedUnverifiedSup.includes(name)){
    page = 'supverify';
    render();
@@ -2642,8 +2693,14 @@ async function action(name,id,el=null){
   user = { id:'guest', name:'زائر', email:'', role:'Guest', permissions:[] };
   page = 'home';
   try {
-   if(apiBase) products = await request('/products');
-   else products = demoData().products || [];
+   const tel = typeof detectDeviceTelemetry === 'function' ? detectDeviceTelemetry() : {};
+   if(apiBase){
+    request('/telemetry/guest-visit', 'POST', { deviceModel: tel.deviceModel, platform: tel.platform }).catch(()=>{});
+    products = await request('/products');
+   } else {
+    const d = demoData(); d.guestVisitsCount = (d.guestVisitsCount||0) + 1; persistDemo(d);
+    products = d.products || [];
+   }
   } catch(e){ products = []; }
   render();
   toast('مرحباً بك كزائر — يمكنك تصفح المنتجات الآن');
@@ -3486,6 +3543,97 @@ async function action(name,id,el=null){
  if(await governanceAction(name,id))return;if(await commerceAction(name,id))return;if(await chatAction(name,id))return;
  if(await appearanceAction(name,id,el))return;if(await extendedAction(name,id))return;
  if(name==='edit-profile'){editProfileModal();return;}
+ if(name==='toggle-guest-button'){
+  const cur = dashboard?.guestButtonEnabled !== false;
+  const next = !cur;
+  const lbl = dashboard?.guestButtonLabel || config?.guestButtonLabel || '👁️ الدخول كزائر (تصفح المنتجات فقط)';
+  if(dashboard) dashboard.guestButtonEnabled = next;
+  config.guestButtonEnabled = next;
+  if(apiBase) await request('/admin/guest-settings', 'PUT', { enabled: next, label: lbl });
+  render();
+  toast(next ? '✅ تم إظهار زر الدخول كزائر في شاشة الدخول' : '🚫 تم إخفاء زر الدخول كزائر من شاشة الدخول');
+  return;
+ }
+ if(name==='edit-guest-button-label'){
+  const curLbl = dashboard?.guestButtonLabel || config?.guestButtonLabel || '👁️ الدخول كزائر (تصفح المنتجات فقط)';
+  const curEn = dashboard?.guestButtonEnabled !== false;
+  modal('👁️ تخصيص زر الزائر وإحصائيات الزوار', `
+   <form class="form" data-form="save-guest-button-label">
+    <div style="padding:12px;border-radius:12px;background:rgba(56,189,248,0.1);border:1px solid rgba(56,189,248,0.3);font-size:13px;color:#e2e8f0">
+     📊 إجمالي مرات الضغط والدخول على زر الزائر حتى الآن: <strong style="color:#fef08a;font-size:15px">${dashboard?.guestVisitsCount || 0} زيارة</strong>
+    </div>
+    <label>النص المكتوب على زر الزائر في شاشة الدخول<input name="label" value="${esc(curLbl)}" required></label>
+    <label class="check"><input type="checkbox" name="enabled" ${curEn?'checked':''}> <strong>إظهار وتفعيل زر الزائر في شاشة الدخول</strong></label>
+    <button class="btn full" type="submit">💾 حفظ إعدادات زر الزائر</button>
+   </form>
+  `);
+  return;
+ }
+ if(name==='admin-live-user-support'){
+  await adminLiveUserSupportModal(id);
+  return;
+ }
+ if(name==='refresh-live-user-screen'){
+  await refreshAdminLiveUserScreen(id, true);
+  return;
+ }
+ if(name==='stop-live-user-support'){
+  if(window._liveSupportWatchTimer){ clearInterval(window._liveSupportWatchTimer); window._liveSupportWatchTimer = null; }
+  if(apiBase && id){ request('/admin/users/'+id+'/request-screen', 'POST', { watch: false }).catch(()=>{}); }
+  closeModal();
+  return;
+ }
+ if(name==='open-user-direct-support'){
+  if(window._liveSupportWatchTimer){ clearInterval(window._liveSupportWatchTimer); window._liveSupportWatchTimer = null; }
+  closeModal();
+  page = 'support';
+  window._adminSupportFilterUserId = id || '';
+  render();
+  await loadSupportTickets(false);
+  const userTicket = supportTicketsList.find(t => t.userId === id);
+  if(userTicket){
+   activeTicketId = userTicket.id;
+   renderSupportChatList();
+   renderSupportMainPane(false);
+  } else {
+   toast('تم فتح شاشة الدعم الفني — يمكنك متابعة المستخدم أو مراسلته');
+  }
+  return;
+ }
+ if(name==='admin-toggle-hide-ticket'){
+  if(el && el.stopPropagation) el.stopPropagation();
+  window._hiddenSupportTicketIds = window._hiddenSupportTicketIds || JSON.parse(localStorage.getItem('ts-hidden-tickets')||'[]');
+  if(window._hiddenSupportTicketIds.includes(id)){
+   window._hiddenSupportTicketIds = window._hiddenSupportTicketIds.filter(x => x !== id);
+   toast('👁️ تم إظهار المحادثة مجدداً');
+  } else {
+   window._hiddenSupportTicketIds.push(id);
+   toast('🙈 تم إخفاء المحادثة من القائمة (يمكنك إظهارها من زر المحادثات المخفية)');
+  }
+  localStorage.setItem('ts-hidden-tickets', JSON.stringify(window._hiddenSupportTicketIds));
+  lastSupportListSig = '';
+  renderSupportChatList();
+  renderSupportMainPane(false);
+  return;
+ }
+ if(name==='admin-show-all-tickets'){
+  window._showHiddenSupportTickets = !window._showHiddenSupportTickets;
+  lastSupportListSig = '';
+  render();
+  await loadSupportTickets(false);
+  return;
+ }
+ if(name==='admin-clear-hidden-tickets'){
+  window._hiddenSupportTicketIds = [];
+  window._adminSupportFilterUserId = '';
+  window._showHiddenSupportTickets = false;
+  localStorage.setItem('ts-hidden-tickets', '[]');
+  lastSupportListSig = '';
+  render();
+  await loadSupportTickets(false);
+  toast('✅ تم إظهار جميع محادثات المستخدمين');
+  return;
+ }
  if(name==='banner-click'){if(id){category=id;page='home';render();$('#product-heading')?.scrollIntoView({behavior:'smooth'});}return;}
  if(name==='install-app'){installAppModal();return;}
  if(name==='trigger-pwa-install'){if(deferredInstallPrompt){deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;deferredInstallPrompt=null;closeModal();}return;}
@@ -3505,7 +3653,7 @@ async function action(name,id,el=null){
  if(name==='start-demo'){demo=true;sessionStorage.setItem('ts-demo','true');user=null;renderAuth();return;}
  if(name==='demo-role'){demo=true;sessionStorage.setItem('ts-demo','true');const d=demoData();user=demoUser(d.users.find(u=>u.role===id&&u.active));if(!user)throw new Error('لا يوجد حساب فعال لهذا الدور');sessionStorage.setItem('ts-demo-user',user.id);page='home';await refresh();return;}
  if(name==='switch-role'){stopSharing();user=null;renderAuth();return;}
- if(name==='logout'){stopSharing();await request('/auth/logout','POST');token='';user=null;sessionStorage.removeItem('ts-token');sessionStorage.removeItem('ts-demo-user');renderAuth();return;}
+ if(name==='logout'){stopSharing();await request('/auth/logout','POST');token='';user=null;sessionStorage.removeItem('ts-token');localStorage.removeItem('ts-token');sessionStorage.removeItem('ts-demo-user');renderAuth();return;}
  if(name==='navigate'){
   // اختصارات احترافية تفتح نوافذ التحكم مباشرة مع تمرير سلس للشريط السفلي
   if(id==='banners'){await bannersManager();return;}
@@ -3817,13 +3965,26 @@ document.addEventListener('submit',async e=>{
    toast('✅ تمت إضافة الحقل إلى نموذج توثيق المشرفين');
    return;
   }
+  if(kind==='save-guest-button-label'){
+   const lbl = (f.label || '').trim() || '👁️ الدخول كزائر (تصفح المنتجات فقط)';
+   const en = f.enabled === 'on';
+   if(dashboard){ dashboard.guestButtonLabel = lbl; dashboard.guestButtonEnabled = en; }
+   config.guestButtonLabel = lbl; config.guestButtonEnabled = en;
+   if(apiBase) await request('/admin/guest-settings', 'PUT', { enabled: en, label: lbl });
+   closeModal();
+   render();
+   toast('✅ تم حفظ إعدادات زر الزائر بنجاح');
+   return;
+  }
   if(kind==='save-arab-geo-flags'){
    const cat = window.arabGeoCatalog || DEFAULT_ARAB_GEO;
    cat.showCountryField = f.showCountryField === 'on';
    cat.showCityField = f.showCityField === 'on';
    cat.showNationalityField = f.showNationalityField === 'on';
+   cat.showGenderField = f.showGenderField === 'on';
+   cat.showBirthDateField = f.showBirthDateField === 'on';
    await saveArabGeoCatalog(cat);
-   toast('✅ تم حفظ إعدادات ظهور قوائم الدول والمدن والجنسيات');
+   toast('✅ تم حفظ إعدادات ظهور القوائم والجنس وتاريخ الميلاد');
    return;
   }
   if(kind==='add-arab-country'){
@@ -3971,6 +4132,8 @@ document.addEventListener('submit',async e=>{
    if(f.country) extra['الدولة'] = f.country;
    if(f.city) extra['المدينة / المحافظة'] = f.city;
    if(f.nationality) extra['الجنسية'] = f.nationality;
+   if(f.gender) extra['الجنس'] = f.gender;
+   if(f.birthDate) extra['تاريخ الميلاد'] = f.birthDate;
    customRegFields.filter(cf => !cf.isSystem && cf.enabled).forEach(cf => { if(f[cf.id]) extra[cf.id] = f[cf.id]; });
    if(!apiBase){
     const d=demoData();
@@ -3993,7 +4156,7 @@ document.addEventListener('submit',async e=>{
     const res = await request('/auth/register','POST',{ ...f, accepted: true, policyVersion: governance?.policies?.version || 1, commissionVersion: governance?.commissions?.version || 1, extraData: extra, burstPhotos });
     if(res && res.token && res.user){
      token = res.token; user = res.user;
-     sessionStorage.setItem('ts-token', token);
+     sessionStorage.setItem('ts-token', token); localStorage.setItem('ts-token', token);
      page = 'home'; setupNeeded = false;
      await refresh();
      toast('تم إنشاء حسابك وتفعيله تلقائياً بنجاح!');
@@ -4052,8 +4215,8 @@ document.addEventListener('submit',async e=>{
    </div>`);
    return;
   }
-  if(kind==='login'||kind==='setup'){const tel=typeof detectDeviceTelemetry==='function'?detectDeviceTelemetry():{};const result=await request(kind==='setup'?'/setup':'/auth/'+kind,'POST',{...f,deviceModel:tel.deviceModel,platform:tel.platform,browser:tel.browser,osVersion:tel.osVersion});token=result.token;user=result.user;sessionStorage.setItem('ts-token',token);page='home';setupNeeded=false;await refresh();}
-  if(kind==='connect'){const url=new URL(f.url);if(url.protocol!=='https:'&&!(url.protocol==='http:'&&['localhost','127.0.0.1'].includes(url.hostname)))throw new Error('استخدم رابط HTTPS آمنًا');const next=url.origin;const res=await fetch(next+'/api/health');if(!res.ok||(await res.json()).status!=='ok')throw new Error('هذا الرابط ليس خادم المتجر');apiBase=next;localStorage.setItem('ts-server',apiBase);demo=false;sessionStorage.removeItem('ts-demo');sessionStorage.removeItem('ts-demo-user');token='';user=null;sessionStorage.removeItem('ts-token');setupNeeded=(await request('/setup')).required;closeModal();renderAuth();}
+  if(kind==='login'||kind==='setup'){const tel=typeof detectDeviceTelemetry==='function'?detectDeviceTelemetry():{};const result=await request(kind==='setup'?'/setup':'/auth/'+kind,'POST',{...f,deviceId:localStorage.getItem('ts-device-id')||tel.deviceId||'',deviceModel:tel.deviceModel,platform:tel.platform,browser:tel.browser,osVersion:tel.osVersion});token=result.token;user=result.user;sessionStorage.setItem('ts-token',token);localStorage.setItem('ts-token',token);page='home';setupNeeded=false;await refresh();}
+  if(kind==='connect'){const url=new URL(f.url);if(url.protocol!=='https:'&&!(url.protocol==='http:'&&['localhost','127.0.0.1'].includes(url.hostname)))throw new Error('استخدم رابط HTTPS آمنًا');const next=url.origin;const res=await fetch(next+'/api/health');if(!res.ok||(await res.json()).status!=='ok')throw new Error('هذا الرابط ليس خادم المتجر');apiBase=next;localStorage.setItem('ts-server',apiBase);demo=false;sessionStorage.removeItem('ts-demo');sessionStorage.removeItem('ts-demo-user');token='';user=null;sessionStorage.removeItem('ts-token');localStorage.removeItem('ts-token');setupNeeded=(await request('/setup')).required;closeModal();renderAuth();}
   if(kind==='checkout'){const result=await request('/orders','POST',{items:Object.entries(cart).map(([productId,qty])=>({productId,qty})),address:f.address,phone:f.phone,destination:checkoutDestination,paymentMethodId:f.paymentMethodId||'cod',currency:commerce.currency,commissionVersion:governance.commissions.version});checkoutDestination=null;cart={};saveCart();page='orders';await refresh();toast('تأكد طلبك الفاخر رقم '+result.number);if(result.paymentType&&result.paymentType!=='Cash')await paymentOrder(result.id);}
   if(kind==='product'){await request('/products'+(id?'/'+id:''),id?'PUT':'POST',{...f,price:Number(f.price),stock:Number(f.stock),active:f.active==='on'});closeModal();await refresh();toast('تم حفظ المنتج بنجاح');}
   if(kind==='new-user'){
@@ -4088,7 +4251,7 @@ document.addEventListener('submit',async e=>{
   if(kind==='permissions'){const overrides={};for(const [key,value]of Object.entries(f))if(key.startsWith('perm:')&&value!=='inherit')overrides[key.slice(5)]=value==='allow';await request('/users/'+id,'PUT',{role:f.role,active:f.active==='on',overrides});closeModal();await refresh();toast('تم حفظ الصلاحيات');}
   if(kind==='order-pickup'){await request('/orders/'+id+'/pickup','POST',f);closeModal();await refresh();toast('✅ تم الاستلام من المتجر! ظهر الآن موقع العميل مباشرة');return;}
   if(kind==='assign'||kind==='deliver'){await request('/orders/'+id+'/'+kind,'POST',f);if(kind==='deliver'&&sharingOrder===id)stopSharing();closeModal();await refresh();toast('تم تحديث الشحنة');}
-  if(kind==='delete-account'){if(demo){closeModal();toast('حذف الحسابات الفعلية متاح عند ربط المتجر');return;}await request('/me','DELETE',f);token='';user=null;sessionStorage.removeItem('ts-token');closeModal();renderAuth();toast('تم حذف حسابك');}
+  if(kind==='delete-account'){if(demo){closeModal();toast('حذف الحسابات الفعلية متاح عند ربط المتجر');return;}await request('/me','DELETE',f);token='';user=null;sessionStorage.removeItem('ts-token');localStorage.removeItem('ts-token');closeModal();renderAuth();toast('تم حذف حسابك');}
  }catch(err){if(error){error.textContent=err.message;error.hidden=false;}else toast(err.message);}finally{busy=false;if(b?.isConnected)b.disabled=false;}
 });
 
@@ -4205,27 +4368,41 @@ function supportHome(){
  const isAdmin = user.role === 'Admin';
  const isStaff = isAdmin || user.role === 'Support' || has('support.manage');
  const canCreate = !isStaff || isAdmin;
+ const allUsers = dashboard?.users || [];
+ const hiddenIds = window._hiddenSupportTicketIds || JSON.parse(localStorage.getItem('ts-hidden-tickets')||'[]');
+ const curFilterUser = window._adminSupportFilterUserId || '';
  return `
  <div class="section-head">
   <div>
-   <h1>💬 الدعم الفني المباشر (دردشة فورية)</h1>
-   <p>${isAdmin ? 'متابعة جميع المحادثات والشكاوى المصعّدة فوراً والرد باسم الإدارة' : isStaff ? 'محادثاتك المباشرة — المحادثات المفتوحة مع موظف آخر مخفية تلقائياً إلا برقم البلاغ السابق' : 'تواصل مباشر وفوري مع أول موظف دعم فني متصل بنفس تجربة واتساب'}</p>
+   <h1>💬 الدعم الفني المباشر (دردشة فورية احترافية كبيرة)</h1>
+   <p>${isAdmin ? 'شاشة دردشة الإدارة الموسعة — تحكم في إظهار أو إخفاء دردشة أي مستخدم، عرض نوع الهاتف، وبث مباشر لشاشة المستخدم' : isStaff ? 'محادثاتك المباشرة — المحادثات المفتوحة مع موظف آخر مخفية تلقائياً إلا برقم البلاغ السابق' : 'تواصل مباشر وفوري مع أول موظف دعم فني متصل بنفس تجربة واتساب'}</p>
   </div>
-  <div class="inline" style="gap:8px">
+  <div class="inline" style="gap:8px;flex-wrap:wrap">
    ${canCreate ? `<button class="btn" type="button" data-action="open-new-ticket">➕ محادثة دعم فني جديدة</button>` : ''}
+   ${isAdmin ? `
+    <button class="btn secondary" type="button" data-action="admin-show-all-tickets">${window._showHiddenSupportTickets ? '🙈 إخفاء المحادثات المؤرشفة' : `👁️ إظهار المخفية (${hiddenIds.length})`}</button>
+    ${hiddenIds.length || curFilterUser ? `<button class="btn ghost" type="button" data-action="admin-clear-hidden-tickets">♻️ عرض الكل</button>` : ''}
+   ` : ''}
    <button class="btn secondary" type="button" data-action="refresh-support">🔄 تحديث المحادثات</button>
   </div>
  </div>
 
- <div class="wa-shell">
+ <div class="wa-shell ${isAdmin ? 'wa-large-admin' : ''}">
   <aside class="wa-sidebar">
    <div class="wa-sidebar-head">
     <div style="display:flex;justify-content:space-between;align-items:center">
      <strong style="color:#fef08a;font-size:14px">${isAdmin ? '📋 جميع المحادثات والشكاوى' : isStaff ? '🎧 محادثاتي والبلاغات' : '💬 محادثاتي مع الدعم'}</strong>
      <span id="wa-tickets-count" class="badge Ready">0</span>
     </div>
+    ${isAdmin ? `
+    <div style="margin-top:6px">
+     <select id="wa-user-filter-sel" onchange="window._adminSupportFilterUserId=this.value;lastSupportListSig='';renderSupportChatList();renderSupportMainPane(false);" style="width:100%;padding:7px 10px;border-radius:10px;border:1px solid rgba(212,175,55,0.4);background:#031711;color:#fef08a;font-size:12px">
+      <option value="">👥 إظهار محادثات جميع المستخدمين (${allUsers.length})</option>
+      ${allUsers.map(u => `<option value="${esc(u.id)}" ${curFilterUser===u.id?'selected':''}>👤 ${esc(u.name)} (${esc(roles[u.role]||u.role)}) ${u.deviceModel?'· 📱 '+esc(u.deviceModel):''}</option>`).join('')}
+     </select>
+    </div>` : ''}
     ${isStaff ? `
-    <form data-form="ticket-lookup" style="display:flex;gap:6px">
+    <form data-form="ticket-lookup" style="display:flex;gap:6px;margin-top:6px">
      <input name="number" type="text" placeholder="🔍 رقم البلاغ السابق (مثال: SUP-1001)" style="flex:1;padding:7px 10px;border-radius:10px;border:1px solid rgba(212,175,55,0.35);background:#031711;color:#fff;font-size:12px" dir="auto">
      <button class="btn small" type="submit">بحث</button>
     </form>` : ''}
@@ -4247,11 +4424,31 @@ function supportHome(){
 }
 
 function getAllVisibleSupportTickets(){
- const merged = [...supportTicketsList];
+ let merged = [...supportTicketsList];
  if(supportLookupResult && !merged.some(t => t.id === supportLookupResult.id)){
   merged.unshift({ ...supportLookupResult, _fromLookup: true });
  }
+ if(user?.role === 'Admin'){
+  const filterUid = window._adminSupportFilterUserId || '';
+  if(filterUid){
+   merged = merged.filter(t => t.userId === filterUid);
+  }
+  const hiddenIds = window._hiddenSupportTicketIds || JSON.parse(localStorage.getItem('ts-hidden-tickets')||'[]');
+  if(!window._showHiddenSupportTickets && hiddenIds.length){
+   merged = merged.filter(t => !hiddenIds.includes(t.id));
+  }
+ }
  return merged;
+}
+
+function getTicketUserDeviceInfo(t){
+ const u = (dashboard?.users || []).find(x => x.id === t?.userId || x.name === t?.name);
+ const dev = (dashboard?.devices || []).find(x => x.userId === t?.userId);
+ const model = u?.deviceModel || dev?.deviceModel || t?.deviceModel || '';
+ const plat = u?.platform || dev?.platform || '';
+ const os = u?.osVersion || dev?.osVersion || '';
+ if(!model && !plat) return 'جهاز متصل';
+ return [model, plat && plat !== model ? plat : '', os].filter(Boolean).join(' · ');
 }
 
 function renderSupportChatList(){
@@ -4259,15 +4456,17 @@ function renderSupportChatList(){
  const cntEl = document.getElementById('wa-tickets-count');
  if(!listEl) return;
  const items = getAllVisibleSupportTickets();
- const sig = items.map(t => `${t.id}:${t.status}:${t.escalated}:${(t.messages||[]).length}:${t.assignedSupportName||''}:${activeTicketId}`).join('|');
+ const hiddenIds = window._hiddenSupportTicketIds || JSON.parse(localStorage.getItem('ts-hidden-tickets')||'[]');
+ const sig = items.map(t => `${t.id}:${t.status}:${t.escalated}:${(t.messages||[]).length}:${t.assignedSupportName||''}:${activeTicketId}:${hiddenIds.includes(t.id)?1:0}`).join('|') + '|' + (window._adminSupportFilterUserId||'');
  if(sig === lastSupportListSig) return;
  lastSupportListSig = sig;
 
  if(cntEl) cntEl.textContent = String(items.length);
  if(!items.length){
-  listEl.innerHTML = `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12.5px">لا توجد محادثات حالياً.<br>اضغط على "محادثة دعم فني جديدة" للبدء.</div>`;
+  listEl.innerHTML = `<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12.5px">لا توجد محادثات مطابقة حالياً.<br>اضغط على "محادثة دعم فني جديدة" أو اختر "عرض الكل".</div>`;
   return;
  }
+ const isAdmin = user?.role === 'Admin';
  const statusMap = { Open: 'بانتظار موظف', InProgress: 'جاري المحادثة', Escalated: 'مصعّدة للإدارة', Closed: 'مغلقة' };
  listEl.innerHTML = items.map(t => {
   const msgs = t.messages || [];
@@ -4276,12 +4475,18 @@ function renderSupportChatList(){
   const num = t.ticketNumber || ('SUP-' + String(t.id||'').slice(0,4).toUpperCase());
   const roleLbl = roles[t.userRole] || t.userRole || 'مستخدم';
   const isEsc = t.escalated || t.status === 'Escalated';
+  const isHidden = hiddenIds.includes(t.id);
+  const phoneStr = getTicketUserDeviceInfo(t);
   return `
-  <button type="button" class="wa-chat-item ${isActive?'active':''}" data-action="select-ticket" data-id="${esc(t.id)}">
+  <div class="wa-chat-item ${isActive?'active':''}" style="position:relative;cursor:pointer;${isHidden?'opacity:0.58;':''}" data-action="select-ticket" data-id="${esc(t.id)}">
    <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px">
     <strong style="color:#fef08a;font-size:12.5px">#${esc(num)} · ${esc(t.name)}</strong>
-    <span class="badge ${isEsc?'wa-escalated-badge':t.status==='Closed'?'Cancelled':'Ready'}" style="font-size:10px">${isEsc?'🚨 ':''}${statusMap[t.status]||t.status}</span>
+    <div class="inline" style="gap:4px">
+     <span class="badge ${isEsc?'wa-escalated-badge':t.status==='Closed'?'Cancelled':'Ready'}" style="font-size:10px">${isEsc?'🚨 ':''}${statusMap[t.status]||t.status}</span>
+     ${isAdmin ? `<button type="button" class="btn small ghost" style="padding:2px 6px;font-size:10px" title="${isHidden?'إظهار الدردشة':'إخفاء الدردشة'}" data-action="admin-toggle-hide-ticket" data-id="${esc(t.id)}">${isHidden?'👁️ إظهار':'🙈 إخفاء'}</button>` : ''}
+    </div>
    </div>
+   <div style="font-size:11px;color:#38bdf8;margin-bottom:3px">📱 الهاتف: ${esc(phoneStr)} · ${esc(roleLbl)}</div>
    <div style="font-size:12px;color:#fff;font-weight:600;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
     ${t._fromLookup ? '🔎 [بلاغ سابق] ' : ''}${esc(t.subject)}
    </div>
@@ -4289,7 +4494,7 @@ function renderSupportChatList(){
     <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${last ? esc(last.name + ': ' + last.message) : esc(roleLbl)}</span>
     <span>${t.assignedSupportName ? '🎧 '+esc(t.assignedSupportName) : '⏳'}</span>
    </div>
-  </button>`;
+  </div>`;
  }).join('');
 }
 
@@ -4347,7 +4552,7 @@ function renderSupportMainPane(preserveInput=false){
  const t = items.find(x => x.id === activeTicketId) || items[0];
  if(!t){
   lastSupportFeedSig = '';
-  pane.innerHTML = `<div class="wa-messages" style="justify-content:center;align-items:center;text-align:center"><div style="color:#94a3b8;font-size:14px"><div style="font-size:40px;margin-bottom:8px">💬</div><p>ابدأ محادثة جديدة مع الدعم الفني الآن</p></div></div>`;
+  pane.innerHTML = `<div class="wa-messages" style="justify-content:center;align-items:center;text-align:center"><div style="color:#94a3b8;font-size:14px"><div style="font-size:40px;margin-bottom:8px">💬</div><p>اختر محادثة من القائمة أو ابدأ محادثة جديدة مع الدعم الفني</p></div></div>`;
   return;
  }
  activeTicketId = t.id;
@@ -4356,7 +4561,8 @@ function renderSupportMainPane(preserveInput=false){
  const num = t.ticketNumber || ('SUP-' + String(t.id||'').slice(0,4).toUpperCase());
  const roleLbl = roles[t.userRole] || t.userRole || 'مستخدم';
  const isEsc = t.escalated || t.status === 'Escalated';
- const feedSig = `${t.id}:${t.status}:${isEsc}:${(t.messages||[]).length}:${t.assignedSupportName||''}:${window.supportPendingMedia?1:0}`;
+ const phoneStr = getTicketUserDeviceInfo(t);
+ const feedSig = `${t.id}:${t.status}:${isEsc}:${(t.messages||[]).length}:${t.assignedSupportName||''}:${window.supportPendingMedia?1:0}:${phoneStr}`;
 
  const existingFeed = document.getElementById('wa-messages-feed');
  if(preserveInput && existingFeed && existingFeed.dataset.ticketId === t.id){
@@ -4375,12 +4581,15 @@ function renderSupportMainPane(preserveInput=false){
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
      <strong style="color:#fff;font-size:14.5px">#${esc(num)} · ${esc(t.name)}</strong>
      <span class="badge" style="background:rgba(212,175,55,0.18);color:#fef08a;font-size:10.5px">${esc(roleLbl)}</span>
+     <span class="badge" style="background:rgba(56,189,248,0.18);color:#7dd3fc;font-size:10.5px">📱 ${esc(phoneStr)}</span>
      ${isEsc ? `<span class="badge wa-escalated-badge" style="font-size:10.5px">🚨 مصعّدة للإدارة</span>` : ''}
      <span class="badge ${t.status==='Closed'?'Cancelled':'Ready'}" style="font-size:10.5px">${t.status==='Closed'?'مغلقة':t.assignedSupportName?'🎧 '+esc(t.assignedSupportName):'⏳ بانتظار موظف متصل'}</span>
     </div>
     <div style="font-size:12.5px;color:#e2e8f0;margin-top:4px">المشكلة: <b style="color:#fde047">${esc(t.subject)}</b></div>
    </div>
-   <div class="inline" style="gap:6px">
+   <div class="inline" style="gap:6px;flex-wrap:wrap">
+    ${isStaff && t.userId ? `<button class="btn small" type="button" style="background:linear-gradient(135deg,#0284c7,#1d4ed8);color:#fff" data-action="admin-live-user-support" data-id="${esc(t.userId)}">🖥️ شاشة المستخدم بث مباشر</button>` : ''}
+    ${isAdmin ? `<button class="btn small secondary" type="button" data-action="admin-toggle-hide-ticket" data-id="${esc(t.id)}">🙈 إخفاء/إظهار الدردشة</button>` : ''}
     ${t.userId === user.id && t.status !== 'Closed' && !isEsc ? `<button class="btn small danger" type="button" data-action="support-escalate" data-id="${esc(t.id)}">🚨 تصعيد للإدارة</button>` : ''}
     ${isStaff ? `
      <button class="btn small ${t.status==='Closed'?'':'danger'}" type="button" data-action="toggle-ticket-status" data-id="${esc(t.id)}" data-status="${t.status==='Closed'?'Open':'Closed'}">
@@ -4942,7 +5151,7 @@ function staffChatView(){
   </div>
  </div>
 
- <div class="wa-shell" style="${isAdmin?'':'grid-template-columns:1fr'}">
+ <div class="wa-shell ${isAdmin?'wa-large-admin':''}" style="${isAdmin?'':'grid-template-columns:1fr'}">
   ${isAdmin ? `
   <aside class="wa-sidebar">
    <div class="wa-sidebar-head">
@@ -5035,10 +5244,11 @@ async function loadStaffChatMessages(){
        </div>
        <small style="font-size:10.5px;color:${p.inChatNow?'#4ade80':p.isOnline?'#fef08a':'#94a3b8'}">
         ${p.inChatNow ? '🟢 فاتح الدردشة الآن' : p.isOnline ? '🟡 متصل بالتطبيق' : '⚪ غير متصل'}
-        ${p.deviceModel ? ' · ' + esc(p.deviceModel) : ''}
+        ${p.deviceModel ? ' · 📱 ' + esc(p.deviceModel) : ''}
        </small>
       </div>
      </div>
+     <button type="button" class="btn small secondary" style="font-size:10.5px;padding:4px 8px" data-action="admin-live-user-support" data-id="${esc(p.id)}">🖥️ بث الشاشة</button>
     </div>
    `).join('') || '<p class="hint" style="text-align:center">لا يوجد مشرفون مسجلون</p>';
   }
@@ -5104,7 +5314,7 @@ function adminFullEditUserModal(id){
  const u = (dashboard?.users || []).find(x => x.id === id);
  if(!u) return;
  const ex = u.extraData || {};
- const allExtraKeys = [...new Set(['الدولة', 'المدينة / المحافظة', 'الجنسية', ...customRegFields.filter(cf => !cf.isSystem && cf.type !== 'image' && cf.type !== 'video').map(cf => cf.id), ...Object.keys(ex).filter(k => !String(ex[k]).startsWith('data:'))])];
+ const allExtraKeys = [...new Set(['الدولة', 'المدينة / المحافظة', 'الجنسية', 'الجنس', 'تاريخ الميلاد', ...customRegFields.filter(cf => !cf.isSystem && cf.type !== 'image' && cf.type !== 'video').map(cf => cf.id), ...Object.keys(ex).filter(k => !String(ex[k]).startsWith('data:'))])];
 
  modal(`📝 عرض وتعديل كامل بيانات المستخدم: ${esc(u.name)}`, `
   <form class="form" data-form="save-full-user-edit" data-id="${esc(u.id)}" style="max-height:74vh;overflow-y:auto;padding-left:4px">
@@ -5234,8 +5444,10 @@ function arabGeoManagerModal(){
     <strong style="color:#fef08a;font-size:13.5px">1. التحكم في إظهار أو إخفاء القوائم المنسدلة في شاشة التسجيل:</strong>
     <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px">
      <label class="check"><input type="checkbox" name="showCountryField" ${cat.showCountryField!==false?'checked':''}> إظهار قائمة الدول العربية</label>
-     <label class="check"><input type="checkbox" name="showCityField" ${cat.showCityField!==false?'checked':''}> إظهار قائمة المدن والمحافظات</label>
+     <label class="check"><input type="checkbox" name="showCityField" ${cat.showCityField!==false?'checked':''}> إظهار قائمة المناطق والمدن (مرتبطة بالدولة)</label>
      <label class="check"><input type="checkbox" name="showNationalityField" ${cat.showNationalityField!==false?'checked':''}> إظهار قائمة الجنسية العربية</label>
+     <label class="check"><input type="checkbox" name="showGenderField" ${cat.showGenderField!==false?'checked':''}> إظهار خيار الجنس (ذكر / أنثى)</label>
+     <label class="check"><input type="checkbox" name="showBirthDateField" ${cat.showBirthDateField!==false?'checked':''}> إظهار خيار تاريخ الميلاد</label>
     </div>
     <div class="inline" style="justify-content:space-between">
      <button class="btn small" type="submit">💾 حفظ إعدادات الظهور</button>
@@ -5328,18 +5540,212 @@ let lastUserMovementAt = Date.now();
  window.addEventListener(ev, () => { lastUserMovementAt = Date.now(); }, { passive: true });
 });
 
+/* ========================================================
+   Live User Screen Support Streamer & Admin Viewer (Req 2)
+   ======================================================== */
+function buildDomScreenSnapshotCanvas(){
+ try {
+  const canvas = document.createElement('canvas');
+  canvas.width = 560;
+  canvas.height = 380;
+  const ctx = canvas.getContext('2d');
+  if(!ctx) return '';
+  // Background
+  ctx.fillStyle = '#041913';
+  ctx.fillRect(0, 0, 560, 380);
+  // Topbar
+  ctx.fillStyle = '#06281e';
+  ctx.fillRect(0, 0, 560, 48);
+  ctx.strokeStyle = '#d4af37';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(1, 1, 558, 378);
+  ctx.fillStyle = '#fef08a';
+  ctx.font = 'bold 14px Tahoma, Arial';
+  const pageNames = { home:'الرئيسية والتسوق', orders:'الطلبات', studio:'إدارة المنتجات', couriers:'المناديب', support:'الدعم الفني', staffchat:'دردشة الإدارة والمشرفين', devices:'تتبع الأجهزة', sessions:'إدارة الجلسات', serversync:'مركز السيرفر', users:'إدارة المستخدمين', supverify:'توثيق المشرف', governance:'السياسات' };
+  const pgTitle = pageNames[page] || page || 'الرئيسية';
+  ctx.fillText(`📱 شاشة المستخدم: ${user?.name || 'زائر'} — [${pgTitle}]`, 16, 29);
+
+  // Extract visible text blocks from current DOM
+  const mainEl = document.querySelector('main.container') || document.body;
+  const headings = Array.from(mainEl.querySelectorAll('h1, h2, h3, strong, .badge')).map(el => (el.textContent||'').trim()).filter(Boolean).slice(0, 12);
+  ctx.fillStyle = '#38bdf8';
+  ctx.font = 'bold 13px Tahoma, Arial';
+  ctx.fillText(`العناصر النشطة في الصفحة (${pgTitle}):`, 16, 76);
+
+  ctx.fillStyle = '#e2e8f0';
+  ctx.font = '12px Tahoma, Arial';
+  let y = 100;
+  headings.forEach((h, idx) => {
+   if(y < 320){
+    ctx.fillStyle = idx % 2 === 0 ? ' rgba(255,255,255,0.06)' : 'rgba(212,175,55,0.08)';
+    ctx.fillRect(14, y - 15, 532, 22);
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillText(`• ${h.slice(0, 68)}`, 22, y);
+    y += 24;
+   }
+  });
+
+  // Footer telemetry bar
+  ctx.fillStyle = '#02100c';
+  ctx.fillRect(0, 342, 560, 38);
+  ctx.fillStyle = '#4ade80';
+  ctx.font = '11.5px Tahoma, Arial';
+  const timeNow = new Date().toLocaleTimeString('ar-SA');
+  ctx.fillText(`🟢 بث مباشر متصل · الوقت: ${timeNow} · السلة: ${Object.keys(cart||{}).length} منتج`, 16, 365);
+  return canvas.toDataURL('image/png');
+ } catch(e){ return ''; }
+}
+
+function buildDomScreenSummary(){
+ try {
+  const pageNames = { home:'الرئيسية والتسوق', orders:'الطلبات', studio:'إدارة المنتجات', couriers:'المناديب', support:'الدعم الفني', staffchat:'دردشة الإدارة والمشرفين', devices:'تتبع الأجهزة', sessions:'إدارة الجلسات', serversync:'مركز السيرفر', users:'إدارة المستخدمين', supverify:'توثيق المشرف', governance:'السياسات' };
+  const pgTitle = pageNames[page] || page || 'الرئيسية';
+  const openModalTitle = document.querySelector('.modal-backdrop:not([hidden]) .modal-head h2, .modal-backdrop:not([hidden]) strong')?.textContent || 'لا توجد نافذة منبثقة مفتوحة';
+  const inputs = Array.from(document.querySelectorAll('input:not([type="password"]):not([type="hidden"]), select, textarea'))
+   .map(i => {
+    const nm = i.name || i.id || i.placeholder || 'حقل';
+    const val = (i.value || '').trim();
+    return val ? `${nm}: ${val.slice(0, 40)}` : null;
+   }).filter(Boolean).slice(0, 8);
+  const cartCount = Object.values(cart||{}).reduce((a,b)=>a+Number(b||0), 0);
+  return JSON.stringify({
+   page: pgTitle,
+   rawPage: page || 'home',
+   modal: openModalTitle,
+   cartItemsCount: cartCount,
+   filledInputs: inputs,
+   viewport: `${window.innerWidth||0}x${window.innerHeight||0}`,
+   lastActiveSecAgo: Math.round((Date.now() - lastUserMovementAt)/1000)
+  });
+ } catch(e){ return '{}'; }
+}
+
+async function captureAndSendLiveScreenFrame(){
+ if(!apiBase || !token || !user || user.role === 'Guest') return;
+ try {
+  const frameData = buildDomScreenSnapshotCanvas();
+  const domSummary = buildDomScreenSummary();
+  await request('/telemetry/screen-frame', 'POST', {
+   frameData,
+   domSummary,
+   currentPage: page || 'home'
+  });
+ } catch(e){}
+}
+
+async function adminLiveUserSupportModal(userId){
+ if(!userId) return;
+ const u = (dashboard?.users || []).find(x => x.id === userId) || { id: userId, name: 'مستخدم' };
+ if(apiBase){
+  request('/admin/users/'+userId+'/request-screen', 'POST', { watch: true }).catch(()=>{});
+ }
+ modal(`🖥️ دعم فني مباشر — شاشة المستخدم: ${esc(u.name)}`, `
+  <div class="stack" id="admin-live-screen-container">
+   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;border-radius:12px;background:rgba(2,132,199,0.14);border:1px solid rgba(56,189,248,0.4)">
+    <div>
+     <strong style="color:#fff;font-size:14px">👤 ${esc(u.name)} (${esc(roles[u.role]||u.role||'مستخدم')})</strong>
+     <div id="live-support-meta" style="font-size:11.5px;color:#7dd3fc;margin-top:3px">📱 الهاتف: ${esc(u.deviceModel||'جاري الفحص...')} · الشاشة المفتوحة: <b style="color:#fef08a">${esc(u.currentPage||'home')}</b></div>
+    </div>
+    <span class="badge Ready" id="live-support-status-badge">🟢 بث مباشر متصل</span>
+   </div>
+
+   <div id="live-support-screen-box" style="background:#02100c;border:2px solid rgba(212,175,55,0.45);border-radius:14px;padding:10px;text-align:center;min-height:240px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px">
+    <p class="hint">⏳ جاري جلب البث المباشر لشاشة المستخدم (${esc(u.name)})...</p>
+   </div>
+
+   <div id="live-support-dom-details" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:10px 12px;font-size:12px;color:#cbd5e1;line-height:1.8">
+    جاري قراءة حالة الشاشة والحقول المفتوحة لدى المستخدم...
+   </div>
+
+   <div class="inline" style="justify-content:space-between;gap:8px;flex-wrap:wrap">
+    <button type="button" class="btn small" data-action="refresh-live-user-screen" data-id="${esc(userId)}">🔄 تحديث البث المباشر الآن</button>
+    <button type="button" class="btn small secondary" data-action="open-user-direct-support" data-id="${esc(userId)}">💬 فتح محادثة دعم فني مع المستخدم</button>
+    <button type="button" class="btn small danger" data-action="stop-live-user-support" data-id="${esc(userId)}">⏹️ إيقاف البث وإغلاق</button>
+   </div>
+  </div>
+ `);
+ await refreshAdminLiveUserScreen(userId, false);
+ if(window._liveSupportWatchTimer) clearInterval(window._liveSupportWatchTimer);
+ window._liveSupportWatchTimer = setInterval(() => {
+  const box = document.getElementById('live-support-screen-box');
+  if(!box){ clearInterval(window._liveSupportWatchTimer); window._liveSupportWatchTimer = null; return; }
+  refreshAdminLiveUserScreen(userId, false);
+ }, 2500);
+}
+
+async function refreshAdminLiveUserScreen(userId, showToast){
+ const box = document.getElementById('live-support-screen-box');
+ const domBox = document.getElementById('live-support-dom-details');
+ const metaBox = document.getElementById('live-support-meta');
+ const badgeEl = document.getElementById('live-support-status-badge');
+ if(!box) return;
+ try {
+  let data = null;
+  if(!apiBase){
+   const u = (dashboard?.users || []).find(x => x.id === userId) || { id: userId, name: 'مستخدم', role: 'Customer' };
+   data = {
+    id: u.id, name: u.name, role: u.role, isOnline: true,
+    currentPage: page || 'home',
+    deviceModel: u.deviceModel || 'هاتف ذكي',
+    platform: u.platform || 'Android / iOS',
+    osVersion: u.osVersion || '',
+    ipAddress: u.ipAddress || '127.0.0.1',
+    liveScreenData: buildDomScreenSnapshotCanvas(),
+    liveScreenDomSummary: buildDomScreenSummary(),
+    liveScreenAt: new Date().toISOString()
+   };
+  } else {
+   data = await request('/admin/users/' + userId + '/live-screen');
+  }
+  if(!data) return;
+  if(metaBox){
+   metaBox.innerHTML = `📱 الهاتف: <b>${esc(data.deviceModel||'غير محدد')}</b> (${esc(data.platform||'')} ${esc(data.osVersion||'')}) · 🌐 IP: <span dir="ltr">${esc(data.ipAddress||'-')}</span> · 📄 الشاشة الحالية: <b style="color:#fef08a">${esc(data.currentPage||'home')}</b>`;
+  }
+  if(badgeEl){
+   badgeEl.className = `badge ${data.isOnline ? 'Ready' : 'Cancelled'}`;
+   badgeEl.textContent = data.isOnline ? '🟢 متصل الآن (بث مباشر حي)' : '⚪ غير متصل حالياً (آخر شاشة محفوظة)';
+  }
+  if(data.liveScreenData){
+   box.innerHTML = `<img src="${esc(data.liveScreenData)}" alt="شاشة المستخدم" style="max-width:100%;border-radius:10px;border:1px solid rgba(255,255,255,0.15)">`;
+  } else {
+   box.innerHTML = `
+    <div style="padding:18px;color:#fef08a;font-size:13px">
+     🖥️ المستخدم <b>${esc(data.name)}</b> يفتح حالياً شاشة: <strong style="color:#4ade80">${esc(data.currentPage||'الرئيسية')}</strong><br>
+     <small style="color:#cbd5e1">تم إرسال طلب البث المباشر لجهاز المستخدم (${esc(data.deviceModel||'هاتف المستخدم')}) وسيظهر تحديث الشاشة تلقائياً خلال ثوانٍ.</small>
+    </div>`;
+  }
+  if(domBox){
+   let parsed = {};
+   try { parsed = JSON.parse(data.liveScreenDomSummary || '{}'); } catch(e){}
+   const inputsList = Array.isArray(parsed.filledInputs) && parsed.filledInputs.length ? parsed.filledInputs.map(x => `<span class="badge" style="background:rgba(255,255,255,0.08);color:#e2e8f0;font-size:11px">${esc(x)}</span>`).join(' ') : 'لا توجد حقول قيد الكتابة حالياً';
+   domBox.innerHTML = `
+    <div>📌 <strong>القسم المفتوح لدى المستخدم:</strong> <span style="color:#fef08a">${esc(parsed.page || data.currentPage || 'الرئيسية')}</span> · <strong>النافذة المنبثقة:</strong> ${esc(parsed.modal || 'لا توجد')}</div>
+    <div>🛒 <strong>عناصر السلة:</strong> ${parsed.cartItemsCount ?? 0} · <strong>أبعاد الشاشة:</strong> <span dir="ltr">${esc(parsed.viewport || '-')}</span> · <strong>آخر تفاعل:</strong> ${data.liveScreenAt ? new Date(data.liveScreenAt).toLocaleTimeString('ar-SA') : 'الآن'}</div>
+    <div style="margin-top:4px">⌨️ <strong>الحقول والمدخلات على شاشة المستخدم:</strong> ${inputsList}</div>
+   `;
+  }
+  if(showToast) toast('✅ تم تحديث البث المباشر لشاشة المستخدم');
+ } catch(e){
+  if(showToast) toast(e.message || 'تعذر جلب شاشة المستخدم');
+ }
+}
+
 async function sendSessionHeartbeat(){
  if(!apiBase || !token || !user || user.role === 'Guest') return;
  try {
   const activeMove = (Date.now() - lastUserMovementAt) < 25000;
   const tel = typeof detectDeviceTelemetry === 'function' ? detectDeviceTelemetry() : {};
-  await request('/session/heartbeat', 'POST', {
+  const res = await request('/session/heartbeat', 'POST', {
    currentPage: page || 'home',
    activeMovement: activeMove,
+   deviceId: localStorage.getItem('ts-device-id') || tel.deviceId || '',
    deviceModel: tel.deviceModel,
    platform: tel.platform,
    osVersion: tel.osVersion
   });
+  if(res?.shouldStreamScreen || activeMove){
+   captureAndSendLiveScreenFrame().catch(()=>{});
+  }
  } catch(err){
   if(!token && !user){
    renderAuth('login');
@@ -5347,9 +5753,9 @@ async function sendSessionHeartbeat(){
   }
  }
 }
-setInterval(() => { if(!document.hidden) sendSessionHeartbeat(); }, 20000);
+setInterval(() => { if(!document.hidden) sendSessionHeartbeat(); }, 15000);
 
-// Sync public server config (ArabGeo, ServerSync, SupervisorFormFields) on startup
+// Sync public server config (ArabGeo, ServerSync, SupervisorFormFields, GuestButton) on startup
 setTimeout(async () => {
  if(!apiBase) return;
  try {
@@ -5360,6 +5766,8 @@ setTimeout(async () => {
    if(d.serverSync){ window.serverSyncConfig = d.serverSync; localStorage.setItem('ts-server-sync-cfg', JSON.stringify(d.serverSync)); }
    if(d.supervisorFormFields?.length){ window.supervisorFormFields = d.supervisorFormFields; localStorage.setItem('ts-sup-form-fields', JSON.stringify(d.supervisorFormFields)); }
    if(typeof d.regCapture5Photos === 'boolean') config.regCapture5Photos = d.regCapture5Photos;
+   if(typeof d.guestButtonEnabled === 'boolean') config.guestButtonEnabled = d.guestButtonEnabled;
+   if(d.guestButtonLabel) config.guestButtonLabel = d.guestButtonLabel;
   }
  } catch(e){}
 }, 1200);
