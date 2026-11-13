@@ -325,7 +325,6 @@ api.MapGet("/dashboard", (Store s, HttpContext c) => s.Read(d => {
         banners = d.Banners.Where(b => b.Active).OrderBy(b => b.SortOrder).ToArray(),
         antiFraudLiveMediaEnabled = d.AntiFraudLiveMediaEnabled,
         requireSupervisorVerification = d.RequireSupervisorVerification,
-    preferredCameraFacing = d.PreferredCameraFacing,
         preferredCameraFacing = d.PreferredCameraFacing,
         courierCancelPenaltyAmount = d.CourierCancelPenaltyAmount,
         courierPenalties = (u.Role is "Admin" or "Supervisor" or "Courier" || Has(u, "delivery.assign")) ? d.CourierPenalties.Where(p => u.Role != "Courier" || p.CourierId == u.Id).OrderByDescending(p => p.At).ToArray() : [],
