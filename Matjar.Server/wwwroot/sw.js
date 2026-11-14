@@ -1,4 +1,4 @@
-const CACHE_NAME = 'altasawuq-shell-v7.0.0';
+const CACHE_NAME = 'altasawuq-shell-v7.1.0';
 const SHELL_ASSETS = [
   './',
   './index.html',
@@ -30,6 +30,12 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('message', event => {
   const data = event.data || {};
+  if (data.type === 'FORCE_APP_UPDATE_NOW') {
+    event.waitUntil(
+      caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => self.skipWaiting())
+    );
+    return;
+  }
   if (data.type === 'SHOW_INCOMING_CALL' && self.registration?.showNotification) {
     const call = data.call || {};
     const title = data.title || `📲 مكالمة ${call.callKind === 'video' ? 'فيديو 🎥' : 'صوتية 📞'} واردة من ${call.callerName || 'الإدارة'}`;

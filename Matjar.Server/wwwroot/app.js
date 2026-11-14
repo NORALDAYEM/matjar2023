@@ -466,6 +466,14 @@ async function devicesView(){
  lastDevicesList = data.devices || [];
 
  return `
+ <div class="panel" style="margin-bottom:14px;padding:10px 14px;border:1.5px solid rgba(212,175,55,0.45);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+  <div class="inline" style="gap:8px;flex-wrap:wrap">
+   <button type="button" class="btn small secondary" data-action="navigate" data-id="users">👥 صلاحيات المستخدمين والزوار والدردشة</button>
+   <button type="button" class="btn small" data-action="navigate" data-id="devices">🗺️ التتبع المباشر وخرائط قوقل والأجهزة المتصلة</button>
+   <button type="button" class="btn small secondary" data-action="open-role-preview-studio">👁️ شاشة معاينة وتجربة الأدوار للإدارة</button>
+  </div>
+  <span class="badge Ready">واجهة موحدة: الصلاحيات + التتبع والخرائط</span>
+ </div>
  <div class="section-head">
   <div>
    <h1>الأجهزة والمثبتون والمواقع الجغرافية للعملاء</h1>
@@ -889,7 +897,7 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const money = (v,currency=commerce?.currency||'SAR') => formatMoney(v,currency);
 const roles = {Customer:'عميل معتمد', Merchant:'تاجر / شريك تجاري', Courier:'مندوب توصيل', Supervisor:'مشرف عام', Support:'دعم فني', Admin:'الإدارة العليا', Guest:'زائر (عرض فقط)'};
 const statuses = {Preparing:'قيد التجهيز الفاخر',Ready:'جاهز للاستلام',Assigned:'تم إسناد مندوب التوصيل',OnWay:'في الطريق إليك الآن',Delivered:'تم التسليم بنجاح',Cancelled:'ملغي'};
-const rights = {'commissions.manage':'إدارة العمولات وكشفها','policies.manage':'إدارة الاتفاقيات وشروط المتجر','registrations.manage':'مراجعة تسجيل العملاء والتجار والمناديب','commerce.manage':'إدارة العملات واللغة وطرق الدفع','payments.review':'مراجعة إيصالات واعتماد الدفع','chat.read':'قراءة الدردشة','chat.delivery':'دردشة العميل والمندوب','chat.support':'دردشة الدعم','chat.text':'إرسال نص','chat.image':'إرسال صور','chat.audio':'تسجيل وإرسال صوت','chat.camera':'التصوير داخل الدردشة','appearance.manage':'تعديل ألوان وصورة وخط المتجر','notifications.send':'إرسال إشعارات للمستخدمين','support.manage':'إدارة تذاكر الدعم','tracking.read':'عرض مواقع الطلبات','orders.create':'إنشاء الطلبات','orders.cancel':'إلغاء الطلب قبل التوصيل','orders.prepare':'تجهيز طلبات المتجر','orders.manage':'إدارة جميع الطلبات','products.write':'إضافة وتعديل المنتجات','delivery.assign':'إسناد مندوب التوصيل','delivery.update':'استلام وتسليم الشحنات','users.manage':'إدارة المستخدمين والصلاحيات','audit.read':'عرض سجل النشاط','account.options':'إظهار خيارات حسابي المتقدمة وتخصيص النغمات (بموافقة الإدارة)'};
+const rights = {'commissions.manage':'إدارة العمولات وكشفها','policies.manage':'إدارة الاتفاقيات وشروط المتجر','registrations.manage':'مراجعة تسجيل العملاء والتجار والمناديب','commerce.manage':'إدارة العملات واللغة وطرق الدفع','payments.review':'مراجعة إيصالات واعتماد الدفع','chat.visible':'إظهار وإخفاء الدردشة بالكامل','chat.staff.visible':'إظهار وإخفاء دردشة المشرفين','chat.support.visible':'إظهار وإخفاء دردشة الدعم الفني','chat.read':'قراءة الدردشة','chat.delivery':'دردشة العميل والمندوب','chat.support':'دردشة الدعم','chat.text':'إرسال نص','chat.image':'إرسال صور','chat.audio':'تسجيل وإرسال صوت','chat.camera':'التصوير داخل الدردشة','appearance.manage':'تعديل ألوان وصورة وخط المتجر','notifications.send':'إرسال إشعارات للمستخدمين','support.manage':'إدارة تذاكر الدعم','tracking.read':'عرض مواقع الطلبات','orders.create':'إنشاء الطلبات','orders.cancel':'إلغاء الطلب قبل التوصيل','orders.prepare':'تجهيز طلبات المتجر','orders.manage':'إدارة جميع الطلبات','products.write':'إضافة وتعديل المنتجات','delivery.assign':'إسناد مندوب التوصيل','delivery.update':'استلام وتسليم الشحنات','users.manage':'إدارة المستخدمين والصلاحيات','audit.read':'عرض سجل النشاط','account.options':'إظهار خيارات حسابي المتقدمة وتخصيص النغمات (بموافقة الإدارة)'};
 const defaultRights = {
  Support:[...chatRightKeys.filter(p=>p!=='chat.delivery'),'support.manage','orders.manage','tracking.read'],
  Customer:[...chatRightKeys,'orders.create','orders.cancel'],
@@ -1417,7 +1425,7 @@ function render(isBackgroundSync = false){
       ${user.email ? `<div style="font-size:11px;color:#93c5fd;margin-top:2px" dir="ltr">📧 ${esc(user.email)}</div>` : ''}
      </div>
      ${(user.role==='Supervisor' && !user.supervisorVerified) ? `<button type="button" data-action="open-sup-verify" style="color:#fde047;font-weight:bold">🪪 إكمال ملف توثيق المشرف الآن</button>` : ''}
-     ${user.role==='Admin' ? `<button type="button" data-action="navigate" data-id="aistyle" style="color:#a7f3d0;font-weight:bold">🤖 روبوت الاستايل الذكي (AI)</button><button type="button" data-action="global-ui-control" style="color:#7dd3fc;font-weight:bold">🎛️ التحكم الكامل في عناصر المتجر وأحجامها</button>` : ''}
+     ${user.role==='Admin' ? `<button type="button" data-action="open-role-preview-studio" style="color:#fde047;font-weight:bold">👁️ معاينة الأدوار (عميل/مندوب/مشرف/دعم)</button><button type="button" data-action="navigate" data-id="aistyle" style="color:#a7f3d0;font-weight:bold">🤖 روبوت الاستايل الذكي (AI)</button><button type="button" data-action="global-ui-control" style="color:#7dd3fc;font-weight:bold">🎛️ التحكم الكامل في عناصر المتجر وأحجامها</button>` : ''}
      <button type="button" data-action="view-my-user-info">ℹ️ معلومات المستخدم الكاملة</button>
      <button type="button" data-action="edit-profile">🔑 تعديل كلمة المرور والبيانات</button>
      <button type="button" data-action="upload-profile-photo">🖼️ تغيير صورة الملف الشخصي</button>
@@ -1443,7 +1451,14 @@ function render(isBackgroundSync = false){
    ${getUiControlConfig().showIconLanguage !== false ? `<button class="icon-btn" data-action="language" title="تغيير اللغة / Language" aria-label="اللغة">🌐</button>` : ''}
    ${getUiControlConfig().showIconRefresh !== false ? `<button class="icon-btn" data-action="instant-refresh" title="تحديث المتجر والبيانات فوراً" aria-label="تحديث">${icon('refresh',18)}</button>` : ''}
   </div>` : ''}
- </div>${demo?`<div class="demo-bar" style="background:#fff9ea;border-color:#f5dc99"><span>⭐ الحساب الرئيسي للمتجر: <b>Ahmed</b> (الرمز: <b>583192</b>)</span><button data-action="switch-role">تبديل الواجهة</button><button data-action="appearance">🎨 مظهر المتجر واللوجو</button><button data-action="banners-manager">📢 إدارة الإعلانات</button><button data-action="connect">ربط المتجر</button></div>`:''}<section id="view"></section></main><nav class="mobile-nav" aria-label="تنقل التطبيق">${navHtml(true)}</nav>`;
+ </div>${demo?`<div class="demo-bar" style="background:#fff9ea;border-color:#f5dc99"><span>⭐ الحساب الرئيسي للمتجر: <b>Ahmed</b> (الرمز: <b>583192</b>)</span><button data-action="switch-role">تبديل الواجهة</button><button data-action="appearance">🎨 مظهر المتجر واللوجو</button><button data-action="banners-manager">📢 إدارة الإعلانات</button><button data-action="connect">ربط المتجر</button></div>`:''}${window._adminPreviewBackup ? `
+  <div style="margin-bottom:14px;padding:10px 14px;border-radius:14px;background:linear-gradient(135deg,#b45309,#78350f);border:1.5px solid #facc15;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+   <strong style="color:#fff;font-size:13px">👑 وضع معاينة الإدارة — أنت تتصفح الآن بصلاحيات وشكل: <span style="color:#fef08a">${esc(roles[user.role]||user.role)}</span></strong>
+   <div class="inline" style="gap:6px">
+    <button type="button" class="btn small secondary" data-action="open-role-preview-studio">🔄 تبديل الدور</button>
+    <button type="button" class="btn small" style="background:#facc15;color:#031711;font-weight:800" data-action="exit-admin-role-preview">🔙 العودة لحساب الإدارة</button>
+   </div>
+  </div>` : ''}<section id="view"></section></main><nav class="mobile-nav" aria-label="تنقل التطبيق">${navHtml(true)}</nav>`;
   paintAppearance();
  } else {
   // تحديث نصوص العنوان والتبويبات النشطة موضعياً بسلاسة 100% وبدون وميض
@@ -2228,7 +2243,15 @@ function usersView(){
  const onlineCount = list.filter(u=>u.isOnline).length;
  const frozenCount = list.filter(u=>!u.active).length;
  
- return `<div class="section-head">
+ return `<div class="panel" style="margin-bottom:14px;padding:10px 14px;border:1.5px solid rgba(212,175,55,0.45);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+  <div class="inline" style="gap:8px;flex-wrap:wrap">
+   <button type="button" class="btn small" data-action="navigate" data-id="users">👥 صلاحيات المستخدمين والزوار والدردشة</button>
+   <button type="button" class="btn small secondary" data-action="navigate" data-id="devices">🗺️ التتبع المباشر وخرائط قوقل والأجهزة المتصلة</button>
+   <button type="button" class="btn small secondary" data-action="open-role-preview-studio">👁️ شاشة معاينة وتجربة الأدوار للإدارة</button>
+  </div>
+  <span class="badge Ready">واجهة موحدة: الصلاحيات + التتبع والخرائط</span>
+ </div>
+ <div class="section-head">
   <div>
    <h1>إدارة المستخدمين والحسابات المتصلة والصلاحيات</h1>
    <p>تحكم دقيق وشامل: مراقبة المتصلين، تعديل وتوليد كلمات المرور، تجميد وتنشيط الحسابات، وضبط الصلاحيات</p>
@@ -2721,6 +2744,14 @@ function renderAuth(tab='login'){
      </div>
     </div>
     
+    ${window._adminPreviewBackup ? `
+    <div style="margin-bottom:12px;padding:12px;border-radius:14px;background:rgba(212,175,55,0.16);border:1.5px solid #facc15;text-align:center">
+     <strong style="color:#fef08a;font-size:13px;display:block;margin-bottom:6px">👑 دخول معاينة فوري بدون بيانات (خاص بالإدارة فقط)</strong>
+     <div class="inline" style="justify-content:center;gap:6px;flex-wrap:wrap">
+      <button type="button" class="btn small" style="background:#facc15;color:#031711;font-weight:800" data-action="enter-admin-preview-role" data-id="${esc(window._adminPreviewPendingRole||'Customer')}">🚀 دخول مباشر كـ (${esc(roles[window._adminPreviewPendingRole||'Customer']||window._adminPreviewPendingRole||'عميل')})</button>
+      <button type="button" class="btn small ghost" data-action="exit-admin-role-preview">🔙 عودة للإدارة</button>
+     </div>
+    </div>` : ''}
     <button class="vip-btn-login" type="submit">
      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m14 6-6 6 6 6M8 12h13"/></svg>
      <span>دخول</span>
@@ -2936,7 +2967,7 @@ function permissionEditor(id){
  const u=dashboard.users.find(u=>u.id===id);if(!u||id===user.id)return;
  const groups = [
   { title: '📦 صلاحيات الطلبات والتوصيل والتتبع', keys: ['orders.create','orders.cancel','orders.prepare','orders.manage','delivery.assign','delivery.update','tracking.read'] },
-  { title: '💬 صلاحيات الدردشة والدعم الفني والوسائط', keys: ['chat.read','chat.support','chat.delivery','chat.text','chat.image','chat.audio','chat.camera','support.manage'] },
+  { title: '💬 صلاحيات الدردشة والدعم الفني والوسائط', keys: ['chat.visible','chat.support.visible','chat.staff.visible','chat.read','chat.support','chat.delivery','chat.text','chat.image','chat.audio','chat.camera','support.manage'] },
   { title: '🛍️ صلاحيات المنتجات والمظهر والإشعارات', keys: ['products.write','appearance.manage','notifications.send'] },
   { title: '💰 صلاحيات المالية والعمولات والمدفوعات', keys: ['commissions.manage','commerce.manage','payments.review'] },
   { title: '🛡️ صلاحيات الحسابات والسياسات وخيارات حسابي', keys: ['users.manage','registrations.manage','policies.manage','audit.read','account.options'] }
@@ -4140,6 +4171,79 @@ async function action(name,id,el=null){
  }
  if(name==='sync-pwa-icon-now'){
   await forceUpdateInstalledPwaIcon();
+  return;
+ }
+ if(name==='open-role-preview-studio'){
+  adminRolePreviewStudioModal();
+  return;
+ }
+ if(name==='start-admin-role-preview-from-login'){
+  if(!window._adminPreviewBackup && user?.role === 'Admin'){
+   window._adminPreviewBackup = { user: JSON.parse(JSON.stringify(user)), page };
+  }
+  window._adminPreviewPendingRole = id || 'Customer';
+  closeModal();
+  user = null;
+  renderAuth('login');
+  toast('👑 أنت الآن في شاشة الدخول بوضع معاينة الإدارة — اضغط «دخول مباشر» لتجربة الدور بدون بيانات');
+  return;
+ }
+ if(name==='enter-admin-preview-role'){
+  if(!window._adminPreviewBackup) return;
+  const targetRole = id || window._adminPreviewPendingRole || 'Customer';
+  const rolePerms = (typeof roleDefaults !== 'undefined' && roleDefaults[targetRole]) ? roleDefaults[targetRole] : [];
+  user = {
+   id: 'preview_' + targetRole.toLowerCase(),
+   name: 'معاينة_' + (roles[targetRole] || targetRole),
+   email: window._adminPreviewBackup.user.email || 'preview@matjar.local',
+   role: targetRole,
+   active: true,
+   supervisorVerified: true,
+   verifiedBadge: targetRole === 'Supervisor' ? 'fb-blue' : 'none',
+   permissions: rolePerms,
+   overrides: {}
+  };
+  page = 'home';
+  document.querySelector('.sidebar')?.remove();
+  render();
+  toast(`👁️ تم الدخول بنجاح لمعاينة شاشات وصلاحيات: ${roles[targetRole] || targetRole}`);
+  return;
+ }
+ if(name==='exit-admin-role-preview'){
+  if(window._adminPreviewBackup){
+   user = window._adminPreviewBackup.user;
+   page = window._adminPreviewBackup.page || 'home';
+   window._adminPreviewBackup = null;
+   window._adminPreviewPendingRole = null;
+   document.querySelector('.sidebar')?.remove();
+   render();
+   toast('👑 تمت العودة الفورية لحساب الإدارة العليا بكامل الصلاحيات');
+  }
+  return;
+ }
+ if(name==='toggle-admin-own-mic'){
+  window._adminOwnMicMuted = !window._adminOwnMicMuted;
+  if(window._adminLiveMicStream){
+   window._adminLiveMicStream.getAudioTracks().forEach(t => { t.enabled = !window._adminOwnMicMuted; });
+  }
+  const btn = document.getElementById('admin-own-mic-toggle-btn');
+  if(btn){
+   btn.className = `btn small ${window._adminOwnMicMuted ? 'danger' : ''}`;
+   btn.textContent = window._adminOwnMicMuted ? '🔇 مايك الإدارة: مغلق (اضغط للفتح)' : '🎙️ مايك الإدارة: مفتوح (اضغط للإغلاق)';
+  }
+  toast(window._adminOwnMicMuted ? '🔇 تم إغلاق مايك الإدارة (الطرف الآخر لا يسمعك الآن)' : '🎙️ تم فتح مايك الإدارة');
+  return;
+ }
+ if(name==='answer-incoming-call-wa'){
+  stopIncomingCallRingtone();
+  document.getElementById('wa-incoming-call-overlay')?.remove();
+  await action('join-staff-call', id);
+  return;
+ }
+ if(name==='decline-incoming-call-wa'){
+  stopIncomingCallRingtone();
+  document.getElementById('wa-incoming-call-overlay')?.remove();
+  await action('end-staff-call', id);
   return;
  }
  if(name==='global-ui-control'){
@@ -7346,7 +7450,8 @@ async function adminDeviceLiveMicModal(deviceId){
 
    <div class="inline" style="justify-content:center;gap:10px">
     <button type="button" class="btn secondary" data-action="admin-open-device-live-mic" data-id="${esc(deviceId)}">🔄 تحديث البث الصوتي الآن</button>
-    <button type="button" class="btn danger" data-action="stop-device-live-mic" data-id="${esc(deviceId)}">⏹️ إيقاف المايك وإغلاق</button>
+    <button type="button" id="admin-own-mic-toggle-btn" class="btn small ${window._adminOwnMicMuted?'danger':''}" data-action="toggle-admin-own-mic">${window._adminOwnMicMuted ? '🔇 مايك الإدارة: مغلق (اضغط للفتح)' : '🎙️ مايك الإدارة: مفتوح (اضغط للإغلاق)'}</button>
+    <button type="button" class="btn danger" data-action="stop-device-live-mic" data-id="${esc(deviceId)}">⏹️ إنهاء المكالمة وإغلاق</button>
    </div>
   </div>
  `);
@@ -9574,6 +9679,147 @@ if(navigator.serviceWorker){
   if(d.type === 'INCOMING_CALL_ACTION'){
    if(d.action === 'decline') declineIncomingWhatsAppCall(d.callId);
    else answerIncomingWhatsAppCall(d.callId);
+  }
+ });
+}
+
+
+/* ========================================================
+   v7.1.0: Admin Role-Preview Studio, City->Districts Cascade,
+   & WhatsApp-Style Incoming Call Ringing (SW + Web Audio)
+   ======================================================== */
+function adminRolePreviewStudioModal(){
+ if(user?.role !== 'Admin' && !window._adminPreviewBackup) return;
+ const previewRoles = [
+  ['Customer', '🛍️ عميل تسوق', 'معاينة كتالوج المنتجات، السلة، الطلبات، والدعم الفني'],
+  ['Courier', '🛵 مندوب توصيل', 'معاينة مهام التوصيل، الخرائط، وسجل التسليم'],
+  ['Supervisor', '🛡️ مشرف عام', 'معاينة لوحة الإشراف، الطلبات، ودردشة المشرفين'],
+  ['Support', '🎧 موظف دعم فني', 'معاينة شاشة المحادثات والتذاكر ومتابعة الطلبات'],
+  ['Merchant', '🏪 تاجر / شريك', 'معاينة لوحة التاجر وإدارة منتجاته وطلباته']
+ ];
+ modal('👁️ شاشة معاينة وتجربة الأدوار للإدارة (بدءاً من شاشة الدخول بدون بيانات)', `
+  <div class="stack">
+   <div style="padding:12px;border-radius:12px;background:rgba(212,175,55,0.12);border:1px solid rgba(212,175,55,0.4);font-size:12.5px;color:#fef08a;line-height:1.7">
+    👑 اختر أي دور أدناه للانتقال إلى شاشة الدخول وتجربة الواجهة والصلاحيات الخاصة به <b>بدون إدخال أي بيانات</b>، مع إمكانية العودة لحساب الإدارة بضغطة واحدة دون التأثير على أي إعدادات.
+   </div>
+   <div style="display:grid;gap:10px">
+    ${previewRoles.map(([rKey, rLbl, rDesc]) => `
+     <div class="panel" style="padding:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <div>
+       <strong style="color:#fff;font-size:14px">${rLbl}</strong>
+       <div style="font-size:11.5px;color:#cbd5e1;margin-top:2px">${rDesc}</div>
+      </div>
+      <button type="button" class="btn small" data-action="start-admin-role-preview-from-login" data-id="${rKey}">🚀 معاينة من شاشة الدخول</button>
+     </div>
+    `).join('')}
+   </div>
+  </div>
+ `);
+}
+
+const DEFAULT_CITY_DISTRICTS = {
+ 'الرياض': ['حي الملقا', 'حي العليا', 'حي النرجس', 'حي الياسمين', 'حي حطين', 'حي السليمانية', 'حي النسيم', 'حي الشفا'],
+ 'جدة': ['حي الروضة', 'حي الشاطئ', 'حي الحمراء', 'حي السلامة', 'حي أبحر الشمالية', 'حي الفيصلية'],
+ 'مكة المكرمة': ['حي العزيزية', 'حي الشوقية', 'حي العوالي', 'حي بطحاء قريش', 'حي الشرائع'],
+ 'الدمام': ['حي الشاطئ', 'حي الفيصلية', 'حي المزروعية', 'حي الجامعيين', 'حي طيبة'],
+ 'القاهرة': ['مدينة نصر', 'المعادي', 'التجمع الخامس', 'مصر الجديدة', 'الزمالك', 'المهندسين'],
+ 'الإسكندرية': ['سموحة', 'سيدي جابر', 'المنتزه', 'محطة الرمل', 'لوران'],
+ 'الخرطوم': ['الرياض', 'المنشية', 'العمارات', 'أركويت', 'جبرة', 'بحري'],
+ 'عمّان': ['عبدون', 'دابوق', 'الشميساني', 'خلدا', 'تلاع العلي'],
+ 'دبي': ['وسط مدينة دبي', 'دبي مارينا', 'جميرا', 'البرشاء', 'ديرة']
+};
+
+function getDistrictsForCity(cityName){
+ const cat = window.arabGeoCatalog || {};
+ const customMap = cat.cityDistricts || {};
+ if(customMap[cityName] && customMap[cityName].length) return customMap[cityName];
+ if(DEFAULT_CITY_DISTRICTS[cityName]) return DEFAULT_CITY_DISTRICTS[cityName];
+ return ['وسط المدينة', 'الحي الشمالي', 'الحي الجنوبي', 'الحي الشرقي', 'الحي الغربي'];
+}
+
+window.onFormGeoCountryChange = function(prefix, countryName){
+ const countries = getActiveArabCountries();
+ const c = countries.find(x => x.name === countryName) || countries[0];
+ if(!c) return;
+ const citySel = document.getElementById(prefix + '-city-sel');
+ const natSel = document.getElementById(prefix + '-nat-sel');
+ if(citySel){
+  citySel.innerHTML = (c.cities || ['العاصمة']).map(ct => `<option value="${esc(ct)}">${esc(ct)}</option>`).join('');
+  window.onFormGeoCityChange(prefix, (c.cities || ['العاصمة'])[0]);
+ }
+ if(natSel && c.nationality) natSel.value = c.nationality;
+};
+
+window.onFormGeoCityChange = function(prefix, cityName){
+ const distSel = document.getElementById(prefix + '-district-sel');
+ if(!distSel) return;
+ const list = getDistrictsForCity(cityName);
+ distSel.innerHTML = list.map(ds => `<option value="${esc(ds)}">${esc(ds)}</option>`).join('');
+};
+
+let _incomingRingTimer = null;
+function startIncomingCallRingtone(){
+ stopIncomingCallRingtone();
+ const ringOnce = () => {
+  try {
+   const customAudio = localStorage.getItem('ts-active-custom-ringtone');
+   if(customAudio){ new Audio(customAudio).play().catch(()=>{}); return; }
+   const Ctx = window.AudioContext || window.webkitAudioContext;
+   if(!Ctx) return;
+   const ctx = new Ctx();
+   const osc = ctx.createOscillator();
+   const gain = ctx.createGain();
+   osc.type = 'sine';
+   osc.frequency.setValueAtTime(660, ctx.currentTime);
+   osc.frequency.setValueAtTime(880, ctx.currentTime + 0.25);
+   gain.gain.setValueAtTime(0.18, ctx.currentTime);
+   gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.7);
+   osc.connect(gain); gain.connect(ctx.destination);
+   osc.start(); osc.stop(ctx.currentTime + 0.72);
+  } catch(e){}
+ };
+ ringOnce();
+ _incomingRingTimer = setInterval(ringOnce, 2200);
+}
+
+function stopIncomingCallRingtone(){
+ if(_incomingRingTimer){ clearInterval(_incomingRingTimer); _incomingRingTimer = null; }
+}
+
+function showWhatsAppIncomingCallAlert(call){
+ if(!call || !call.id || call.callerId === user?.id) return;
+ if(window._lastRungCallId === call.id) return;
+ window._lastRungCallId = call.id;
+ startIncomingCallRingtone();
+ // Notify via Service Worker so it rings in phone notification shade even when minimized/closed
+ try {
+  if(navigator.serviceWorker?.controller){
+   navigator.serviceWorker.controller.postMessage({ type: 'SHOW_INCOMING_CALL', call });
+  }
+ } catch(e){}
+ if(document.getElementById('wa-incoming-call-overlay')) return;
+ const ov = document.createElement('div');
+ ov.id = 'wa-incoming-call-overlay';
+ ov.style.cssText = 'position:fixed;inset:16px 16px auto 16px;z-index:9999;max-width:440px;margin:0 auto;background:linear-gradient(135deg,#064e3b,#021711);border:2px solid #facc15;border-radius:20px;padding:16px;box-shadow:0 20px 50px rgba(0,0,0,0.75);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap';
+ ov.innerHTML = `
+  <div>
+   <strong style="color:#fef08a;font-size:14.5px;display:block">📲 مكالمة ${call.callKind==='video'?'فيديو 🎥':'صوتية 📞'} واردة</strong>
+   <small style="color:#fff;font-size:12.5px">من: <b>${esc(call.callerName || 'الإدارة')}</b> — يرن الآن...</small>
+  </div>
+  <div class="inline" style="gap:8px">
+   <button type="button" class="btn small" style="background:#16a34a;color:#fff;font-weight:800" data-action="answer-incoming-call-wa" data-id="${esc(call.id)}">🟢 رد</button>
+   <button type="button" class="btn small danger" data-action="decline-incoming-call-wa" data-id="${esc(call.id)}">🔴 رفض</button>
+  </div>
+ `;
+ document.body.appendChild(ov);
+}
+
+if(navigator.serviceWorker?.addEventListener){
+ navigator.serviceWorker.addEventListener('message', e => {
+  const d = e.data || {};
+  if(d.type === 'INCOMING_CALL_ACTION' && d.callId){
+   if(d.action === 'decline') action('decline-incoming-call-wa', d.callId);
+   else action('answer-incoming-call-wa', d.callId);
   }
  });
 }

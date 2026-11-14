@@ -232,7 +232,14 @@ function paintAppearance(){
  });
  const bar=document.getElementById('announcement-banner');
  if(bar){
-  if(a.announcementActive&&a.announcement){bar.hidden=false;bar.textContent=a.announcement;}
+  const dismissedVer = localStorage.getItem('ts-dismissed-update-ver');
+  if(a.forceUpdateBannerEnabled && dismissedVer !== (a.forceUpdateVersion||'v7.1.0')){
+   bar.hidden=false;
+   bar.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:4px 8px">
+    <span>${esc(a.forceUpdateMessage || '🚀 يتوفر تحديث جديد للتطبيق — اضغط تحديث الآن لتنزيل الملفات الجديدة')} (${esc(a.forceUpdateVersion||'v7.1.0')})</span>
+    <button type="button" class="btn small" style="background:#facc15;color:#031711;font-weight:800;padding:4px 12px" data-action="apply-forced-app-update">🔄 تحديث وتنزيل الملفات الآن</button>
+   </div>`;
+  } else if(a.announcementActive&&a.announcement){bar.hidden=false;bar.textContent=a.announcement;}
   else{bar.hidden=true;bar.textContent='';}
  }
  paintInterface();
@@ -353,6 +360,14 @@ function appearanceEditor(){
  <div id="appearance-preview" class="appearance-preview"></div>
  <label class="check"><input type="checkbox" name="announcementActive" ${a.announcementActive?'checked':''}>تفعيل شريط الإعلانات أعلى المتجر</label>
  <label>نص الإعلان العلوي<input name="announcement" value="${esc(a.announcement||'')}" maxlength="150" placeholder="مثال: خصم 20% بمناسبة الافتتاح | توصيل مجاني للطلبات فوق 150 ر.س"></label>
+ <div class="panel" style="padding:12px;border:1.5px solid #38bdf8;background:rgba(2,132,199,0.12);display:grid;gap:8px">
+  <strong style="color:#7dd3fc;font-size:13.5px">🚀 مفتاح إظهار رسالة تحديث التطبيق للمستخدمين (تنزيل الملفات والتحديثات الجديدة):</strong>
+  <label class="check" style="margin:0"><input type="checkbox" name="forceUpdateBannerEnabled" ${a.forceUpdateBannerEnabled?'checked':''}> <strong>تفعيل إظهار رسالة التحديث لجميع المستخدمين والهواتف</strong></label>
+  <div class="row">
+   <label>رقم إصدار التحديث الجديد<input name="forceUpdateVersion" value="${esc(a.forceUpdateVersion||'v7.1.0')}" placeholder="v7.1.0" dir="ltr"></label>
+   <label>نص رسالة التحديث الظاهرة للمستخدمين<input name="forceUpdateMessage" value="${esc(a.forceUpdateMessage||'🚀 يتوفر تحديث جديد ومهم للتطبيق — اضغط تحديث الآن لتنزيل الملفات الجديدة.')}" maxlength="200"></label>
+  </div>
+ </div>
  <button type="button" class="btn secondary" data-action="reset-appearance">استعادة الإعدادات الافتراضية</button>
  <button class="btn" type="submit">حفظ وتطبيق الشكل الجديد</button>
  <div class="form-error" hidden></div></form>`);
@@ -767,6 +782,34 @@ async function composeNotice(){
    </div>
   </form>
 
+    <!-- 1.5 رفع مقطع صوتي مخصص للنغمات من الهاتف أو الحاسوب + الحذف من المخزن -->
+  <div class="panel" style="padding:14px;border:1px solid rgba(250,204,21,0.4)">
+   <strong style="color:#fef08a;font-size:13.5px;display:block;margin-bottom:8px">🎧 رفع مقطع صوتي لنغمات الإشعارات (من الهاتف أو الحاسوب) وإدارة مخزن النغمات:</strong>
+   <form class="form" data-form="upload-custom-ringtone" style="gap:8px">
+    <div class="row">
+     <label>اسم النغمة الجديدة<input name="name" required placeholder="مثال: نغمة تنبيه ملكية خاصة"></label>
+     <label>اختر ملف صوتي (MP3 / WAV / OGG / M4A)<input type="file" id="custom-ringtone-file" accept="audio/*" required></label>
+    </div>
+    <button type="submit" class="btn small">⬆️ رفع وحفظ المقطع الصوتي في مخزن النغمات</button>
+   </form>
+   ${(() => {
+    const rts = ncSettings.customRingtones || JSON.parse(localStorage.getItem('ts-custom-ringtones')||'[]');
+    if(!rts.length) return '<p class="hint" style="margin-top:8px">لا توجد نغمات مرفوعة مخصصة بعد.</p>';
+    return `<div style="display:grid;gap:8px;margin-top:10px">${rts.map(rt => `
+     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(212,175,55,0.25)">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+       <strong style="color:#fff;font-size:12.5px">🎵 ${esc(rt.name)}</strong>
+       <audio controls preload="metadata" src="${esc(rt.audioData)}" style="height:30px;max-width:210px"></audio>
+      </div>
+      <div class="inline" style="gap:6px">
+       <button type="button" class="btn small secondary" data-action="use-custom-ringtone" data-id="${esc(rt.id)}">✅ اعتماد كنغمة</button>
+       <button type="button" class="btn small danger" data-action="delete-custom-ringtone" data-id="${esc(rt.id)}">🗑️ حذف من المخزن</button>
+      </div>
+     </div>
+    `).join('')}</div>`;
+   })()}
+  </div>
+
   <!-- 2. ضبط مؤقت لإرسال إشعارات تلقائية في أوقات معينة -->
   <form class="form panel" data-form="schedule-auto-notice" style="padding:14px;border:1px solid rgba(56,189,248,0.4)">
    <strong style="color:#7dd3fc;font-size:14px">⏱️ 2. ضبط مؤقت لإرسال إشعارات في أوقات معينة تلقائياً:</strong>
@@ -944,10 +987,66 @@ async function appearanceAction(name,id,el){
   render();
   return true;
  }
+ if(name==='apply-forced-app-update'){
+  try {
+   localStorage.setItem('ts-dismissed-update-ver', storeAppearance?.forceUpdateVersion || 'v7.1.0');
+   if(navigator.serviceWorker?.controller){
+    navigator.serviceWorker.controller.postMessage({ type: 'FORCE_APP_UPDATE_NOW' });
+   }
+   if(window.caches?.keys){
+    const ks = await caches.keys();
+    await Promise.all(ks.map(k => caches.delete(k)));
+   }
+   toast('🚀 جاري تحميل أحدث ملفات وتحديثات المتجر الآن...');
+   setTimeout(() => location.reload(true), 600);
+  } catch(e){ location.reload(); }
+  return true;
+ }
+ if(name==='use-custom-ringtone'){
+  const rts = dashboard?.notificationCenter?.customRingtones || JSON.parse(localStorage.getItem('ts-custom-ringtones')||'[]');
+  const found = rts.find(x => x.id === id);
+  if(found){
+   localStorage.setItem('ts-active-custom-ringtone', found.audioData);
+   try { new Audio(found.audioData).play().catch(()=>{}); } catch(e){}
+   toast('✅ تم اعتماد النغمة المخصصة: ' + found.name);
+  }
+  return true;
+ }
+ if(name==='delete-custom-ringtone'){
+  const rts = (dashboard?.notificationCenter?.customRingtones || JSON.parse(localStorage.getItem('ts-custom-ringtones')||'[]')).filter(x => x.id !== id);
+  localStorage.setItem('ts-custom-ringtones', JSON.stringify(rts));
+  if(dashboard?.notificationCenter) dashboard.notificationCenter.customRingtones = rts;
+  if(apiBase) await request('/admin/ringtones/' + id, 'DELETE').catch(()=>{});
+  await composeNotice();
+  toast('🗑️ تم حذف المقطع الصوتي من مخزن النغمات');
+  return true;
+ }
  return false;
 }
 
 async function appearanceForm(kind,id,f,form){
+ if(kind==='upload-custom-ringtone'){
+  const fileEl = document.getElementById('custom-ringtone-file');
+  const file = fileEl?.files?.[0];
+  if(!file) throw new Error('اختر ملفاً صوتياً من هاتفك أو حاسوبك أولاً');
+  if(file.size > 2500000) throw new Error('الحد الأقصى لحجم المقطع الصوتي 2.5 ميجابايت');
+  const audioData = await new Promise((resolve, reject) => {
+   const r = new FileReader();
+   r.onload = () => resolve(r.result);
+   r.onerror = () => reject(new Error('تعذر قراءة الملف الصوتي'));
+   r.readAsDataURL(file);
+  });
+  let saved = { id:'rt_'+Date.now(), name:(f.name||file.name).trim(), audioData, createdAt:new Date().toISOString() };
+  if(apiBase){
+   saved = await request('/admin/ringtones', 'POST', { name: saved.name, audioData });
+  }
+  const rts = [saved, ...(dashboard?.notificationCenter?.customRingtones || JSON.parse(localStorage.getItem('ts-custom-ringtones')||'[]'))].slice(0, 30);
+  localStorage.setItem('ts-custom-ringtones', JSON.stringify(rts));
+  if(dashboard?.notificationCenter) dashboard.notificationCenter.customRingtones = rts;
+  await composeNotice();
+  toast('🎵 تم رفع وحفظ المقطع الصوتي بنجاح في مخزن النغمات!');
+  return true;
+ }
  if(kind==='save-notification-center-all'){
   activeChimeType = f.defaultTone || 'gold-chime';
   localStorage.setItem('ts-notification-chime', activeChimeType);
@@ -1039,7 +1138,7 @@ async function appearanceForm(kind,id,f,form){
  }
  if(kind==='appearance'){
   if(imageLoading)throw new Error('انتظر اكتمال تجهيز الصورة');
-  storeAppearance=await request('/appearance','PUT',{...storeAppearance,storeName:f.storeName,subtitle:f.subtitle,loadingTitle:f.loadingTitle||f.storeName||'التسوق',loadingSubtitle:f.loadingSubtitle||'نجهّز لك تجربة أجمل…',primary:f.primary,background:f.background,ink:f.ink,font:f.font,logo:draftLogo,announcement:f.announcement||'',announcementActive:f.announcementActive==='on'});
+  storeAppearance=await request('/appearance','PUT',{...storeAppearance,storeName:f.storeName,subtitle:f.subtitle,loadingTitle:f.loadingTitle||f.storeName||'التسوق',loadingSubtitle:f.loadingSubtitle||'نجهّز لك تجربة أجمل…',primary:f.primary,background:f.background,ink:f.ink,font:f.font,logo:draftLogo,announcement:f.announcement||'',announcementActive:f.announcementActive==='on',forceUpdateBannerEnabled:f.forceUpdateBannerEnabled==='on',forceUpdateVersion:f.forceUpdateVersion||'v7.1.0',forceUpdateMessage:f.forceUpdateMessage||'🚀 يتوفر تحديث جديد للتطبيق'});
   try {
    localStorage.setItem('ts-loading-title', f.loadingTitle||f.storeName||'التسوق');
    localStorage.setItem('ts-loading-sub', f.loadingSubtitle||'نجهّز لك تجربة أجمل…');
