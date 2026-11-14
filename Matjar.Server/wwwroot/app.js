@@ -1772,7 +1772,12 @@ function renderBannersCarousel(forPage = 'home'){
  if(cfg.enabled === false || getUiControlConfig().showHomeBanners === false) return '';
  const tPages = cfg.targetPages || ['login', 'home'];
  if(forPage !== 'home' && !tPages.includes(forPage) && !tPages.includes('all')) return '';
- const ads = filterVisibleBanners(storeBanners).filter(b => b.placement === 'Home' || b.placement === 'Both' || b.placement === 'All' || !b.placement);
+ const fallbackHomeAds = [
+  { id:'h_def_1', title:'✨ تشكيلة الفخامة الملكية — عروض حصرية وتوصيل فوري', subtitle:'أحدث الإلكترونيات، الساعات السويسرية، العطور الملكية، والأزياء الراقية', image:'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=1200&auto=format&fit=crop&q=80', badge:'👑 موسم الفخامة', direction:'right-to-left', enable3D:true, bgColor:'#064e3b', textColor:'#ffffff', bannerKind:'promo', active:true },
+  { id:'h_def_job', title:'💼 إعلان توظيف: مطلوب مشرفو مبيعات وموظفو دعم فني ومناديب توصيل', subtitle:'انضم لفريق عمل المتجر برواتب مجزية وحوافز يومية — قدّم طلبك الآن مع التحقق الفوري!', image:'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&auto=format&fit=crop&q=80', badge:'💼 وظائف شاغرة الآن', buttonText:'📝 قدّم على الوظيفة الآن', direction:'3d-cube', enable3D:true, bgColor:'#1e3a8a', textColor:'#ffffff', bannerKind:'job', jobDepartment:'الإشراف، الدعم الفني، والتوصيل', jobSalary:'راتب ثابت + عمولات فورية', active:true }
+ ];
+ const rawAds = filterVisibleBanners(storeBanners).filter(b => b.placement === 'Home' || b.placement === 'Both' || b.placement === 'All' || !b.placement);
+ const ads = rawAds.length ? rawAds : filterVisibleBanners(fallbackHomeAds);
  if(!ads.length) return '';
  return buildZeroFlicker3DCarouselHtml('home-ad-stage', ads, currentHomeAdIndex);
 }
@@ -4323,10 +4328,14 @@ async function action(name,id,el=null){
   maintenanceSettingsModal();
   return;
  }
- if(name==='admin-bypass-maintenance'){
-  window._adminBypassMaintenanceLogin = true;
-  renderAuth('login');
-  toast('🔐 أدخل بيانات الإدارة العليا للدخول والتحكم بالمتجر');
+ if(name==='admin-bypass-maintenance' || name==='open-maintenance-admin-login'){
+  maintenanceAdminLoginModal();
+  return;
+ }
+ if(name==='back-to-maintenance-screen'){
+  window._adminBypassMaintenanceLogin = false;
+  if(document.getElementById('modal')?.open) closeModal();
+  renderMaintenanceScreen();
   return;
  }
  if(name==='floating-shapes-modal'){
@@ -4742,6 +4751,11 @@ document.addEventListener('submit',async e=>{
     const expectedPass=found?.password||(found?.role==='Admin'?'583192':null);
     if(found && !found.active && (!expectedPass || f.password === expectedPass)) throw new Error('حسابك مجمد حالياً وبانتظار التنشيط والموافقة من قِبل إدارة المتجر');
     if(!found||!found.active||(expectedPass&&f.password!==expectedPass))throw new Error('بيانات الدخول غير صحيحة');
+    if((getMaintenanceConfig().enabled || window._adminBypassMaintenanceLogin || f.adminOnlyLogin === 'true') && found.role !== 'Admin'){
+     throw new Error('⛔ المتجر تحت الصيانة حالياً — الدخول من هذه البوابة مخصص لحسابات الإدارة العليا (الأدمن) فقط.');
+    }
+    window._adminBypassMaintenanceLogin = false;
+    if(document.getElementById('modal')?.open) closeModal();
     user=demoUser(found);sessionStorage.setItem('ts-demo-user',user.id);page='home';await refresh();return;
    }
   }
@@ -5539,7 +5553,17 @@ document.addEventListener('submit',async e=>{
    </div>`);
    return;
   }
-  if(kind==='login'||kind==='setup'){const tel=typeof detectDeviceTelemetry==='function'?detectDeviceTelemetry():{};const result=await request(kind==='setup'?'/setup':'/auth/'+kind,'POST',{...f,deviceId:localStorage.getItem('ts-device-id')||tel.deviceId||'',deviceModel:tel.deviceModel,platform:tel.platform,browser:tel.browser,osVersion:tel.osVersion});token=result.token;user=result.user;sessionStorage.setItem('ts-token',token);localStorage.setItem('ts-token',token);page='home';setupNeeded=false;await refresh();}
+  if(kind==='login'||kind==='setup'){
+   const tel=typeof detectDeviceTelemetry==='function'?detectDeviceTelemetry():{};
+   const result=await request(kind==='setup'?'/setup':'/auth/'+kind,'POST',{...f,deviceId:localStorage.getItem('ts-device-id')||tel.deviceId||'',deviceModel:tel.deviceModel,platform:tel.platform,browser:tel.browser,osVersion:tel.osVersion});
+   if(kind==='login' && (getMaintenanceConfig().enabled || window._adminBypassMaintenanceLogin || f.adminOnlyLogin === 'true') && result?.user?.role !== 'Admin'){
+    await fetch(apiBase + '/api/auth/logout', { method:'POST', headers:{ 'Authorization':'Bearer ' + result.token } }).catch(()=>{});
+    throw new Error('⛔ المتجر تحت الصيانة حالياً — الدخول مخصص لحسابات الإدارة العليا (الأدمن) فقط.');
+   }
+   window._adminBypassMaintenanceLogin = false;
+   if(document.getElementById('modal')?.open) closeModal();
+   token=result.token;user=result.user;sessionStorage.setItem('ts-token',token);localStorage.setItem('ts-token',token);page='home';setupNeeded=false;await refresh();
+  }
   if(kind==='connect'){const url=new URL(f.url);if(url.protocol!=='https:'&&!(url.protocol==='http:'&&['localhost','127.0.0.1'].includes(url.hostname)))throw new Error('استخدم رابط HTTPS آمنًا');const next=url.origin;const res=await fetch(next+'/api/health');if(!res.ok||(await res.json()).status!=='ok')throw new Error('هذا الرابط ليس خادم المتجر');apiBase=next;localStorage.setItem('ts-server',apiBase);demo=false;sessionStorage.removeItem('ts-demo');sessionStorage.removeItem('ts-demo-user');token='';user=null;sessionStorage.removeItem('ts-token');localStorage.removeItem('ts-token');setupNeeded=(await request('/setup')).required;closeModal();renderAuth();}
   if(kind==='checkout'){const result=await request('/orders','POST',{items:Object.entries(cart).map(([productId,qty])=>({productId,qty})),address:f.address,phone:f.phone,destination:checkoutDestination,paymentMethodId:f.paymentMethodId||'cod',currency:commerce.currency,commissionVersion:governance.commissions.version});checkoutDestination=null;cart={};saveCart();page='orders';await refresh();toast('تأكد طلبك الفاخر رقم '+result.number);if(result.paymentType&&result.paymentType!=='Cash')await paymentOrder(result.id);}
   if(kind==='product'){await request('/products'+(id?'/'+id:''),id?'PUT':'POST',{...f,price:Number(f.price),stock:Number(f.stock),active:f.active==='on'});closeModal();await refresh();toast('تم حفظ المنتج بنجاح');}
@@ -8530,14 +8554,42 @@ function renderMaintenanceScreen(){
     <div style="width:100%;height:7px;background:rgba(255,255,255,0.08);border-radius:999px;overflow:hidden;margin-bottom:22px">
      <div style="width:68%;height:100%;background:linear-gradient(90deg,#10b981,#facc15,#10b981);border-radius:999px;animation:pulse 2s infinite"></div>
     </div>
-    <div class="inline" style="justify-content:center;gap:10px">
-     <button type="button" class="btn secondary small" data-action="instant-refresh">🔄 إعادة المحاولة الآن</button>
-     <button type="button" class="btn ghost small" data-action="admin-bypass-maintenance">🔐 دخول الإدارة العليا</button>
+    <div style="display:grid;gap:10px;max-width:380px;margin:0 auto">
+     <button type="button" class="btn full" style="background:linear-gradient(135deg,#d4af37,#b45309);color:#031711;font-weight:800;font-size:14px;padding:12px 18px;border:1.5px solid #fef08a;box-shadow:0 8px 24px rgba(212,175,55,0.35)" data-action="open-maintenance-admin-login">
+      👑 دخول خاص لحسابات الإدارة العليا فقط (الأدمن)
+     </button>
+     <button type="button" class="btn secondary small full" data-action="instant-refresh">🔄 تحديث الصفحة للتحقق من انتهاء الصيانة</button>
     </div>
    </div>
   </div>
  `;
  startMaintenanceCanvasAnimation(cfg.animationStyle || 'royal-gears');
+}
+
+function maintenanceAdminLoginModal(){
+ if(user && user.role !== 'Admin'){
+  token = ''; user = null;
+  sessionStorage.removeItem('ts-token'); localStorage.removeItem('ts-token');
+ }
+ modal('👑 بوابة الدخول الخاصة للإدارة العليا (الأدمن فقط)', `
+  <form class="form" data-form="login">
+   <input type="hidden" name="adminOnlyLogin" value="true">
+   <div style="padding:12px 14px;border-radius:12px;background:rgba(212,175,55,0.14);border:1.5px solid #facc15;font-size:12.5px;color:#fef08a;line-height:1.7;text-align:right">
+    🔒 <strong>بوابة محمية للإدارة العليا فقط:</strong><br>
+    المتجر مغلق حالياً للصيانة أمام جميع الزوار والعملاء والمشرفين. يُسمح بالدخول من هذه البوابة لحسابات <b>الإدارة العليا (الأدمن) فقط</b> للتحكم في المتجر أو إعادة فتحه.
+   </div>
+   <label>اسم مستخدم الأدمن أو البريد الإلكتروني *
+    <input name="email" type="text" required autocomplete="username" dir="auto" oninput="this.value=this.value.replace(/\s+/g,'')" placeholder="أدخل اسم مستخدم الأدمن (مثال: Ahmed)">
+   </label>
+   <label>كلمة مرور الإدارة العليا *
+    <input name="password" type="password" required minlength="4" maxlength="128" autocomplete="current-password" placeholder="أدخل كلمة مرور الأدمن">
+   </label>
+   <button class="btn full" type="submit" style="background:linear-gradient(135deg,#d4af37,#eab308);color:#031711;font-weight:800;font-size:14.5px;padding:12px">
+    👑 تسجيل دخول الإدارة العليا الآن
+   </button>
+   <div class="form-error" hidden style="margin-top:8px;background:rgba(239,68,68,0.2);border:1px solid #ef4444;color:#fca5a5;padding:10px;border-radius:10px;font-size:12.5px"></div>
+  </form>
+ `);
 }
 
 function startMaintenanceCanvasAnimation(style){
