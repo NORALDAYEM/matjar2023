@@ -522,19 +522,6 @@ async function devicesView(){
   <button class="btn small danger" type="button" onclick="window._adminLiveTestPhoto=null;render();">🗑️ إخفاء</button>
  </div>` : ''}
 
- ${user.role==='Admin' ? `
- <div class="panel" style="margin:12px 0 14px;padding:14px 18px;border:1.5px solid rgba(56,189,248,0.55);background:linear-gradient(135deg,rgba(15,23,42,0.92),rgba(4,47,46,0.92));display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-  <div>
-   <strong style="color:#7dd3fc;font-size:14.5px">🗺️ التتبع المباشر لجميع الأجهزة في تطبيق خرائط قوقل (Google Maps Live):</strong>
-   <span style="display:block;color:#cbd5e1;font-size:12px;margin-top:4px">الأجهزة المرصودة بالإحداثيات: <b style="color:#4ade80">${trackedWithGps.length}</b> جهاز متصل ومربوط بالخريطة</span>
-  </div>
-  <div class="inline" style="gap:8px;flex-wrap:wrap">
-   <button class="btn small" style="background:#1a73e8;color:#fff;font-weight:bold" type="button" data-action="open-all-devices-gmaps">🚀 فتح خرائط قوقل لتتبع جميع الأجهزة مباشر من تطبيق قوقل</button>
-   <button class="btn small secondary" type="button" data-action="open-gmaps-embed-modal">🌍 عرض الخريطة الحية المدمجة</button>
-   <button class="btn small ghost" type="button" data-action="refresh-users-devices-tracking">📡 تحديث مواقع الأجهزة الآن</button>
-  </div>
- </div>` : ''}
-
  <div class="stats" style="grid-template-columns:repeat(4,1fr);margin:16px 0 24px">
   <div class="stat featured">
    <div class="label">إجمالي من حمّل وثبّت التطبيق${icon('truck',18)}</div>
@@ -1497,12 +1484,13 @@ function productCard(p,manage=false){
 
 
 /* ==========================================================================
-   DYNAMIC LUXURY ADS & BANNER CAROUSEL ENGINE (محرك لوحة الإعلانات المتحركة)
+   DYNAMIC LUXURY ADS & BANNER CAROUSEL ENGINE (ثبات تام للشاشة وتوسيط كامل)
    ========================================================================== */
 let loginAdTimer = null;
 let currentLoginAdIndex = 0;
-
+let currentHomeBannerIndex = 0;
 let topbarMiniAdIdx = 0;
+
 function renderTopbarMiniAdStrip(){
  const fallbackAds = [
   { id:'m1', title:'✨ تشكيلة الفخامة الملكية — خصومات حصرية وتوصيل فوري لباب منزلك', badge:'★ عرض خاص', image:'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=400&auto=format&fit=crop&q=80', bannerKind:'promo', linkUrl:'الكل' },
@@ -1511,27 +1499,37 @@ function renderTopbarMiniAdStrip(){
  ];
  const activeAds = (Array.isArray(storeBanners) ? storeBanners : []).filter(b => b.active);
  const list = activeAds.length ? activeAds : fallbackAds;
- const item = list[topbarMiniAdIdx % list.length];
- const isJob = item.bannerKind === 'job' || (item.title||'').includes('وظيف') || (item.title||'').includes('توظيف');
- const actAttr = isJob ? `data-action="open-job-apply-modal" data-id="${esc(item.id)}"` : `data-action="banner-click" data-id="${esc(item.linkUrl||'الكل')}"`;
+ const activeIdx = topbarMiniAdIdx % list.length;
+
  return `
- <div class="topbar-mini-ad-strip ad-fade" ${actAttr}>
-  <img class="topbar-mini-ad-thumb" src="${esc(item.image || fallbackAds[0].image)}" alt="إعلان مميز">
-  <div class="topbar-mini-ad-text">
-   <span class="badge" style="background:var(--vip-gold-gradient);color:#031711;font-size:10px;padding:3px 8px;flex-shrink:0;font-weight:800">${esc(item.badge||(isJob?'💼 وظائف':'★ مميز'))}</span>
-   <strong>${esc(item.title)}</strong>
-  </div>
-  <span class="badge Ready" style="font-size:10px;flex-shrink:0">${isJob?'📝 قدّم الآن':'اكتشف ⬅'}</span>
+ <div class="topbar-mini-ad-strip" id="topbar-mini-ad-stage">
+  ${list.map((item, idx) => {
+   const isJob = item.bannerKind === 'job' || (item.title||'').includes('وظيف') || (item.title||'').includes('توظيف');
+   const actAttr = isJob ? `data-action="open-job-apply-modal" data-id="${esc(item.id)}"` : `data-action="banner-click" data-id="${esc(item.linkUrl||'الكل')}"`;
+   const isCurrent = idx === activeIdx;
+   return `
+   <div class="topbar-mini-ad-slide ${isCurrent ? 'is-active' : ''}" data-mini-idx="${idx}" ${actAttr}>
+    <img class="topbar-mini-ad-thumb" src="${esc(item.image || fallbackAds[0].image)}" alt="إعلان مميز">
+    <div class="topbar-mini-ad-text">
+     <span class="badge" style="background:var(--vip-gold-gradient);color:#031711;font-size:10px;padding:3px 8px;flex-shrink:0;font-weight:800">${esc(item.badge||(isJob?'💼 وظائف':'★ مميز'))}</span>
+     <strong>${esc(item.title)}</strong>
+    </div>
+    <span class="badge Ready" style="font-size:10px;flex-shrink:0">${isJob?'📝 قدّم الآن':'اكتشف ⬅'}</span>
+   </div>`;
+  }).join('')}
  </div>`;
 }
+
+// تبديل الإعلان العلوي موضعياً داخل نفس الإطار الثابت دون إعادة بناء HTML أو ترميش الشاشة
 setInterval(() => {
  if(document.hidden) return;
- const slot = document.getElementById('topbar-mini-ad-slot');
- if(slot){
-  topbarMiniAdIdx++;
-  slot.innerHTML = renderTopbarMiniAdStrip();
- }
-}, 4200);
+ const stage = document.getElementById('topbar-mini-ad-stage');
+ if(!stage) return;
+ const slides = stage.querySelectorAll('.topbar-mini-ad-slide');
+ if(slides.length <= 1) return;
+ topbarMiniAdIdx = (topbarMiniAdIdx + 1) % slides.length;
+ slides.forEach((s, i) => s.classList.toggle('is-active', i === topbarMiniAdIdx));
+}, 4500);
 
 function renderLoginAdsCarousel(){
  const defaultLoginAds = [
@@ -1540,13 +1538,11 @@ function renderLoginAdsCarousel(){
  ];
  const rawAds = (Array.isArray(storeBanners) ? storeBanners : []).filter(b => b.active && (b.placement === 'Login' || b.placement === 'Both' || !b.placement));
  const ads = rawAds.length ? rawAds : defaultLoginAds;
- 
- const ad = ads[currentLoginAdIndex % ads.length];
- const isJob = ad.bannerKind === 'job' || (ad.title||'').includes('وظيف') || (ad.title||'').includes('توظيف');
- const animClass = ad.animation === 'fade' ? 'ad-fade' : ad.animation === 'zoom' ? 'ad-zoom' : 'ad-slide';
+ const activeIdx = ((currentLoginAdIndex % ads.length) + ads.length) % ads.length;
+ const jobAd = ads.find(x => x.bannerKind === 'job' || (x.title||'').includes('وظيف') || (x.title||'').includes('توظيف'));
 
  return `
- <div class="login-ads-wrapper" style="display:grid;gap:12px;max-width:440px;width:100%">
+ <div class="login-ads-wrapper">
   <div class="vip-login-motion-strip">
    <div class="vip-login-motion-card">
     <img src="https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=500&auto=format&fit=crop&q=80" alt="مقتنيات ملكية">
@@ -1561,88 +1557,118 @@ function renderLoginAdsCarousel(){
     <span>⌚ ساعات وتقنية</span>
    </div>
   </div>
-  <div class="login-ad-card ${animClass}" style="background-color:${esc(ad.bgColor||'#087e66')};color:${esc(ad.textColor||'#ffffff')};background-image:linear-gradient(rgba(2,23,17,0.35),rgba(2,17,13,0.82)),url(${esc(ad.image||'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&auto=format&fit=crop&q=80')})">
-   <div class="login-ad-content">
-    <span class="${isJob?'vip-job-ad-badge':'badge'}" style="${isJob?'margin-bottom:8px':'background:var(--vip-gold-gradient);color:#031711;font-weight:bold;margin-bottom:8px;display:inline-block'}">${esc(ad.badge||(isJob?'💼 وظائف شاغرة':'★ عرض خاص وحصري'))}</span>
-    <h2 style="font-size:19px;color:#ffffff;line-height:1.45;margin-bottom:6px">${esc(ad.title)}</h2>
-    <p style="font-size:12.5px;color:#e2e8f0;line-height:1.6;margin-bottom:10px">${esc(ad.subtitle||'')}</p>
-    ${isJob ? `
-     ${(ad.jobDepartment || ad.jobSalary) ? `<div style="font-size:11.5px;color:#fef08a;margin-bottom:10px;background:rgba(0,0,0,0.35);padding:6px 10px;border-radius:8px">📌 ${esc(ad.jobDepartment||'جميع الأقسام')} · 💰 ${esc(ad.jobSalary||'رواتب وحوافز مجزية')}</div>` : ''}
-     <button type="button" class="btn small" style="background:linear-gradient(135deg,#facc15,#eab308);color:#031711;font-weight:800" data-action="open-job-apply-modal" data-id="${esc(ad.id)}">${esc(ad.buttonText||'📝 قدّم على الوظيفة الآن')}</button>
-    ` : ''}
-   </div>
+
+  <div class="login-ad-card" id="login-ad-stage" data-active-idx="${activeIdx}">
+   ${ads.map((ad, idx) => {
+    const isJob = ad.bannerKind === 'job' || (ad.title||'').includes('وظيف') || (ad.title||'').includes('توظيف');
+    const isCurrent = idx === activeIdx;
+    return `
+    <div class="login-ad-slide ${isCurrent ? 'is-active' : ''}" data-slide-idx="${idx}" style="background-color:${esc(ad.bgColor||'#087e66')};color:${esc(ad.textColor||'#ffffff')};background-image:linear-gradient(rgba(2,23,17,0.35),rgba(2,17,13,0.85)),url('${esc(ad.image||'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&auto=format&fit=crop&q=80')}')">
+     <div class="login-ad-content">
+      <span class="${isJob?'vip-job-ad-badge':'badge'}" style="${isJob?'margin-bottom:6px':'background:var(--vip-gold-gradient);color:#031711;font-weight:bold;margin-bottom:6px;display:inline-block'}">${esc(ad.badge||(isJob?'💼 وظائف شاغرة':'★ عرض خاص وحصري'))}</span>
+      <h2>${esc(ad.title)}</h2>
+      ${ad.subtitle ? `<p>${esc(ad.subtitle)}</p>` : ''}
+      ${isJob ? `
+       <button type="button" class="btn small" style="background:linear-gradient(135deg,#facc15,#eab308);color:#031711;font-weight:800;padding:5px 12px;font-size:11.5px" data-action="open-job-apply-modal" data-id="${esc(ad.id)}">${esc(ad.buttonText||'📝 قدّم على الوظيفة الآن')}</button>
+      ` : ''}
+     </div>
+    </div>`;
+   }).join('')}
+   ${ads.length > 1 ? `
    <div class="login-ad-dots">
-    ${ads.map((_, i) => `<span class="ad-dot ${i === (currentLoginAdIndex % ads.length) ? 'active' : ''}" data-action="switch-login-ad" data-id="${i}"></span>`).join('')}
-   </div>
+    ${ads.map((_, i) => `<span class="ad-dot ${i === activeIdx ? 'active' : ''}" data-action="switch-login-ad" data-id="${i}"></span>`).join('')}
+   </div>` : ''}
   </div>
-  ${(() => {
-   const jobAd = ads.find(x => x.bannerKind === 'job' || (x.title||'').includes('وظيف') || (x.title||'').includes('توظيف'));
-   if(!jobAd || isJob) return '';
-   return `
-   <div class="panel login-job-mini-bar" style="padding:10px 12px;background:linear-gradient(135deg,rgba(30,58,138,0.88),rgba(4,25,19,0.95));border:1.5px solid #60a5fa;border-radius:14px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:nowrap">
-    <div style="flex:1;min-width:180px">
-     <span class="vip-job-ad-badge" style="margin-bottom:4px">${esc(jobAd.badge||'💼 وظائف شاغرة الآن')}</span>
-     <strong style="display:block;color:#fff;font-size:13px;margin-top:4px">${esc(jobAd.title)}</strong>
-     <small style="color:#bfdbfe;font-size:11px">${esc(jobAd.jobDepartment||'الإشراف، خدمة العملاء، والتوصيل')} · ${esc(jobAd.jobSalary||'رواتب وحوافز مجزية')}</small>
+
+  ${jobAd ? `
+   <div class="panel login-job-mini-bar" style="padding:10px 12px;background:linear-gradient(135deg,rgba(30,58,138,0.88),rgba(4,25,19,0.95));border:1.5px solid #60a5fa;border-radius:14px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:nowrap;width:100%;box-sizing:border-box">
+    <div style="flex:1;min-width:0;overflow:hidden">
+     <span class="vip-job-ad-badge" style="margin-bottom:3px">${esc(jobAd.badge||'💼 وظائف شاغرة الآن')}</span>
+     <strong style="display:block;color:#fff;font-size:12.5px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(jobAd.title)}</strong>
+     <small style="color:#bfdbfe;font-size:11px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(jobAd.jobDepartment||'الإشراف، خدمة العملاء، والتوصيل')} · ${esc(jobAd.jobSalary||'رواتب وحوافز مجزية')}</small>
     </div>
-    <button type="button" class="btn small" style="background:linear-gradient(135deg,#facc15,#eab308);color:#031711;font-weight:800" data-action="open-job-apply-modal" data-id="${esc(jobAd.id)}">${esc(jobAd.buttonText||'📝 قدّم الآن')}</button>
-   </div>`;
-  })()}
+    <button type="button" class="btn small" style="background:linear-gradient(135deg,#facc15,#eab308);color:#031711;font-weight:800;flex-shrink:0" data-action="open-job-apply-modal" data-id="${esc(jobAd.id)}">${esc(jobAd.buttonText||'📝 قدّم الآن')}</button>
+   </div>` : ''}
  </div>`;
 }
 
 function switchLoginAd(idx){
- currentLoginAdIndex = idx;
- const container = document.getElementById('login-ads-container');
- if(container){
-  container.innerHTML = renderLoginAdsCarousel();
- }
+ const stage = document.getElementById('login-ad-stage');
+ if(!stage) return;
+ const slides = stage.querySelectorAll('.login-ad-slide');
+ if(!slides.length) return;
+ currentLoginAdIndex = ((Number(idx) % slides.length) + slides.length) % slides.length;
+ stage.dataset.activeIdx = String(currentLoginAdIndex);
+ slides.forEach((s, i) => s.classList.toggle('is-active', i === currentLoginAdIndex));
+ stage.querySelectorAll('.ad-dot').forEach((d, i) => d.classList.toggle('active', i === currentLoginAdIndex));
+}
+
+function switchHomeBanner(idx){
+ const stage = document.getElementById('home-banner-stage');
+ if(!stage) return;
+ const slides = stage.querySelectorAll('.banner-card-slide');
+ if(!slides.length) return;
+ currentHomeBannerIndex = ((Number(idx) % slides.length) + slides.length) % slides.length;
+ stage.dataset.activeIdx = String(currentHomeBannerIndex);
+ slides.forEach((s, i) => s.classList.toggle('is-active', i === currentHomeBannerIndex));
+ stage.querySelectorAll('.ad-dot').forEach((d, i) => d.classList.toggle('active', i === currentHomeBannerIndex));
 }
 
 function startLoginAdTimer(){
  clearInterval(loginAdTimer);
  loginAdTimer = setInterval(() => {
-  const container = document.getElementById('login-ads-container');
-  if(container){
-   currentLoginAdIndex++;
-   container.innerHTML = renderLoginAdsCarousel();
+  if(document.hidden) return;
+  const loginStage = document.getElementById('login-ad-stage');
+  if(loginStage){
+   const slides = loginStage.querySelectorAll('.login-ad-slide');
+   if(slides.length > 1) switchLoginAd(currentLoginAdIndex + 1);
   }
- }, 4500);
+  const homeStage = document.getElementById('home-banner-stage');
+  if(homeStage){
+   const slides = homeStage.querySelectorAll('.banner-card-slide');
+   if(slides.length > 1) switchHomeBanner(currentHomeBannerIndex + 1);
+  }
+ }, 5000);
 }
+startLoginAdTimer();
 
 function renderBannersCarousel(){
  const ads = (Array.isArray(storeBanners) ? storeBanners : []).filter(b => b.active && (b.placement === 'Home' || b.placement === 'Both' || !b.placement));
  if(!ads.length) return '';
- 
+ const activeIdx = ((currentHomeBannerIndex % ads.length) + ads.length) % ads.length;
+
  return `
- <div class="banner-carousel">
-  ${ads.map(b => {
+ <div class="banner-carousel" id="home-banner-stage" data-active-idx="${activeIdx}">
+  ${ads.map((b, idx) => {
    const isJob = b.bannerKind === 'job' || (b.title||'').includes('وظيف') || (b.title||'').includes('توظيف');
-   const animClass = b.animation === 'fade' ? 'ad-fade' : b.animation === 'zoom' ? 'ad-zoom' : 'ad-slide';
+   const isCurrent = idx === activeIdx;
    return `
-   <div class="banner-card ${animClass}" style="background-color:${esc(b.bgColor)};color:${esc(b.textColor)};background-image:linear-gradient(rgba(0,0,0,0.35),rgba(0,0,0,0.78)),url(${esc(b.image||'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&auto=format&fit=crop&q=80')})">
-    <div style="z-index:2">
-     <span class="${isJob?'vip-job-ad-badge':'badge'}" style="${isJob?'margin-bottom:8px':'background:var(--vip-gold-gradient);color:#031711;font-weight:bold;margin-bottom:8px;display:inline-block'}">${esc(b.badge||(isJob?'💼 وظائف شاغرة':'★ عرض حصري'))}</span>
+   <div class="banner-card banner-card-slide ${isCurrent ? 'is-active' : ''}" data-slide-idx="${idx}" style="background-color:${esc(b.bgColor||'#087e66')};color:${esc(b.textColor||'#ffffff')};background-image:linear-gradient(rgba(0,0,0,0.35),rgba(0,0,0,0.82)),url('${esc(b.image||'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&auto=format&fit=crop&q=80')}')">
+    <div class="banner-card-inner">
+     <span class="${isJob?'vip-job-ad-badge':'badge'}" style="${isJob?'margin-bottom:6px':'background:var(--vip-gold-gradient);color:#031711;font-weight:bold;margin-bottom:6px;display:inline-block'}">${esc(b.badge||(isJob?'💼 وظائف شاغرة':'★ عرض حصري'))}</span>
      <h2>${esc(b.title)}</h2>
-     ${b.subtitle?`<p>${esc(b.subtitle)}</p>`:`''`}
-     ${isJob && (b.jobDepartment || b.jobSalary) ? `<div style="font-size:12px;color:#fef08a;margin-bottom:10px">💼 القسم: <b>${esc(b.jobDepartment||'عام')}</b> · 💰 <b>${esc(b.jobSalary||'رواتب مجزية')}</b> · ⏰ <b>${esc(b.jobType||'مرن')}</b></div>` : ''}
-     ${isJob ? `
-      <button class="btn small" style="background:linear-gradient(135deg,#facc15,#eab308);color:#031711;font-weight:800" data-action="open-job-apply-modal" data-id="${esc(b.id)}">${esc(b.buttonText||'📝 قدّم على الوظيفة الآن')}</button>
-     ` : `
-      <button class="btn small" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="banner-click" data-id="${esc(b.linkUrl||'')}">${esc(b.buttonText||'اكتشف العرض الآن')}</button>
-     `}
-     ${user?.role === 'Admin' && window._inlineQuickControls !== false ? `
-      <div class="inline" style="margin-top:8px;gap:6px">
-       <button type="button" class="btn small secondary" style="padding:4px 8px;font-size:10.5px" data-action="edit-banner" data-id="${esc(b.id)}">✏️ تعديل الإعلان</button>
-       <button type="button" class="btn small danger" style="padding:4px 8px;font-size:10.5px" data-action="delete-banner" data-id="${esc(b.id)}">🗑️ حذف الإعلان</button>
-      </div>
-     ` : ''}
+     ${b.subtitle ? `<p>${esc(b.subtitle)}</p>` : ''}
+     ${isJob && (b.jobDepartment || b.jobSalary) ? `<div style="font-size:11.5px;color:#fef08a;margin-bottom:8px">💼 القسم: <b>${esc(b.jobDepartment||'عام')}</b> · 💰 <b>${esc(b.jobSalary||'رواتب مجزية')}</b></div>` : ''}
+     <div class="inline" style="gap:6px;flex-wrap:wrap;justify-content:center">
+      ${isJob ? `
+       <button type="button" class="btn small" style="background:linear-gradient(135deg,#facc15,#eab308);color:#031711;font-weight:800" data-action="open-job-apply-modal" data-id="${esc(b.id)}">${esc(b.buttonText||'📝 قدّم على الوظيفة الآن')}</button>
+      ` : `
+       <button type="button" class="btn small" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="banner-click" data-id="${esc(b.linkUrl||'')}">${esc(b.buttonText||'اكتشف العرض الآن')}</button>
+      `}
+      ${user?.role === 'Admin' && window._inlineQuickControls !== false ? `
+       <button type="button" class="btn small secondary" style="padding:4px 8px;font-size:10.5px" data-action="edit-banner" data-id="${esc(b.id)}">✏️ تعديل</button>
+       <button type="button" class="btn small danger" style="padding:4px 8px;font-size:10.5px" data-action="delete-banner" data-id="${esc(b.id)}">🗑️ حذف</button>
+      ` : ''}
+     </div>
     </div>
    </div>`;
   }).join('')}
+  ${ads.length > 1 ? `
+  <div class="login-ad-dots banner-dots-centered">
+   ${ads.map((_, i) => `<span class="ad-dot ${i === activeIdx ? 'active' : ''}" data-action="switch-home-banner" data-id="${i}"></span>`).join('')}
+  </div>` : ''}
  </div>`;
 }
-
 function favoritesView(){
  const favProds = products.filter(p => favorites.includes(p.id));
  return `<div class="section-head">
@@ -2162,6 +2188,20 @@ function usersView(){
    <button class="btn small ${!governance?.policies?.autoApproveCustomers?'':'secondary'}" type="button" data-action="set-auto-approve" data-id="false">🛡️ بموافقة المشرفين</button>
   </div>
  </div>
+
+ 
+ ${user.role==='Admin' ? `
+ <div class="panel" style="margin:12px 0 14px;padding:14px 18px;border:1.5px solid rgba(56,189,248,0.55);background:linear-gradient(135deg,rgba(15,23,42,0.92),rgba(4,47,46,0.92));display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+  <div>
+   <strong style="color:#7dd3fc;font-size:14.5px">🗺️ التتبع المباشر لجميع الأجهزة في تطبيق خرائط قوقل (Google Maps Live):</strong>
+   <span style="display:block;color:#cbd5e1;font-size:12px;margin-top:4px">الأجهزة المرصودة بالإحداثيات: <b style="color:#4ade80">${trackedWithGps.length}</b> جهاز متصل ومربوط بالخريطة</span>
+  </div>
+  <div class="inline" style="gap:8px;flex-wrap:wrap">
+   <button class="btn small" style="background:#1a73e8;color:#fff;font-weight:bold" type="button" data-action="open-all-devices-gmaps">🚀 فتح خرائط قوقل لتتبع جميع الأجهزة مباشر من تطبيق قوقل</button>
+   <button class="btn small secondary" type="button" data-action="open-gmaps-embed-modal">🌍 عرض الخريطة الحية المدمجة</button>
+   <button class="btn small ghost" type="button" data-action="refresh-users-devices-tracking">📡 تحديث مواقع الأجهزة الآن</button>
+  </div>
+ </div>` : ''}
 
  <div class="stats" style="grid-template-columns:repeat(4,1fr);margin:16px 0 24px">
   <div class="stat"><div class="label">إجمالي الحسابات${icon('users',18)}</div><strong>${list.length}</strong><small>مستخدم مسجل في المتجر</small></div>
@@ -4368,6 +4408,8 @@ async function action(name,id,el=null){
   toast('✅ تم إظهار جميع محادثات المستخدمين');
   return;
  }
+ if(name==='switch-login-ad'){switchLoginAd(Number(id)||0);return;}
+ if(name==='switch-home-banner'){switchHomeBanner(Number(id)||0);return;}
  if(name==='banner-click'){if(id){category=id;page='home';render();$('#product-heading')?.scrollIntoView({behavior:'smooth'});}return;}
  if(name==='install-app'){installAppModal();return;}
  if(name==='trigger-pwa-install'){if(deferredInstallPrompt){deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;deferredInstallPrompt=null;closeModal();}return;}
@@ -7453,7 +7495,7 @@ async function syncPublicConfigAndAutoHeal(){
    }
    if(!user){
     const adsBox = document.getElementById('login-ads-container');
-    if(adsBox) adsBox.innerHTML = renderLoginAdsCarousel();
+    if(adsBox && !document.getElementById('login-ad-stage')) adsBox.innerHTML = renderLoginAdsCarousel();
    } else {
     render(true);
    }
