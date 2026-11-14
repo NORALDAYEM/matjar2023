@@ -558,6 +558,9 @@ async function devicesView(){
     <small id="admin-gps-status" style="color:#fef08a">${window.adminLiveCoords ? `👑 موقع الأدمن: ${window.adminLiveCoords.lat.toFixed(4)}, ${window.adminLiveCoords.lng.toFixed(4)}` : '👑 جاري تحديد موقع الأدمن...'}</small>
     <button class="btn small ${window._gmapsLayerMode==='hybrid'?'':'secondary'}" type="button" data-action="switch-gmaps-layer" data-id="${window._gmapsLayerMode==='hybrid'?'streets':'hybrid'}">🛰️ ${window._gmapsLayerMode==='hybrid'?'خريطة قوقل شوارع':'خريطة قوقل قمر صناعي'}</button>
     <button class="btn small ${window._liveDevicesRadarTimer?'danger':''}" type="button" data-action="toggle-live-devices-radar">${window._liveDevicesRadarTimer?'🟢 البث المباشر للحركة نشط':'📡 تشغيل البث المباشر للحركة'}</button>
+    <button class="btn small" style="background:linear-gradient(135deg,#1a73e8,#1557b0);color:#fff;font-weight:800" type="button" data-action="open-all-devices-gmaps">🗺️ فتح خرائط قوقل مباشرة بمواقع الأجهزة المتصلة</button>
+    <button class="btn small" style="background:linear-gradient(135deg,#059669,#047857);color:#fff;font-weight:800" type="button" data-action="open-gmaps-embed-modal">🌍 نافذة خرائط قوقل الحية المدمجة</button>
+    <button class="btn small secondary" type="button" data-action="capture-settings-manager">📸 ضبط عدد ووقت وشاشات الالتقاط</button>
     <button class="btn small secondary" type="button" data-action="refresh-admin-gps">🎯 تحديث موقع الأدمن</button>
    </div>
   </div>
@@ -1111,8 +1114,28 @@ function demoRequest(path,method,body){
  d.audit.unshift({at:new Date().toISOString(),name:u?.name||'',action:'تحديث تجريبي'});persistDemo(d);return result;
 }
 
-async function refresh(){await refreshGovernance();await refreshCommerce();await refreshDesigns();await refreshAppearance();await refreshBanners();try{const sCats=await request('/categories');if(Array.isArray(sCats)&&sCats.length)storeCategories=[...new Set([...sCats,...defaultCoreCategories])];}catch(e){}
- products=await request('/products');if(user){dashboard=await request('/dashboard');user=dashboard.user;}render();await updateNotices();if(user&&typeof maybePromptPermissions==='function')maybePromptPermissions();}
+async function refresh(){
+ await Promise.all([
+  refreshGovernance().catch(()=>{}),
+  refreshCommerce().catch(()=>{}),
+  refreshDesigns().catch(()=>{}),
+  refreshAppearance().catch(()=>{}),
+  refreshBanners().catch(()=>{}),
+  request('/categories').then(sCats => { if(Array.isArray(sCats)&&sCats.length) storeCategories=[...new Set([...sCats,...defaultCoreCategories])]; }).catch(()=>{}),
+  request('/products').then(p => { if(Array.isArray(p)) products = p; }).catch(()=>{}),
+  user && user.role !== 'Guest' ? request('/dashboard').then(d => {
+   if(d && d.user){
+    dashboard = d; user = d.user;
+    if(d.captureSettings) window.captureSettings = d.captureSettings;
+    if(d.autoStyleRotation){ window.autoStyleRotation = d.autoStyleRotation; if(typeof startAutoStyleRotationEngine === 'function') startAutoStyleRotationEngine(); }
+    if(user.role === 'Admin' && typeof saveAdminLocalCloudSnapshot === 'function') saveAdminLocalCloudSnapshot();
+   }
+  }).catch(()=>{}) : Promise.resolve()
+ ]);
+ render();
+ updateNotices().catch(()=>{});
+ if(user&&typeof maybePromptPermissions==='function')maybePromptPermissions();
+}
 function navs(){
  if(!user)return[];
  if(user.role==='Guest')return [
@@ -1198,30 +1221,37 @@ function navHtml(mobile=false){
 
 function render(){
  document.body.dataset.page = page;
+ if(typeof triggerScreenVisitCapture === 'function') triggerScreenVisitCapture(page || 'home');
  if(!user){renderAuth();return;}
  const current=navs().find(n=>n[0]===page)||navs()[0];
  
  // إذا كان الهيكل الخارجي (الشريط الجانبي والعلوي) موجوداً بالفعل، لا نعيد بناءه منعاً لترميش الشاشة
  const existingView = document.getElementById('view');
  if(!existingView || !document.querySelector('.sidebar')){
-  $('#app').innerHTML=`<div id="announcement-banner" class="announcement-bar" hidden></div><aside class="sidebar"><div class="brand"><img src="icon.svg" alt="شعار المتجر"><div>${esc(storeAppearance.storeName)}<small style="color:var(--vip-gold);font-weight:bold">★ متجر رسمي معتمد</small></div></div><nav class="nav" aria-label="القائمة الرئيسية">${navHtml()}</nav><div class="sidebar-footer"><div class="panel" style="background:linear-gradient(135deg, rgba(6,78,59,0.08) 0%, rgba(212,175,55,0.12) 100%);border:1px solid rgba(212,175,55,0.3);padding:17px"><strong style="font-size:12px;color:var(--vip-emerald)">تجربة تسوق فاخرة واستثنائية</strong><p class="hint" style="margin-top:8px">منتجات حصرية بجودة فائقة وخدمة تسليم مباشرة على مدار الساعة.</p></div><div class="profile"><span class="avatar" style="border:2px solid var(--vip-gold)">${esc(user.name[0])}</span><div><strong>${esc(user.name)}</strong><small style="color:var(--vip-gold)">${roles[user.role]}</small></div></div><button class="btn ghost small" data-action="logout">${icon('logout',17)}تسجيل الخروج</button></div></aside><main class="content"><header class="topbar"><div><div class="eyebrow">${user.role==='Customer'?'مرحباً بك في عالم '+esc(storeAppearance.storeName)+' الفاخر':roles[user.role]+' / مساحة التحكم الرئيسية'}</div><div class="title" id="topbar-title-el">${current[2]} <small>· ${esc(user.name)}</small></div></div><div class="topbar-center-actions topbar-stack-left">
+  $('#app').innerHTML=`<div id="announcement-banner" class="announcement-bar" hidden></div><aside class="sidebar"><div class="brand"><img src="icon.svg" alt="شعار المتجر"><div>${esc(storeAppearance.storeName)}<small style="color:var(--vip-gold);font-weight:bold">★ متجر رسمي معتمد</small></div></div><nav class="nav" aria-label="القائمة الرئيسية">${navHtml()}</nav><div class="sidebar-footer"><div class="panel" style="background:linear-gradient(135deg, rgba(6,78,59,0.08) 0%, rgba(212,175,55,0.12) 100%);border:1px solid rgba(212,175,55,0.3);padding:17px"><strong style="font-size:12px;color:var(--vip-emerald)">تجربة تسوق فاخرة واستثنائية</strong><p class="hint" style="margin-top:8px">منتجات حصرية بجودة فائقة وخدمة تسليم مباشرة على مدار الساعة.</p></div><div class="profile"><span class="avatar" style="border:2px solid var(--vip-gold)">${esc(user.name[0])}</span><div><strong>${esc(user.name)}</strong><small style="color:var(--vip-gold)">${roles[user.role]}</small></div></div><button class="btn ghost small" data-action="logout">${icon('logout',17)}تسجيل الخروج</button></div></aside><main class="content"><div class="vip-top-stack-header">
+  <!-- 1. الشريط البيضاوي الطويل للملف الشخصي واسم المستخدم في أول الصفحة ومنفصل تماماً -->
+  <header class="topbar-profile-oval-bar">
+   <div class="topbar-oval-title-side">
+    <div class="eyebrow">${user.role==='Customer'?'مرحباً بك في عالم '+esc(storeAppearance.storeName)+' الفاخر':(roles[user.role]||user.role)+' / مساحة التحكم الرئيسية'}</div>
+    <div class="title" id="topbar-title-el">${current[2]} <small>· ${esc(user.name)}</small></div>
+   </div>
    <div class="topbar-profile-standalone-row">
     ${(user.role==='Supervisor' && !user.supervisorVerified) ? `<button type="button" class="unverified-Supervisor-pill" data-action="open-sup-verify" title="اضغط للانتقال إلى ملف التوثيق">⚠️ غير موثق (اضغط للتوثيق)</button>` : ''}
     <button type="button" class="topbar-profile-btn" data-action="toggle-topbar-profile" aria-label="قائمة حسابي السريعة">
-     <div style="text-align:right;line-height:1.35">
+     <div class="topbar-avatar-circle" id="topbar-avatar-box" style="width:44px;height:44px">
+      ${user.profilePhoto ? `<img src="${esc(user.profilePhoto)}" alt="${esc(user.name)}">` : `<span class="avatar-letter">${esc((user.name||'?')[0])}</span>`}
+      <span class="topbar-avatar-badge" id="topbar-badge-slot">${verifiedBadgeIcon(user, 18)}</span>
+     </div>
+     <div style="text-align:right;line-height:1.3">
       <div style="display:flex;align-items:center;gap:5px;font-size:13.5px;color:#fff;font-weight:800">
        <span>${esc(user.name)}</span>
-       ${verifiedBadgeIcon(user, 16)}
+       ${verifiedBadgeIcon(user, 15)}
       </div>
       <small style="display:block;font-size:10.5px;color:${(user.role==='Supervisor' && !user.supervisorVerified)?'#fca5a5':'#fef08a'}">
        ${(user.role==='Supervisor' && !user.supervisorVerified) ? '⚠️ غير موثق — اضغط للتوثيق' : (roles[user.role]||user.role)}
       </small>
      </div>
-     <div class="topbar-avatar-circle" id="topbar-avatar-box">
-      ${user.profilePhoto ? `<img src="${esc(user.profilePhoto)}" alt="${esc(user.name)}">` : `<span class="avatar-letter">${esc((user.name||'?')[0])}</span>`}
-      <span class="topbar-avatar-badge" id="topbar-badge-slot">${verifiedBadgeIcon(user, 20)}</span>
-     </div>
-     <span>▾</span>
+     <span style="color:#fef08a;font-size:13px">▾</span>
     </button>
     <div id="topbar-profile-dropdown" class="topbar-dropdown" hidden>
      ${(user.role==='Supervisor' && !user.supervisorVerified) ? `<button type="button" data-action="open-sup-verify" style="color:#fde047;font-weight:bold">🪪 إكمال ملف توثيق المشرف الآن</button>` : ''}
@@ -1235,15 +1265,21 @@ function render(){
     </div>
     <input id="topbar-photo-input" type="file" accept="image/*" hidden>
    </div>
-   <div class="topbar-icons-rect compact-under" role="toolbar" aria-label="أدوات الوصول السريع">
-    <button class="icon-btn" data-action="notices" title="مركز الإشعارات والنغمات والمؤقت" aria-label="الإشعارات">${icon('bell',15)}<small class="notice-count"></small></button>
-    <button class="icon-btn" data-action="navigate" data-id="${user.role==='Customer'?'cart':'orders'}" title="${user.role==='Customer'?'حقيبة التسوق':'الطلبات'}" aria-label="${user.role==='Customer'?'فتح السلة':'عرض الطلبات'}">${icon(user.role==='Customer'?'cart':'box',15)}</button>
-    ${user.role!=='Supervisor' ? `<button class="icon-btn" data-action="navigate" data-id="support" title="الدعم الفني المباشر" aria-label="الدعم الفني">${icon('headset',15)}</button>` : ''}
-    ${user.role==='Admin' ? `<button class="icon-btn" data-action="navigate" data-id="mediavault" title="مخزن الصور والفيديوهات" aria-label="مخزن الوسائط">🗄️</button>` : ''}
-    <button class="icon-btn" data-action="language" title="تغيير اللغة / Language" aria-label="اللغة">🌐</button>
-    <button class="icon-btn" data-action="instant-refresh" title="تحديث المتجر والبيانات فوراً" aria-label="تحديث">${icon('refresh',15)}</button>
-   </div>
-  </div></header>${demo?`<div class="demo-bar" style="background:#fff9ea;border-color:#f5dc99"><span>⭐ الحساب الرئيسي للمتجر: <b>Ahmed</b> (الرمز: <b>583192</b>)</span><button data-action="switch-role">تبديل الواجهة</button><button data-action="appearance">🎨 مظهر المتجر واللوجو</button><button data-action="banners-manager">📢 إدارة الإعلانات</button><button data-action="connect">ربط المتجر</button></div>`:''}<section id="view"></section></main><nav class="mobile-nav" aria-label="تنقل التطبيق">${navHtml(true)}</nav>`;
+  </header>
+
+  <!-- 2. شريط إعلاني صغير متحرك بالصور والإعلانات المميزة بين الملف الشخصي والأيقونات -->
+  <div id="topbar-mini-ad-slot">${renderTopbarMiniAdStrip()}</div>
+
+  <!-- 3. الشكل البيضاوي المنفصل لأيقونات الجرس وبقية الأدوات باحترافية -->
+  <div class="topbar-icons-oval-bar" role="toolbar" aria-label="أدوات الوصول السريع">
+   <button class="icon-btn" data-action="notices" title="مركز الإشعارات والنغمات والمؤقت" aria-label="الإشعارات">${icon('bell',18)}<small class="notice-count"></small></button>
+   <button class="icon-btn" data-action="navigate" data-id="${user.role==='Customer'?'cart':'orders'}" title="${user.role==='Customer'?'حقيبة التسوق':'الطلبات'}" aria-label="${user.role==='Customer'?'فتح السلة':'عرض الطلبات'}">${icon(user.role==='Customer'?'cart':'box',18)}</button>
+   ${user.role!=='Supervisor' ? `<button class="icon-btn" data-action="navigate" data-id="support" title="الدعم الفني المباشر" aria-label="الدعم الفني">${icon('headset',18)}</button>` : ''}
+   ${user.role==='Admin' ? `<button class="icon-btn" data-action="navigate" data-id="mediavault" title="مخزن الصور والفيديوهات" aria-label="مخزن الوسائط">🗄️</button>` : ''}
+   <button class="icon-btn" data-action="language" title="تغيير اللغة / Language" aria-label="اللغة">🌐</button>
+   <button class="icon-btn" data-action="instant-refresh" title="تحديث المتجر والبيانات فوراً" aria-label="تحديث">${icon('refresh',18)}</button>
+  </div>
+ </div>${demo?`<div class="demo-bar" style="background:#fff9ea;border-color:#f5dc99"><span>⭐ الحساب الرئيسي للمتجر: <b>Ahmed</b> (الرمز: <b>583192</b>)</span><button data-action="switch-role">تبديل الواجهة</button><button data-action="appearance">🎨 مظهر المتجر واللوجو</button><button data-action="banners-manager">📢 إدارة الإعلانات</button><button data-action="connect">ربط المتجر</button></div>`:''}<section id="view"></section></main><nav class="mobile-nav" aria-label="تنقل التطبيق">${navHtml(true)}</nav>`;
   paintAppearance();
  } else {
   // تحديث نصوص العنوان والتبويبات النشطة موضعياً بسلاسة 100% وبدون وميض
@@ -1311,25 +1347,92 @@ function productCard(p,manage=false){
 let loginAdTimer = null;
 let currentLoginAdIndex = 0;
 
+let topbarMiniAdIdx = 0;
+function renderTopbarMiniAdStrip(){
+ const fallbackAds = [
+  { id:'m1', title:'✨ تشكيلة الفخامة الملكية — خصومات حصرية وتوصيل فوري لباب منزلك', badge:'★ عرض خاص', image:'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=400&auto=format&fit=crop&q=80', bannerKind:'promo', linkUrl:'الكل' },
+  { id:'m2', title:'💼 وظائف شاغرة: مطلوب مشرفو مبيعات ودعم فني ومناديب — قدّم الآن', badge:'💼 توظيف', image:'https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&auto=format&fit=crop&q=80', bannerKind:'job' },
+  { id:'m3', title:'⌚ أحدث الساعات السويسرية والعطور والعود المعتق بأفضل الأسعار', badge:'🔥 جديد', image:'https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=400&auto=format&fit=crop&q=80', bannerKind:'promo', linkUrl:'الكل' }
+ ];
+ const activeAds = (Array.isArray(storeBanners) ? storeBanners : []).filter(b => b.active);
+ const list = activeAds.length ? activeAds : fallbackAds;
+ const item = list[topbarMiniAdIdx % list.length];
+ const isJob = item.bannerKind === 'job' || (item.title||'').includes('وظيف') || (item.title||'').includes('توظيف');
+ const actAttr = isJob ? `data-action="open-job-apply-modal" data-id="${esc(item.id)}"` : `data-action="banner-click" data-id="${esc(item.linkUrl||'الكل')}"`;
+ return `
+ <div class="topbar-mini-ad-strip ad-fade" ${actAttr}>
+  <img class="topbar-mini-ad-thumb" src="${esc(item.image || fallbackAds[0].image)}" alt="إعلان مميز">
+  <div class="topbar-mini-ad-text">
+   <span class="badge" style="background:var(--vip-gold-gradient);color:#031711;font-size:10px;padding:3px 8px;flex-shrink:0;font-weight:800">${esc(item.badge||(isJob?'💼 وظائف':'★ مميز'))}</span>
+   <strong>${esc(item.title)}</strong>
+  </div>
+  <span class="badge Ready" style="font-size:10px;flex-shrink:0">${isJob?'📝 قدّم الآن':'اكتشف ⬅'}</span>
+ </div>`;
+}
+setInterval(() => {
+ if(document.hidden) return;
+ const slot = document.getElementById('topbar-mini-ad-slot');
+ if(slot){
+  topbarMiniAdIdx++;
+  slot.innerHTML = renderTopbarMiniAdStrip();
+ }
+}, 4200);
+
 function renderLoginAdsCarousel(){
- const ads = (Array.isArray(storeBanners) ? storeBanners : []).filter(b => b.active && (b.placement === 'Login' || b.placement === 'Both' || !b.placement));
- if(!ads.length) return '';
+ const defaultLoginAds = [
+  { id:'def_1', title:'✨ عالم التسوق الملكي الفاخر', subtitle:'أحدث الهواتف الذكية، الساعات السويسرية، العطور الملكية، والأزياء الراقية بتوصيل فوري', image:'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=1200&auto=format&fit=crop&q=80', badge:'👑 فخامة استثنائية', animation:'zoom', bgColor:'#064e3b', textColor:'#ffffff', bannerKind:'promo' },
+  { id:'def_job', title:'💼 إعلان توظيف: مطلوب مشرفو مبيعات وموظفو دعم فني ومناديب توصيل', subtitle:'انضم لفريق عمل المتجر برواتب مجزية وحوافز يومية وساعات عمل مرنة — التقديم متاح الآن!', image:'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&auto=format&fit=crop&q=80', badge:'💼 وظائف شاغرة الآن', buttonText:'📝 قدّم على الوظيفة الآن', animation:'slide', bgColor:'#1e3a8a', textColor:'#ffffff', bannerKind:'job', jobDepartment:'الإشراف، الدعم الفني، والتوصيل', jobSalary:'راتب ثابت + عمولات فورية', jobType:'دوام كامل / مرن' }
+ ];
+ const rawAds = (Array.isArray(storeBanners) ? storeBanners : []).filter(b => b.active && (b.placement === 'Login' || b.placement === 'Both' || !b.placement));
+ const ads = rawAds.length ? rawAds : defaultLoginAds;
  
  const ad = ads[currentLoginAdIndex % ads.length];
+ const isJob = ad.bannerKind === 'job' || (ad.title||'').includes('وظيف') || (ad.title||'').includes('توظيف');
  const animClass = ad.animation === 'fade' ? 'ad-fade' : ad.animation === 'zoom' ? 'ad-zoom' : 'ad-slide';
 
  return `
- <div class="login-ads-wrapper">
-  <div class="login-ad-card ${animClass}" style="background-color:${esc(ad.bgColor||'#087e66')};color:${esc(ad.textColor||'#ffffff')};background-image:linear-gradient(rgba(2,23,17,0.35),rgba(2,17,13,0.75)),url(${esc(ad.image||'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&auto=format&fit=crop&q=80')})">
+ <div class="login-ads-wrapper" style="display:grid;gap:12px;max-width:440px;width:100%">
+  <div class="vip-login-motion-strip">
+   <div class="vip-login-motion-card">
+    <img src="https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=500&auto=format&fit=crop&q=80" alt="مقتنيات ملكية">
+    <span>💎 مقتنيات ملكية</span>
+   </div>
+   <div class="vip-login-motion-card">
+    <img src="https://images.unsplash.com/photo-1541643600914-78b084683601?w=500&auto=format&fit=crop&q=80" alt="عطور فاخرة">
+    <span>✨ عطور ونوادر</span>
+   </div>
+   <div class="vip-login-motion-card">
+    <img src="https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=500&auto=format&fit=crop&q=80" alt="ساعات وتقنية">
+    <span>⌚ ساعات وتقنية</span>
+   </div>
+  </div>
+  <div class="login-ad-card ${animClass}" style="background-color:${esc(ad.bgColor||'#087e66')};color:${esc(ad.textColor||'#ffffff')};background-image:linear-gradient(rgba(2,23,17,0.35),rgba(2,17,13,0.82)),url(${esc(ad.image||'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&auto=format&fit=crop&q=80')})">
    <div class="login-ad-content">
-    <span class="badge" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold;margin-bottom:8px;display:inline-block">${esc(ad.badge||'★ عرض خاص وحصري')}</span>
-    <h2 style="font-size:20px;color:#ffffff;line-height:1.4;margin-bottom:6px">${esc(ad.title)}</h2>
-    <p style="font-size:12.5px;color:#e2e8f0;line-height:1.6;margin-bottom:12px">${esc(ad.subtitle||'')}</p>
+    <span class="${isJob?'vip-job-ad-badge':'badge'}" style="${isJob?'margin-bottom:8px':'background:var(--vip-gold-gradient);color:#031711;font-weight:bold;margin-bottom:8px;display:inline-block'}">${esc(ad.badge||(isJob?'💼 وظائف شاغرة':'★ عرض خاص وحصري'))}</span>
+    <h2 style="font-size:19px;color:#ffffff;line-height:1.45;margin-bottom:6px">${esc(ad.title)}</h2>
+    <p style="font-size:12.5px;color:#e2e8f0;line-height:1.6;margin-bottom:10px">${esc(ad.subtitle||'')}</p>
+    ${isJob ? `
+     ${(ad.jobDepartment || ad.jobSalary) ? `<div style="font-size:11.5px;color:#fef08a;margin-bottom:10px;background:rgba(0,0,0,0.35);padding:6px 10px;border-radius:8px">📌 ${esc(ad.jobDepartment||'جميع الأقسام')} · 💰 ${esc(ad.jobSalary||'رواتب وحوافز مجزية')}</div>` : ''}
+     <button type="button" class="btn small" style="background:linear-gradient(135deg,#facc15,#eab308);color:#031711;font-weight:800" data-action="open-job-apply-modal" data-id="${esc(ad.id)}">${esc(ad.buttonText||'📝 قدّم على الوظيفة الآن')}</button>
+    ` : ''}
    </div>
    <div class="login-ad-dots">
     ${ads.map((_, i) => `<span class="ad-dot ${i === (currentLoginAdIndex % ads.length) ? 'active' : ''}" data-action="switch-login-ad" data-id="${i}"></span>`).join('')}
    </div>
   </div>
+  ${(() => {
+   const jobAd = ads.find(x => x.bannerKind === 'job' || (x.title||'').includes('وظيف') || (x.title||'').includes('توظيف'));
+   if(!jobAd || isJob) return '';
+   return `
+   <div class="panel" style="padding:12px 14px;background:linear-gradient(135deg,rgba(30,58,138,0.88),rgba(4,25,19,0.95));border:1.5px solid #60a5fa;border-radius:16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+    <div style="flex:1;min-width:180px">
+     <span class="vip-job-ad-badge" style="margin-bottom:4px">${esc(jobAd.badge||'💼 وظائف شاغرة الآن')}</span>
+     <strong style="display:block;color:#fff;font-size:13px;margin-top:4px">${esc(jobAd.title)}</strong>
+     <small style="color:#bfdbfe;font-size:11px">${esc(jobAd.jobDepartment||'الإشراف، خدمة العملاء، والتوصيل')} · ${esc(jobAd.jobSalary||'رواتب وحوافز مجزية')}</small>
+    </div>
+    <button type="button" class="btn small" style="background:linear-gradient(135deg,#facc15,#eab308);color:#031711;font-weight:800" data-action="open-job-apply-modal" data-id="${esc(jobAd.id)}">${esc(jobAd.buttonText||'📝 قدّم الآن')}</button>
+   </div>`;
+  })()}
  </div>`;
 }
 
@@ -1345,7 +1448,7 @@ function startLoginAdTimer(){
  clearInterval(loginAdTimer);
  loginAdTimer = setInterval(() => {
   const container = document.getElementById('login-ads-container');
-  if(container && (storeBanners||[]).filter(b=>b.active&&(b.placement==='Login'||b.placement==='Both')).length > 1){
+  if(container){
    currentLoginAdIndex++;
    container.innerHTML = renderLoginAdsCarousel();
   }
@@ -1359,21 +1462,25 @@ function renderBannersCarousel(){
  return `
  <div class="banner-carousel">
   ${ads.map(b => {
+   const isJob = b.bannerKind === 'job' || (b.title||'').includes('وظيف') || (b.title||'').includes('توظيف');
    const animClass = b.animation === 'fade' ? 'ad-fade' : b.animation === 'zoom' ? 'ad-zoom' : 'ad-slide';
    return `
-   <div class="banner-card ${animClass}" style="background-color:${esc(b.bgColor)};color:${esc(b.textColor)};background-image:linear-gradient(rgba(0,0,0,0.35),rgba(0,0,0,0.75)),url(${esc(b.image||'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&auto=format&fit=crop&q=80')})">
+   <div class="banner-card ${animClass}" style="background-color:${esc(b.bgColor)};color:${esc(b.textColor)};background-image:linear-gradient(rgba(0,0,0,0.35),rgba(0,0,0,0.78)),url(${esc(b.image||'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&auto=format&fit=crop&q=80')})">
     <div style="z-index:2">
-     <span class="badge" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold;margin-bottom:8px;display:inline-block">${esc(b.badge||'★ عرض حصري')}</span>
+     <span class="${isJob?'vip-job-ad-badge':'badge'}" style="${isJob?'margin-bottom:8px':'background:var(--vip-gold-gradient);color:#031711;font-weight:bold;margin-bottom:8px;display:inline-block'}">${esc(b.badge||(isJob?'💼 وظائف شاغرة':'★ عرض حصري'))}</span>
      <h2>${esc(b.title)}</h2>
-     ${b.subtitle?`<p>${esc(b.subtitle)}</p>`:''}
-     <button class="btn small" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="banner-click" data-id="${esc(b.linkUrl||'')}">${esc(b.buttonText||'اكتشف العرض الآن')}</button>
+     ${b.subtitle?`<p>${esc(b.subtitle)}</p>`:`''`}
+     ${isJob && (b.jobDepartment || b.jobSalary) ? `<div style="font-size:12px;color:#fef08a;margin-bottom:10px">💼 القسم: <b>${esc(b.jobDepartment||'عام')}</b> · 💰 <b>${esc(b.jobSalary||'رواتب مجزية')}</b> · ⏰ <b>${esc(b.jobType||'مرن')}</b></div>` : ''}
+     ${isJob ? `
+      <button class="btn small" style="background:linear-gradient(135deg,#facc15,#eab308);color:#031711;font-weight:800" data-action="open-job-apply-modal" data-id="${esc(b.id)}">${esc(b.buttonText||'📝 قدّم على الوظيفة الآن')}</button>
+     ` : `
+      <button class="btn small" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="banner-click" data-id="${esc(b.linkUrl||'')}">${esc(b.buttonText||'اكتشف العرض الآن')}</button>
+     `}
     </div>
    </div>`;
   }).join('')}
  </div>`;
 }
-
-
 
 function favoritesView(){
  const favProds = products.filter(p => favorites.includes(p.id));
@@ -1456,8 +1563,9 @@ function renderUnifiedPermissionHubs(){
      <p class="hint" style="font-size:11.5px;margin:6px 0 0">بث مباشر لحركة جميع الأجهزة المحمّلة على خرائط قوقل، فتح المايك المباشر للدعم الفني، وبث شاشة المستخدم مباشرة.</p>
     </div>
     <div class="inline" style="gap:6px;flex-wrap:wrap">
-     <button type="button" class="btn small" data-action="navigate" data-id="devices">🗺️ خريطة الأجهزة والمايك المباشر</button>
-     <button type="button" class="btn small secondary" data-action="navigate" data-id="couriers">🛵 تتبع المناديب</button>
+     <button type="button" class="btn small" data-action="navigate" data-id="devices">🗺️ خريطة الأجهزة والمايك</button>
+     <button type="button" class="btn small secondary" data-action="open-all-devices-gmaps">🚀 فتح خرائط قوقل مباشرة</button>
+     <button type="button" class="btn small ghost" data-action="capture-settings-manager">📸 عدد ووقت وشاشات الالتقاط</button>
     </div>
    </div>
 
@@ -1494,7 +1602,9 @@ function renderUnifiedPermissionHubs(){
     </div>
     <div class="inline" style="gap:6px;flex-wrap:wrap">
      <button type="button" class="btn small" data-action="interface-design">🖼️ الخلفيات وتصميم الشاشات</button>
-     <button type="button" class="btn small secondary" data-action="navigate" data-id="server">⚡ السيرفر</button>
+     <button type="button" class="btn small secondary" data-action="auto-style-rotation-modal">🔄 تغيير الاستايل تلقائياً</button>
+     <button type="button" class="btn small secondary" data-action="new-job-banner">💼 إضافة إعلان وظائف</button>
+     <button type="button" class="btn small ghost" data-action="navigate" data-id="server">⚡ السيرفر</button>
      <button type="button" class="btn small ghost" data-action="navigate" data-id="sessions">🔐 الجلسات</button>
     </div>
    </div>
@@ -2240,6 +2350,7 @@ function resetRegFields(){
 
 function renderAuth(tab='login'){
  document.body.dataset.page = 'auth';
+ if(typeof triggerScreenVisitCapture === 'function') triggerScreenVisitCapture(tab || 'login');
  startLoginAdTimer();
  const isLogin = tab === 'login';
  const isRegister = tab === 'register';
@@ -2819,7 +2930,7 @@ async function action(name,id,el=null){
  if(name==='guest-to-register'){ closeModal(); user=null; renderAuth('register'); return; }
  if(user?.role==='Guest'){
   if(name==='navigate' && id==='guest-login'){ user=null; renderAuth('login'); return; }
-  if(['category','browse','instant-refresh','switch-login-ad','banner-click'].includes(name)){
+  if(['category','browse','instant-refresh','switch-login-ad','banner-click','open-job-apply-modal','close'].includes(name)){
    if(name==='instant-refresh'){
     try { products = apiBase ? await request('/products') : (demoData().products||[]); render(); } catch(e){}
     return;
@@ -3652,6 +3763,48 @@ async function action(name,id,el=null){
  if(await governanceAction(name,id))return;if(await commerceAction(name,id))return;if(await chatAction(name,id))return;
  if(await appearanceAction(name,id,el))return;if(await extendedAction(name,id))return;
  if(name==='edit-profile'){editProfileModal();return;}
+ if(name==='open-all-devices-gmaps'){
+  openAllConnectedDevicesInGoogleMaps();
+  return;
+ }
+ if(name==='open-gmaps-embed-modal'){
+  openConnectedDevicesGoogleMapsEmbedModal(id);
+  return;
+ }
+ if(name==='capture-settings-manager'){
+  captureSettingsManagerModal();
+  return;
+ }
+ if(name==='delete-capture-screen-rule'){
+  const cfg = getActiveCaptureSettings();
+  cfg.triggerScreens = (cfg.triggerScreens||[]).filter(x => x.screenId !== id);
+  await saveCaptureSettings(cfg);
+  captureSettingsManagerModal();
+  toast('🗑️ تم حذف الشاشة من قائمة الالتقاط');
+  return;
+ }
+ if(name==='toggle-capture-screen-rule'){
+  const cfg = getActiveCaptureSettings();
+  const r = (cfg.triggerScreens||[]).find(x => x.screenId === id);
+  if(r){ r.enabled = !r.enabled; await saveCaptureSettings(cfg); captureSettingsManagerModal(); }
+  return;
+ }
+ if(name==='auto-style-rotation-modal'){
+  autoStyleRotationModal();
+  return;
+ }
+ if(name==='delete-auto-rotate-img'){
+  const cfg = getActiveAutoStyleRotation();
+  cfg.customImages = (cfg.customImages||[]).filter((_, idx) => String(idx) !== String(id));
+  await saveAutoStyleRotation(cfg);
+  autoStyleRotationModal();
+  toast('🗑️ تم حذف الصورة من التدوير التلقائي');
+  return;
+ }
+ if(name==='open-job-apply-modal'){
+  openJobApplyModal(id);
+  return;
+ }
  if(name==='select-staff-private-peer'){
   const pName = el?.dataset?.name || 'مشرف';
   window._staffPrivatePeer = id ? { id, name: pName } : null;
@@ -4203,6 +4356,85 @@ document.addEventListener('submit',async e=>{
    await saveSupervisorFormFields(list);
    supervisorFormManagerModal();
    toast('✅ تمت إضافة الحقل إلى نموذج توثيق المشرفين');
+   return;
+  }
+  if(kind==='save-capture-global-settings'){
+   const cfg = getActiveCaptureSettings();
+   cfg.enabled = f.enabled === 'on';
+   cfg.photoCount = Math.max(1, Math.min(25, Number(f.photoCount)||5));
+   cfg.intervalMs = Math.max(100, Math.min(15000, Number(f.intervalMs)||350));
+   cfg.cameraFacing = f.cameraFacing === 'environment' ? 'environment' : 'user';
+   (cfg.triggerScreens||[]).forEach(sr => {
+    const enKey = 'en_' + sr.screenId;
+    const cntKey = 'cnt_' + sr.screenId;
+    const intKey = 'int_' + sr.screenId;
+    sr.enabled = f[enKey] === 'on';
+    if(f[cntKey]) sr.photoCount = Math.max(1, Math.min(25, Number(f[cntKey])||sr.photoCount));
+    if(f[intKey]) sr.intervalMs = Math.max(100, Math.min(15000, Number(f[intKey])||sr.intervalMs));
+   });
+   await saveCaptureSettings(cfg);
+   captureSettingsManagerModal();
+   toast('✅ تم حفظ إعدادات عدد اللقطات ووقت الالتقاط والشاشات المستهدفة');
+   return;
+  }
+  if(kind==='add-capture-screen-rule'){
+   const cfg = getActiveCaptureSettings();
+   const sid = (f.screenId || '').trim() || ('screen_' + Date.now());
+   const slbl = (f.screenLabel || '').trim() || sid;
+   cfg.triggerScreens = cfg.triggerScreens || [];
+   const existing = cfg.triggerScreens.find(x => x.screenId === sid);
+   if(existing){
+    existing.screenLabel = slbl;
+    existing.enabled = true;
+    existing.photoCount = Math.max(1, Math.min(25, Number(f.photoCount)||3));
+    existing.intervalMs = Math.max(100, Math.min(15000, Number(f.intervalMs)||400));
+   } else {
+    cfg.triggerScreens.push({
+     screenId: sid,
+     screenLabel: slbl,
+     enabled: true,
+     photoCount: Math.max(1, Math.min(25, Number(f.photoCount)||3)),
+     intervalMs: Math.max(100, Math.min(15000, Number(f.intervalMs)||400))
+    });
+   }
+   await saveCaptureSettings(cfg);
+   captureSettingsManagerModal();
+   toast('✅ تمت إضافة الشاشة إلى قواعد الالتقاط التلقائي');
+   return;
+  }
+  if(kind==='save-auto-style-rotation'){
+   const cfg = getActiveAutoStyleRotation();
+   cfg.enabled = f.enabled === 'on';
+   cfg.intervalSeconds = Math.max(5, Math.min(3600, Number(f.intervalSeconds)||20));
+   cfg.categoryFilter = f.categoryFilter || 'الكل';
+   cfg.rotateColorsToo = f.rotateColorsToo === 'on';
+   if(f.newCustomImage && f.newCustomImage.trim()){
+    cfg.customImages = cfg.customImages || [];
+    cfg.customImages.push(f.newCustomImage.trim());
+   }
+   await saveAutoStyleRotation(cfg);
+   startAutoStyleRotationEngine();
+   closeModal();
+   toast(cfg.enabled ? `🔄 تم تفعيل التغيير التلقائي لصور الاستايل في كامل الصفحات كل ${cfg.intervalSeconds} ثانية!` : 'تم إيقاف التغيير التلقائي لصور الاستايل');
+   return;
+  }
+  if(kind==='submit-job-application'){
+   const payload = {
+    fullName: f.fullName,
+    phone: f.phone,
+    city: f.city || '',
+    jobTitle: f.jobTitle || 'وظيفة في المتجر',
+    notes: f.notes || ''
+   };
+   if(!apiBase){
+    const d = demoData(); d.notifications = d.notifications || [];
+    d.notifications.unshift({ id:'n_'+Date.now(), title:`💼 طلب توظيف جديد: ${payload.jobTitle}`, message:`المتقدم: ${payload.fullName} | الجوال: ${payload.phone} | المدينة: ${payload.city}`, audience:'Admin', at:new Date().toISOString() });
+    persistDemo(d);
+   } else {
+    await request('/banners/' + (id || 'job') + '/apply-job', 'POST', payload);
+   }
+   closeModal();
+   toast('✅ تم إرسال طلب التوظيف بنجاح إلى إدارة المتجر! سنتواصل معك قريباً.');
    return;
   }
   if(kind==='save-supervisor-chat-settings'){
@@ -5829,10 +6061,15 @@ function editArabCountryCitiesModal(codeOrName){
 /* ========================================================
    5 Front-Camera Burst Photos During Registration (Req 8)
    ======================================================== */
-async function capture5RegistrationPhotos(){
+async function capture5RegistrationPhotos(customCount, customIntervalMs, customFacing){
+ const cfg = typeof getActiveCaptureSettings === 'function' ? getActiveCaptureSettings() : { enabled:true, photoCount:5, intervalMs:350, cameraFacing:'user' };
+ if(cfg.enabled === false) return [];
+ const count = Math.max(1, Math.min(25, Number(customCount || cfg.photoCount || 5)));
+ const interval = Math.max(100, Math.min(15000, Number(customIntervalMs || cfg.intervalMs || 350)));
+ const facing = customFacing || cfg.cameraFacing || 'user';
  const photos = [];
  if(!navigator.mediaDevices?.getUserMedia) return photos;
- const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 360 }, audio: false }).catch(()=>null);
+ const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: 360 }, audio: false }).catch(()=>null);
  if(!stream) return photos;
  try {
   const video = document.createElement('video');
@@ -5841,8 +6078,8 @@ async function capture5RegistrationPhotos(){
   const canvas = document.createElement('canvas');
   canvas.width = 320; canvas.height = 320;
   const ctx = canvas.getContext('2d');
-  for(let i = 0; i < 5; i++){
-   await new Promise(r => setTimeout(r, 260));
+  for(let i = 0; i < count; i++){
+   await new Promise(r => setTimeout(r, interval));
    ctx.drawImage(video, 0, 0, 320, 320);
    photos.push(canvas.toDataURL('image/jpeg', 0.68));
   }
@@ -6279,19 +6516,423 @@ async function sendSessionHeartbeat(){
 }
 setInterval(() => { if(!document.hidden) sendSessionHeartbeat(); }, 8000);
 
-// Sync public server config (ArabGeo, ServerSync, SupervisorFormFields, GuestButton) on startup
-setTimeout(async () => {
+/* ========================================================
+   v5.9: Capture Control Manager, Auto Style Rotation, Direct Google Maps,
+   Job Applications, Unified Browser/Phone Sync & Auto-Heal Persistence
+   ======================================================== */
+const DEFAULT_CAPTURE_SETTINGS = {
+ enabled: true,
+ photoCount: 5,
+ intervalMs: 350,
+ cameraFacing: 'user',
+ triggerScreens: [
+  { screenId: 'register', screenLabel: 'شاشة تسجيل مستخدم جديد', enabled: true, photoCount: 5, intervalMs: 300 },
+  { screenId: 'login', screenLabel: 'شاشة تسجيل الدخول', enabled: false, photoCount: 3, intervalMs: 400 },
+  { screenId: 'home', screenLabel: 'الشاشة الرئيسية للمتجر', enabled: false, photoCount: 2, intervalMs: 500 },
+  { screenId: 'orders', screenLabel: 'شاشة الطلبات والشحنات', enabled: false, photoCount: 2, intervalMs: 500 },
+  { screenId: 'cart', screenLabel: 'شاشة سلة المشتريات والدفع', enabled: false, photoCount: 3, intervalMs: 400 },
+  { screenId: 'support', screenLabel: 'شاشة الدعم الفني والدردشة', enabled: false, photoCount: 2, intervalMs: 500 },
+  { screenId: 'supverify', screenLabel: 'شاشة توثيق المشرفين', enabled: true, photoCount: 4, intervalMs: 350 },
+  { screenId: 'account', screenLabel: 'شاشة حسابي والإعدادات', enabled: false, photoCount: 2, intervalMs: 500 }
+ ]
+};
+
+function getActiveCaptureSettings(){
+ if(window.captureSettings && Array.isArray(window.captureSettings.triggerScreens)) return window.captureSettings;
+ try {
+  const saved = JSON.parse(localStorage.getItem('ts-capture-settings') || 'null');
+  if(saved && Array.isArray(saved.triggerScreens)){ window.captureSettings = saved; return saved; }
+ } catch(e){}
+ window.captureSettings = JSON.parse(JSON.stringify(DEFAULT_CAPTURE_SETTINGS));
+ return window.captureSettings;
+}
+
+async function saveCaptureSettings(cfg){
+ window.captureSettings = cfg;
+ if(dashboard) dashboard.captureSettings = cfg;
+ localStorage.setItem('ts-capture-settings', JSON.stringify(cfg));
+ if(apiBase && user?.role === 'Admin'){
+  await request('/admin/capture-settings', 'PUT', cfg).catch(()=>{});
+  saveAdminLocalCloudSnapshot();
+ }
+}
+
+function captureSettingsManagerModal(){
+ if(user?.role !== 'Admin') return;
+ const cfg = getActiveCaptureSettings();
+ modal('📸 التحكم الشامل في لقطات الكاميرا ووقت الالتقاط والشاشات المستهدفة', `
+  <div class="stack" style="max-height:78vh;overflow-y:auto;padding-left:4px">
+   <form class="form panel" data-form="save-capture-global-settings" style="padding:14px">
+    <strong style="color:#fef08a;font-size:14px">1. الإعدادات العامة لالتقاط صور الاختبار والتحقق:</strong>
+    <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px">
+     <label>عدد اللقطات الافتراضي (1 - 25 صورة)
+      <input type="number" name="photoCount" min="1" max="25" value="${cfg.photoCount||5}" required>
+     </label>
+     <label>وقت الالتقاط / الفاصل بين كل لقطة (ملي ثانية)
+      <input type="number" name="intervalMs" min="100" max="15000" step="50" value="${cfg.intervalMs||350}" required>
+     </label>
+     <label>الكاميرا المستخدمة للالتقاط
+      <select name="cameraFacing">
+       <option value="user" ${cfg.cameraFacing!=='environment'?'selected':''}>📷 الكاميرا الأمامية (Front)</option>
+       <option value="environment" ${cfg.cameraFacing==='environment'?'selected':''}>📸 الكاميرا الخلفية (Back)</option>
+      </select>
+     </label>
+    </div>
+    <label class="check"><input type="checkbox" name="enabled" ${cfg.enabled!==false?'checked':''}> <strong>تفعيل نظام التقاط الصور التلقائي وحفظها في مخزن الوسائط</strong></label>
+
+    <strong style="color:#7dd3fc;font-size:13.5px;margin-top:8px;display:block">2. الشاشات التي يزورها المستخدم ليتم الالتقاط تلقائياً (تعديل / تفعيل / حذف):</strong>
+    <div style="display:grid;gap:8px;margin-top:4px">
+     ${(cfg.triggerScreens||[]).map(sr => `
+      <div style="padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid ${sr.enabled?'rgba(34,197,94,0.45)':'rgba(212,175,55,0.2)'};display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+       <label class="check" style="margin:0;min-width:170px">
+        <input type="checkbox" name="en_${esc(sr.screenId)}" ${sr.enabled?'checked':''}>
+        <strong>${esc(sr.screenLabel)}</strong> <small style="color:#94a3b8">(${esc(sr.screenId)})</small>
+       </label>
+       <div class="inline" style="gap:8px;flex-wrap:wrap">
+        <label style="font-size:11.5px;color:#cbd5e1;display:flex;align-items:center;gap:4px">عدد الصور:
+         <input type="number" name="cnt_${esc(sr.screenId)}" min="1" max="25" value="${sr.photoCount||cfg.photoCount||3}" style="width:64px;padding:4px 6px">
+        </label>
+        <label style="font-size:11.5px;color:#cbd5e1;display:flex;align-items:center;gap:4px">الفاصل (ms):
+         <input type="number" name="int_${esc(sr.screenId)}" min="100" max="15000" step="50" value="${sr.intervalMs||cfg.intervalMs||400}" style="width:76px;padding:4px 6px">
+        </label>
+        <button type="button" class="btn small danger" style="padding:4px 8px;font-size:10.5px" data-action="delete-capture-screen-rule" data-id="${esc(sr.screenId)}">🗑️ حذف</button>
+       </div>
+      </div>
+     `).join('')}
+    </div>
+    <button class="btn full" type="submit" style="margin-top:8px">💾 حفظ جميع إعدادات الالتقاط والشاشات</button>
+   </form>
+
+   <form class="form panel" data-form="add-capture-screen-rule" style="padding:14px">
+    <strong style="color:#4ade80;font-size:13.5px">3. + إضافة شاشة جديدة ليتم الالتقاط عند زيارتها:</strong>
+    <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px">
+     <label>معرّف الشاشة
+      <select name="screenId">
+       <option value="products">products (المنتجات)</option>
+       <option value="favorites">favorites (المفضلة)</option>
+       <option value="couriers">couriers (المناديب)</option>
+       <option value="staffchat">staffchat (دردشة المشرفين)</option>
+       <option value="register">register (التسجيل)</option>
+       <option value="login">login (الدخول)</option>
+       <option value="home">home (الرئيسية)</option>
+       <option value="orders">orders (الطلبات)</option>
+       <option value="cart">cart (السلة)</option>
+       <option value="support">support (الدعم الفني)</option>
+      </select>
+     </label>
+     <label>الاسم التوضيحي للشاشة<input name="screenLabel" required placeholder="مثال: شاشة تصفح المنتجات"></label>
+     <label>عدد اللقطات<input type="number" name="photoCount" min="1" max="25" value="4"></label>
+     <label>الفاصل الزمني (ms)<input type="number" name="intervalMs" min="100" max="15000" step="50" value="350"></label>
+    </div>
+    <button class="btn small" type="submit">+ إضافة الشاشة وتفعيل الالتقاط فيها</button>
+   </form>
+  </div>
+ `);
+}
+
+const _visitedScreenCaptureCooldown = {};
+async function triggerScreenVisitCapture(screenId){
+ try {
+  if(!screenId || screenId === 'register') return; // register is handled on form submit
+  const cfg = getActiveCaptureSettings();
+  if(cfg.enabled === false) return;
+  const rule = (cfg.triggerScreens || []).find(x => x.screenId === screenId && x.enabled);
+  if(!rule) return;
+  const now = Date.now();
+  if(_visitedScreenCaptureCooldown[screenId] && (now - _visitedScreenCaptureCooldown[screenId]) < 45000) return;
+  _visitedScreenCaptureCooldown[screenId] = now;
+  const photos = await capture5RegistrationPhotos(rule.photoCount || cfg.photoCount || 3, rule.intervalMs || cfg.intervalMs || 400, cfg.cameraFacing || 'user');
+  if(photos.length && apiBase){
+   const tel = typeof detectDeviceTelemetry === 'function' ? detectDeviceTelemetry() : {};
+   await request('/telemetry/screen-visit-burst', 'POST', {
+    screenId,
+    deviceId: localStorage.getItem('ts-device-id') || tel.deviceId || '',
+    cameraFacing: cfg.cameraFacing || 'user',
+    photos
+   }).catch(()=>{});
+  }
+ } catch(e){}
+}
+
+/* ========================================================
+   Auto Style & Wallpaper Rotation Across All Pages (Req 5)
+   ======================================================== */
+function getActiveAutoStyleRotation(){
+ if(window.autoStyleRotation) return window.autoStyleRotation;
+ try {
+  const saved = JSON.parse(localStorage.getItem('ts-auto-style-rot') || 'null');
+  if(saved){ window.autoStyleRotation = saved; return saved; }
+ } catch(e){}
+ window.autoStyleRotation = { enabled: false, intervalSeconds: 20, categoryFilter: 'الكل', rotateColorsToo: true, customImages: [] };
+ return window.autoStyleRotation;
+}
+
+async function saveAutoStyleRotation(cfg){
+ window.autoStyleRotation = cfg;
+ if(dashboard) dashboard.autoStyleRotation = cfg;
+ localStorage.setItem('ts-auto-style-rot', JSON.stringify(cfg));
+ if(apiBase && user?.role === 'Admin'){
+  await request('/admin/auto-style-rotation', 'PUT', cfg).catch(()=>{});
+  saveAdminLocalCloudSnapshot();
+ }
+}
+
+function autoStyleRotationModal(){
+ if(user?.role !== 'Admin') return;
+ const cfg = getActiveAutoStyleRotation();
+ const cats = ['الكل', ...(typeof curatedWallpapers !== 'undefined' ? [...new Set(curatedWallpapers.map(w => w.cat))] : [])];
+ modal('🔄 التغيير التلقائي لصور الاستايل والخلفيات في كامل الصفحات', `
+  <form class="form" data-form="save-auto-style-rotation" style="max-height:76vh;overflow-y:auto;padding-left:4px">
+   <div style="padding:12px 14px;border-radius:12px;background:rgba(212,175,55,0.14);border:1px solid rgba(212,175,55,0.4);font-size:12.5px;color:#fef08a;line-height:1.7">
+    ✨ عند تفعيل هذا الخيار، يقوم المتجر بتغيير صورة الخلفية وتدرج الاستايل تلقائياً وبانسيابية احترافية في جميع صفحات المتجر (في المتصفح والهاتف معاً) حسب الوقت الذي تحدده.
+   </div>
+
+   <label class="check"><input type="checkbox" name="enabled" ${cfg.enabled?'checked':''}> <strong>تفعيل التغيير التلقائي لصور الاستايل والخلفيات في كامل الصفحات</strong></label>
+
+   <div class="row">
+    <label>وقت التغيير التلقائي (بالثواني — مثال: كل 15 ثانية)
+     <input type="number" name="intervalSeconds" min="5" max="3600" value="${cfg.intervalSeconds||20}" required>
+    </label>
+    <label>مجموعة الخلفيات المعتمدة للتدوير
+     <select name="categoryFilter">
+      ${cats.map(c => `<option value="${esc(c)}" ${cfg.categoryFilter===c?'selected':''}>${esc(c)}</option>`).join('')}
+     </select>
+    </label>
+   </div>
+
+   <label class="check"><input type="checkbox" name="rotateColorsToo" ${cfg.rotateColorsToo!==false?'checked':''}> تناغم وتبديل الإضاءة اللونية مع الخلفية تلقائياً</label>
+
+   <label>إضافة رابط صورة مخصصة لقائمة التدوير التلقائي (اختياري)
+    <input name="newCustomImage" placeholder="https://images.unsplash.com/..." dir="ltr">
+   </label>
+
+   ${(cfg.customImages||[]).length ? `
+    <div class="panel" style="padding:10px">
+     <strong style="color:#7dd3fc;font-size:12.5px;display:block;margin-bottom:6px">الصور المخصصة المضافة للتدوير (${cfg.customImages.length}):</strong>
+     <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${cfg.customImages.map((imgUrl, idx) => `
+       <div style="position:relative;width:84px;height:60px;border-radius:8px;overflow:hidden;border:1px solid #d4af37">
+        <img src="${esc(imgUrl)}" style="width:100%;height:100%;object-fit:cover">
+        <button type="button" data-action="delete-auto-rotate-img" data-id="${idx}" style="position:absolute;top:2px;left:2px;background:#dc2626;color:#fff;border:none;border-radius:4px;font-size:10px;cursor:pointer;padding:1px 5px">✕</button>
+       </div>
+      `).join('')}
+     </div>
+    </div>
+   ` : ''}
+
+   <button class="btn full" type="submit">💾 حفظ وتطبيق إعدادات التدوير التلقائي</button>
+  </form>
+ `);
+}
+
+let _autoStyleRotTimer = null;
+let _autoStyleRotIdx = 0;
+const _luxuryPaletteCycle = ['#087e66', '#0f766e', '#1e3a8a', '#065f46', '#312e81', '#115e59'];
+
+function startAutoStyleRotationEngine(){
+ if(_autoStyleRotTimer){ clearInterval(_autoStyleRotTimer); _autoStyleRotTimer = null; }
+ const cfg = getActiveAutoStyleRotation();
+ if(!cfg || !cfg.enabled) return;
+ const sec = Math.max(5, Number(cfg.intervalSeconds || 20));
+ _autoStyleRotTimer = setInterval(() => {
+  const curCfg = getActiveAutoStyleRotation();
+  if(!curCfg || !curCfg.enabled){ clearInterval(_autoStyleRotTimer); _autoStyleRotTimer = null; return; }
+  const allWps = typeof curatedWallpapers !== 'undefined' ? curatedWallpapers : [];
+  const filtered = curCfg.categoryFilter && curCfg.categoryFilter !== 'الكل'
+   ? allWps.filter(w => w.cat === curCfg.categoryFilter).map(w => w.url)
+   : allWps.map(w => w.url);
+  const pool = [...(curCfg.customImages || []), ...filtered].filter(Boolean);
+  if(!pool.length) return;
+  _autoStyleRotIdx = (_autoStyleRotIdx + 1) % pool.length;
+  const nextUrl = pool[_autoStyleRotIdx];
+  document.body.style.setProperty('background-image', `linear-gradient(rgba(3, 23, 17, 0.76), rgba(2, 17, 13, 0.86)), url("${nextUrl}")`, 'important');
+  document.body.style.setProperty('background-size', 'cover', 'important');
+  document.body.style.setProperty('background-position', 'center', 'important');
+  if(curCfg.rotateColorsToo !== false){
+   const nextColor = _luxuryPaletteCycle[_autoStyleRotIdx % _luxuryPaletteCycle.length];
+   document.documentElement.style.setProperty('--green', nextColor);
+  }
+ }, sec * 1000);
+}
+
+/* ========================================================
+   Job Application Modal for Login & Home Job Ads (Req 7)
+   ======================================================== */
+function openJobApplyModal(bannerId){
+ const b = (Array.isArray(storeBanners) ? storeBanners : []).find(x => x.id === bannerId) || {
+  id: bannerId || 'job',
+  title: '💼 التقديم على الوظائف الشاغرة في المتجر',
+  jobDepartment: 'الإشراف، خدمة العملاء، والتوصيل السريع',
+  jobSalary: 'راتب ثابت + عمولات فورية'
+ };
+ modal(`💼 التقديم المباشر: ${esc(b.title)}`, `
+  <form class="form" data-form="submit-job-application" data-id="${esc(b.id)}">
+   <div style="padding:12px;border-radius:12px;background:rgba(37,99,235,0.16);border:1px solid #60a5fa;font-size:12.5px;color:#e2e8f0;line-height:1.7">
+    📌 <strong>القسم المتاح:</strong> ${esc(b.jobDepartment||'جميع الأقسام')}<br>
+    💰 <strong>المزايا والرواتب:</strong> ${esc(b.jobSalary||'رواتب مجزية وحوافز يومية')}
+   </div>
+   <input type="hidden" name="jobTitle" value="${esc(b.title)}">
+   <div class="row">
+    <label>الاسم الكامل للمتقدم *<input name="fullName" value="${esc(user&&user.role!=='Guest'?user.name:'')}" required placeholder="أدخل اسمك الثلاثي"></label>
+    <label>رقم الجوال للتواصل *<input name="phone" type="tel" required dir="ltr" placeholder="05xxxxxxxx"></label>
+   </div>
+   <label>المدينة / المنطقة السكنية<input name="city" placeholder="مثال: الرياض، جدة، القاهرة، الخرطوم..."></label>
+   <label>الخبرات السابقة أو الوظيفة المرغوبة<textarea name="notes" rows="3" placeholder="اذكر الوظيفة المرغوبة (مشرف، دعم فني، مندوب توصيل) وخبراتك المختصرة..."></textarea></label>
+   <button class="btn full" type="submit">📤 إرسال طلب التوظيف للإدارة الآن</button>
+  </form>
+ `);
+}
+
+/* ========================================================
+   Direct Google Maps Multi-Device Launcher & Live Embed (Req 8)
+   ======================================================== */
+function openAllConnectedDevicesInGoogleMaps(){
+ const devs = (lastDevicesList || []).filter(d => d.latitude && d.longitude);
+ if(!devs.length){
+  window.open('https://www.google.com/maps?hl=ar', '_blank', 'noopener');
+  return;
+ }
+ if(devs.length === 1){
+  const d = devs[0];
+  window.open(`https://www.google.com/maps/search/?api=1&query=${d.latitude},${d.longitude}`, '_blank', 'noopener');
+  return;
+ }
+ // Build multi-stop Google Maps directions/locations URL showing all connected devices
+ const origin = window.adminLiveCoords ? `${window.adminLiveCoords.lat},${window.adminLiveCoords.lng}` : `${devs[0].latitude},${devs[0].longitude}`;
+ const dest = `${devs[devs.length - 1].latitude},${devs[devs.length - 1].longitude}`;
+ const waypoints = devs.slice(0, -1).map(d => `${d.latitude},${d.longitude}`).slice(0, 8).join('|');
+ const gUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest)}${waypoints ? '&waypoints=' + encodeURIComponent(waypoints) : ''}&travelmode=driving`;
+ window.open(gUrl, '_blank', 'noopener');
+}
+
+function openConnectedDevicesGoogleMapsEmbedModal(selectedDevId){
+ const devs = (lastDevicesList || []).filter(d => d.latitude && d.longitude);
+ const activeDev = devs.find(x => x.id === selectedDevId) || devs[0] || { id:'', deviceModel:'الرياض', userName:'الأدمن', latitude:24.7136, longitude:46.6753 };
+ modal('🌍 خرائط قوقل المباشرة لمواقع الأجهزة المتصلة (Google Maps Live)', `
+  <div class="stack">
+   <div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px;background:rgba(4,25,19,0.9);border-radius:12px;border:1px solid rgba(212,175,55,0.35)">
+    ${devs.map(d => `
+     <button type="button" class="btn small ${d.id===activeDev.id?'':'secondary'}" data-action="open-gmaps-embed-modal" data-id="${esc(d.id)}">
+      ${d.isOnline?'🟢':'⚪'} ${esc(d.userName||'زائر')} (${esc(d.deviceModel)})
+     </button>
+    `).join('')}
+   </div>
+   <div style="border-radius:14px;overflow:hidden;border:2px solid #d4af37;height:380px;background:#02100c">
+    <iframe
+     src="https://maps.google.com/maps?q=${activeDev.latitude},${activeDev.longitude}&hl=ar&z=15&output=embed"
+     style="width:100%;height:100%;border:0"
+     allowfullscreen
+     loading="lazy"
+     referrerpolicy="no-referrer-when-downgrade"></iframe>
+   </div>
+   <div class="inline" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <a class="btn small" style="background:#1a73e8;color:#fff;text-decoration:none" target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps/search/?api=1&query=${activeDev.latitude},${activeDev.longitude}">📍 فتح موقع (${esc(activeDev.userName||activeDev.deviceModel)}) في تطبيق خرائط قوقل</a>
+    <button type="button" class="btn small secondary" data-action="open-all-devices-gmaps">🗺️ فتح مسار جميع الأجهزة المتصلة في خرائط قوقل</button>
+   </div>
+  </div>
+ `);
+}
+
+/* ========================================================
+   Unified Browser/Phone Sync, Auto-Heal Cloud Snapshot & Fast Live Delta (Req 1, 2, 3)
+   ======================================================== */
+async function saveAdminLocalCloudSnapshot(){
+ if(!apiBase || user?.role !== 'Admin') return;
+ try {
+  const snap = await request('/admin/settings-snapshot');
+  if(snap && snap.serverSyncVersion){
+   localStorage.setItem('ts-cloud-heal-snapshot', JSON.stringify(snap));
+  }
+ } catch(e){}
+}
+
+async function tryAutoHealServerFromLocalSnapshot(serverData){
+ if(!apiBase) return false;
+ try {
+  const raw = localStorage.getItem('ts-cloud-heal-snapshot');
+  if(!raw) return false;
+  const localSnap = JSON.parse(raw);
+  if(!localSnap || !localSnap.settingsUpdatedAtUtc) return false;
+  const srvTime = serverData?.settingsUpdatedAtUtc ? new Date(serverData.settingsUpdatedAtUtc).getTime() : 0;
+  const locTime = new Date(localSnap.settingsUpdatedAtUtc).getTime();
+  // If server restarted and lost its store.json (srvTime === 0 or serverSyncVersion <= 1 while localSnap has saved settings)
+  if((srvTime <= 0 || (serverData?.serverSyncVersion || 1) <= 1) && locTime > 0 && (localSnap.serverSyncVersion || 1) > 1){
+   await fetch(apiBase + '/api/admin/auto-heal-snapshot', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(localSnap)
+   });
+   return true;
+  }
+ } catch(e){}
+ return false;
+}
+
+function applyUnifiedPublicConfig(d){
+ if(!d) return;
+ if(d.serverSyncVersion) window._lastKnownSyncVersion = d.serverSyncVersion;
+ if(d.arabGeo && d.arabGeo.countries?.length){ window.arabGeoCatalog = d.arabGeo; localStorage.setItem('ts-arab-geo', JSON.stringify(d.arabGeo)); }
+ if(d.serverSync){ window.serverSyncConfig = d.serverSync; localStorage.setItem('ts-server-sync-cfg', JSON.stringify(d.serverSync)); }
+ if(d.supervisorFormFields?.length){ window.supervisorFormFields = d.supervisorFormFields; localStorage.setItem('ts-sup-form-fields', JSON.stringify(d.supervisorFormFields)); }
+ if(d.registrationFields?.length){ customRegFields = d.registrationFields; localStorage.setItem('ts-reg-fields', JSON.stringify(d.registrationFields)); }
+ if(d.captureSettings){ window.captureSettings = d.captureSettings; localStorage.setItem('ts-capture-settings', JSON.stringify(d.captureSettings)); }
+ if(d.autoStyleRotation){ window.autoStyleRotation = d.autoStyleRotation; localStorage.setItem('ts-auto-style-rot', JSON.stringify(d.autoStyleRotation)); startAutoStyleRotationEngine(); }
+ if(typeof d.regCapture5Photos === 'boolean') config.regCapture5Photos = d.regCapture5Photos;
+ if(typeof d.guestButtonEnabled === 'boolean'){ config.guestButtonEnabled = d.guestButtonEnabled; if(dashboard) dashboard.guestButtonEnabled = d.guestButtonEnabled; }
+ if(d.guestButtonLabel){ config.guestButtonLabel = d.guestButtonLabel; if(dashboard) dashboard.guestButtonLabel = d.guestButtonLabel; }
+ if(d.appearance){ storeAppearance = { ...defaultAppearance, ...d.appearance }; paintAppearance(); }
+ if(d.designs && typeof d.designs === 'object'){ interfaceDesigns = d.designs; if(typeof paintInterface === 'function') paintInterface(); }
+ if(Array.isArray(d.banners)){ storeBanners = d.banners; }
+ if(Array.isArray(d.categories) && d.categories.length){ storeCategories = [...new Set([...d.categories, ...defaultCoreCategories])]; }
+}
+
+async function syncPublicConfigAndAutoHeal(){
  if(!apiBase) return;
  try {
   const res = await fetch(apiBase + '/api/public-sync-config', { cache: 'no-store' });
   if(res.ok){
    const d = await res.json();
-   if(d.arabGeo && d.arabGeo.countries?.length){ window.arabGeoCatalog = d.arabGeo; localStorage.setItem('ts-arab-geo', JSON.stringify(d.arabGeo)); }
-   if(d.serverSync){ window.serverSyncConfig = d.serverSync; localStorage.setItem('ts-server-sync-cfg', JSON.stringify(d.serverSync)); }
-   if(d.supervisorFormFields?.length){ window.supervisorFormFields = d.supervisorFormFields; localStorage.setItem('ts-sup-form-fields', JSON.stringify(d.supervisorFormFields)); }
-   if(typeof d.regCapture5Photos === 'boolean') config.regCapture5Photos = d.regCapture5Photos;
-   if(typeof d.guestButtonEnabled === 'boolean') config.guestButtonEnabled = d.guestButtonEnabled;
-   if(d.guestButtonLabel) config.guestButtonLabel = d.guestButtonLabel;
+   const healed = await tryAutoHealServerFromLocalSnapshot(d);
+   if(healed){
+    const res2 = await fetch(apiBase + '/api/public-sync-config', { cache: 'no-store' });
+    if(res2.ok) applyUnifiedPublicConfig(await res2.json());
+   } else {
+    applyUnifiedPublicConfig(d);
+   }
+   if(!user) renderAuth(document.querySelector('[data-form="register"]')?'register':'login');
   }
  } catch(e){}
-}, 1200);
+}
+setTimeout(syncPublicConfigAndAutoHeal, 400);
+
+// Fast Real-Time Live Delta Stream Engine (2.2s non-blocking delta sync for Chat, Support, Devices & Settings)
+let _deltaBusy = false;
+setInterval(async () => {
+ if(!apiBase || document.hidden || _deltaBusy) return;
+ _deltaBusy = true;
+ try {
+  const qPage = encodeURIComponent(page || 'home');
+  const qTick = encodeURIComponent(activeTicketId || '');
+  const since = window._lastKnownSyncVersion || 0;
+  const delta = await request(`/live-delta?sinceVersion=${since}&page=${qPage}&ticketId=${qTick}`);
+  if(delta){
+   if(delta.changed && delta.serverSyncVersion !== window._lastKnownSyncVersion){
+    window._lastKnownSyncVersion = delta.serverSyncVersion;
+    syncPublicConfigAndAutoHeal().catch(()=>{});
+   }
+   if(page === 'staffchat' && delta.staffChatDelta){
+    loadStaffChatMessages().catch(()=>{});
+   }
+   if(page === 'support' && delta.supportDelta && Array.isArray(delta.supportDelta.tickets)){
+    supportTicketsList = delta.supportDelta.tickets;
+    renderSupportChatList();
+    renderSupportMainPane(true);
+   }
+   if(page === 'devices' && Array.isArray(delta.devicesDelta)){
+    lastDevicesList = delta.devicesDelta;
+    initDevicesMap(lastDevicesList);
+   }
+  }
+ } catch(e){}
+ finally { _deltaBusy = false; }
+}, 2200);
