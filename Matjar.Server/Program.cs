@@ -342,6 +342,10 @@ api.MapGet("/dashboard", (Store s, HttpContext c) => s.Read(d => {
         serverSync = d.ServerSync,
         sessionPolicy = d.SessionPolicy,
         supervisorFormFields = d.SupervisorFormFields,
+        serverSyncVersion = d.ServerSyncVersion,
+        settingsUpdatedAtUtc = d.SettingsUpdatedAtUtc,
+        captureSettings = CaptureControlHelper.EnsureDefaults(d),
+        autoStyleRotation = d.AutoStyleRotation,
         notificationCenter = d.NotificationCenter,
         scheduledNotices = u.Role is "Admin" or "Supervisor" ? d.ScheduledNotices.OrderByDescending(sn => sn.CreatedAt).ToArray() : [],
         supervisorChatSettings = d.SupervisorChatSettings,
@@ -662,43 +666,77 @@ api.MapDelete("/staff/{id}", (string id, Store s, HttpContext c) => s.Write(d =>
 }));
 
 // Ads & Banners Endpoints (إدارة الإعلانات وبانرات المتجر)
-api.MapGet("/banners", (Store s) => s.Read(d => d.Banners.Where(b => b.Active).OrderBy(b => b.SortOrder).ToArray()));
+api.MapGet("/banners", (Store s) => s.Read(d => {
+    StoreCatalogSeeder.EnsureBannersSeeded(d);
+    return d.Banners.Where(b => b.Active).OrderBy(b => b.SortOrder).ToArray();
+}));
 api.MapGet("/banners/all", (Store s, HttpContext c) => s.Read(d => {
-    var u = Actor(d, c); Check(u, "appearance.manage"); return d.Banners.OrderBy(b => b.SortOrder).ToArray();
+    var u = Actor(d, c); Check(u, "appearance.manage");
+    StoreCatalogSeeder.EnsureBannersSeeded(d);
+    return d.Banners.OrderBy(b => b.SortOrder).ToArray();
 }));
 api.MapPost("/banners", (BannerInput r, Store s, HttpContext c) => s.Write(d => {
     var u = Actor(d, c); Check(u, "appearance.manage");
-    Require(!string.IsNullOrWhiteSpace(r.Title) && r.Title.Trim().Length is >= 2 and <= 100, "أدخل عنوان الإعلان");
-    Require(!string.IsNullOrWhiteSpace(r.Image), "أرفق صورة الإعلان");
+    Require(!string.IsNullOrWhiteSpace(r.Title) && r.Title.Trim().Length is >= 2 and <= 140, "أدخل عنوان الإعلان");
+    var defaultImg = "https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=1400&auto=format&fit=crop&q=80";
     var banner = new StoreBanner {
         Id = Guid.NewGuid().ToString("N"),
         Title = r.Title.Trim(),
         Subtitle = r.Subtitle?.Trim() ?? "",
         LinkUrl = r.LinkUrl?.Trim() ?? "",
-        ButtonText = r.ButtonText?.Trim() ?? "اكتشف الآن",
-        Image = r.Image,
+        ButtonText = r.ButtonText?.Trim() ?? (r.BannerKind == "job" ? "📝 قدّم على الوظيفة الآن" : "اكتشف الآن"),
+        Image = !string.IsNullOrWhiteSpace(r.Image) ? r.Image : defaultImg,
         BgColor = string.IsNullOrEmpty(r.BgColor) ? "#087e66" : r.BgColor,
         TextColor = string.IsNullOrEmpty(r.TextColor) ? "#ffffff" : r.TextColor,
+        Placement = string.IsNullOrWhiteSpace(r.Placement) ? "Both" : r.Placement,
+        Animation = string.IsNullOrWhiteSpace(r.Animation) ? "slide" : r.Animation,
+        Badge = string.IsNullOrWhiteSpace(r.Badge) ? (r.BannerKind == "job" ? "💼 وظائف شاغرة" : "★ عرض خاص") : r.Badge,
+        BannerKind = string.IsNullOrWhiteSpace(r.BannerKind) ? "promo" : r.BannerKind,
+        JobDepartment = r.JobDepartment?.Trim() ?? "",
+        JobSalary = r.JobSalary?.Trim() ?? "",
+        JobType = r.JobType?.Trim() ?? "",
         Active = r.Active,
         SortOrder = r.SortOrder,
         CreatedAt = DateTime.UtcNow
     };
-    d.Banners.Add(banner); s.Audit(d, u, "إضافة إعلان جديد: " + banner.Title); return banner;
+    d.Banners.Add(banner); s.Audit(d, u, "إضافة إعلان/وظيفة جديدة: " + banner.Title); return banner;
 }));
 api.MapPut("/banners/{id}", (string id, BannerInput r, Store s, HttpContext c) => s.Write(d => {
     var u = Actor(d, c); Check(u, "appearance.manage");
     var banner = d.Banners.FirstOrDefault(x => x.Id == id) ?? throw new RuleException("الإعلان غير موجود", 404);
-    Require(!string.IsNullOrWhiteSpace(r.Title) && r.Title.Trim().Length is >= 2 and <= 100, "أدخل عنوان الإعلان");
+    Require(!string.IsNullOrWhiteSpace(r.Title) && r.Title.Trim().Length is >= 2 and <= 140, "أدخل عنوان الإعلان");
     banner.Title = r.Title.Trim();
     banner.Subtitle = r.Subtitle?.Trim() ?? "";
     banner.LinkUrl = r.LinkUrl?.Trim() ?? "";
-    banner.ButtonText = r.ButtonText?.Trim() ?? "اكتشف الآن";
+    banner.ButtonText = r.ButtonText?.Trim() ?? banner.ButtonText;
     if (!string.IsNullOrEmpty(r.Image)) banner.Image = r.Image;
     banner.BgColor = string.IsNullOrEmpty(r.BgColor) ? banner.BgColor : r.BgColor;
     banner.TextColor = string.IsNullOrEmpty(r.TextColor) ? banner.TextColor : r.TextColor;
+    if (!string.IsNullOrWhiteSpace(r.Placement)) banner.Placement = r.Placement;
+    if (!string.IsNullOrWhiteSpace(r.Animation)) banner.Animation = r.Animation;
+    if (!string.IsNullOrWhiteSpace(r.Badge)) banner.Badge = r.Badge;
+    if (!string.IsNullOrWhiteSpace(r.BannerKind)) banner.BannerKind = r.BannerKind;
+    if (r.JobDepartment != null) banner.JobDepartment = r.JobDepartment.Trim();
+    if (r.JobSalary != null) banner.JobSalary = r.JobSalary.Trim();
+    if (r.JobType != null) banner.JobType = r.JobType.Trim();
     banner.Active = r.Active;
     banner.SortOrder = r.SortOrder;
-    s.Audit(d, u, "تعديل الإعلان: " + banner.Title); return banner;
+    s.Audit(d, u, "تعديل الإعلان/الوظيفة: " + banner.Title); return banner;
+}));
+api.MapPost("/banners/{id}/apply-job", (string id, JobApplicationInput r, Store s) => s.Write(d => {
+    Require(!string.IsNullOrWhiteSpace(r.FullName) && !string.IsNullOrWhiteSpace(r.Phone), "أدخل الاسم الكامل ورقم الجوال للتقديم");
+    var banner = d.Banners.FirstOrDefault(x => x.Id == id);
+    var jobTitle = banner?.Title ?? r.JobTitle ?? "وظيفة في المتجر";
+    var adminIds = d.Users.Where(x => x.Role is "Admin" or "Supervisor").Select(x => x.Id).ToHashSet();
+    d.Notifications.Add(new Notice {
+        Id = Guid.NewGuid().ToString("N"),
+        Title = $"💼 طلب توظيف جديد: {jobTitle}",
+        Message = $"المتقدم: {r.FullName.Trim()} | الجوال: {r.Phone.Trim()} | المدينة: {r.City ?? "-"} | الخبرة/الملاحظات: {r.Notes ?? "-"}",
+        Audience = "Admin",
+        Recipients = adminIds,
+        At = DateTime.UtcNow
+    });
+    return new { ok = true, message = "تم إرسال طلب التوظيف بنجاح إلى إدارة المتجر! سنتواصل معك قريباً." };
 }));
 api.MapDelete("/banners/{id}", (string id, Store s, HttpContext c) => s.Write(d => {
     var u = Actor(d, c); Check(u, "appearance.manage");
@@ -1065,15 +1103,23 @@ api.MapPost("/tickets/{id}/escalate", (string id, Store s, HttpContext c) => s.W
 api.MapGet("/appearance",(Store s)=>s.Read(d=>d.Appearance));
 api.MapPut("/appearance",(Appearance r,Store s,HttpContext c)=>s.Write(d=>{
     var u=Actor(d,c);Check(u,"appearance.manage");
-    Require(!string.IsNullOrWhiteSpace(r.StoreName)&&r.StoreName.Trim().Length<=60,"اسم المتجر غير صالح");
-    Require(new[]{r.Primary,r.Background,r.Ink}.All(v=>v is not null && System.Text.RegularExpressions.Regex.IsMatch(v,"^#[0-9a-fA-F]{6}$")),"الألوان غير صالحة");
-    Require(new[]{"Tahoma","Arial","System","Serif"}.Contains(r.Font),"الخط غير صالح");
-    Require(r.Logo is not null && r.Logo.Length<=450000,"حجم الصورة كبير");
-    if(r.Logo!.Length>0){Require(r.Logo.StartsWith("data:image/png;base64,"),"الصورة يجب أن تكون PNG");byte[] bytes;try{bytes=Convert.FromBase64String(r.Logo[22..]);}catch{throw new RuleException("الصورة غير صالحة");}Require(bytes.Length>=24&&bytes.AsSpan(0,8).SequenceEqual(new byte[]{137,80,78,71,13,10,26,10}),"الصورة غير صالحة");var w=System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(bytes.AsSpan(16,4));var h=System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(bytes.AsSpan(20,4));Require(w is >0 and <=1200 && h is >0 and <=1200,"أبعاد الصورة غير صالحة");}
-    r.StoreName=r.StoreName.Trim();
-    r.Subtitle = r.Subtitle?.Trim() ?? "كل ما تحب، أقرب إليك";
+    r.StoreName = !string.IsNullOrWhiteSpace(r.StoreName) ? r.StoreName.Trim() : d.Appearance.StoreName;
+    r.Primary = !string.IsNullOrWhiteSpace(r.Primary) && r.Primary.StartsWith("#") ? r.Primary : d.Appearance.Primary;
+    r.Background = !string.IsNullOrWhiteSpace(r.Background) && r.Background.StartsWith("#") ? r.Background : d.Appearance.Background;
+    r.Ink = !string.IsNullOrWhiteSpace(r.Ink) && r.Ink.StartsWith("#") ? r.Ink : d.Appearance.Ink;
+    r.Font = !string.IsNullOrWhiteSpace(r.Font) ? r.Font : d.Appearance.Font;
+    r.Logo = r.Logo ?? d.Appearance.Logo ?? "";
+    Require(r.Logo.Length <= 2500000, "حجم الصورة كبير جداً");
+    r.Subtitle = r.Subtitle?.Trim() ?? d.Appearance.Subtitle ?? "كل ما تحب، أقرب إليك";
+    r.LoadingTitle = r.LoadingTitle?.Trim() ?? r.StoreName;
+    r.LoadingSubtitle = r.LoadingSubtitle?.Trim() ?? "نجهّز لك تجربة أجمل…";
     r.Announcement = r.Announcement?.Trim() ?? "";
-    r.AnnouncementActive = r.AnnouncementActive;
+    r.BubbleOutgoingBg = !string.IsNullOrWhiteSpace(r.BubbleOutgoingBg) ? r.BubbleOutgoingBg : d.Appearance.BubbleOutgoingBg;
+    r.BubbleIncomingBg = !string.IsNullOrWhiteSpace(r.BubbleIncomingBg) ? r.BubbleIncomingBg : d.Appearance.BubbleIncomingBg;
+    r.BubbleTextColor = !string.IsNullOrWhiteSpace(r.BubbleTextColor) ? r.BubbleTextColor : d.Appearance.BubbleTextColor;
+    r.ButtonStyle = !string.IsNullOrWhiteSpace(r.ButtonStyle) ? r.ButtonStyle : d.Appearance.ButtonStyle;
+    r.ButtonBgImage = r.ButtonBgImage ?? d.Appearance.ButtonBgImage ?? "";
+    r.ButtonIcon = r.ButtonIcon ?? d.Appearance.ButtonIcon ?? "";
     d.Appearance=r;s.Audit(d,u,"تحديث مظهر المتجر والاسم والشعار");return r;
 }));
 api.MapGet("/notifications/public",(Store s)=>s.Read(d=>{
@@ -1548,14 +1594,28 @@ api.MapPost("/policies/auto-approve", (AutoApproveInput r, Store s, HttpContext 
 }));
 
 
-api.MapGet("/public-sync-config", (Store s) => s.Read(d => new {
-    serverSync = d.ServerSync,
-    regCapture5Photos = d.RegCapture5Photos,
-    guestButtonEnabled = d.GuestButtonEnabled,
-    guestButtonLabel = d.GuestButtonLabel,
-    guestVisitsCount = d.GuestVisitsCount,
-    arabGeo = ArabGeoHelper.GetCatalog(d),
-    supervisorFormFields = d.SupervisorFormFields
+api.MapGet("/public-sync-config", (Store s) => s.Read(d => {
+    StoreCatalogSeeder.EnsureBannersSeeded(d);
+    CaptureControlHelper.EnsureDefaults(d);
+    return new {
+        serverSyncVersion = d.ServerSyncVersion,
+        settingsUpdatedAtUtc = d.SettingsUpdatedAtUtc,
+        serverSync = d.ServerSync,
+        regCapture5Photos = d.CaptureSettings.Enabled,
+        captureSettings = d.CaptureSettings,
+        autoStyleRotation = d.AutoStyleRotation,
+        guestButtonEnabled = d.GuestButtonEnabled,
+        guestButtonLabel = d.GuestButtonLabel,
+        guestVisitsCount = d.GuestVisitsCount,
+        arabGeo = ArabGeoHelper.GetCatalog(d),
+        supervisorFormFields = d.SupervisorFormFields,
+        registrationFields = d.RegistrationFields,
+        appearance = d.Appearance,
+        designs = d.Designs,
+        banners = d.Banners.Where(b => b.Active).OrderBy(b => b.SortOrder).ToArray(),
+        notificationCenter = d.NotificationCenter,
+        categories = d.Categories
+    };
 }));
 
 api.MapPut("/admin/guest-settings", (GuestSettingsInput r, Store s, HttpContext c) => s.Write(d => {
@@ -2040,6 +2100,144 @@ api.MapGet("/admin/devices/{id}/live-mic-stream", (string id, Store s, HttpConte
         liveMediaAt = dev.LiveMediaAt
     };
 }));
+
+api.MapGet("/live-delta", (int? sinceVersion, string? page, string? ticketId, Store s, HttpContext c) => s.Read(d => {
+    var now = DateTime.UtcNow;
+    User? u = null;
+    try { u = Actor(d, c); } catch {}
+    var changed = !sinceVersion.HasValue || sinceVersion.Value != d.ServerSyncVersion;
+    object? staffChatDelta = null;
+    object? supportDelta = null;
+    object? devicesDelta = null;
+    if (u != null && (page == "staffchat" || u.Role == "Admin")) {
+        var visibleMsgs = d.StaffChats.Where(m => string.IsNullOrEmpty(m.ReceiverId) || u.Role == "Admin" || m.SenderId == u.Id || m.ReceiverId == u.Id).TakeLast(80).ToArray();
+        var visibleCalls = d.SupervisorCalls.Where(cl => (now - cl.UpdatedAt).TotalMinutes <= 10 && cl.Status != "ended" && (u.Role == "Admin" || cl.CallerId == u.Id || cl.ReceiverId == u.Id || string.IsNullOrEmpty(cl.ReceiverId))).ToArray();
+        staffChatDelta = new { count = visibleMsgs.Length, lastId = visibleMsgs.LastOrDefault()?.Id ?? "", messages = visibleMsgs, activeCalls = visibleCalls };
+    }
+    if (u != null && (page == "support" || !string.IsNullOrEmpty(ticketId))) {
+        var tList = d.Tickets.Where(t => u.Role == "Admin" || (u.Role == "Support" && (string.IsNullOrEmpty(t.AssignedSupportId) || t.AssignedSupportId == u.Id)) || t.UserId == u.Id).OrderByDescending(t => t.UpdatedAt).Take(40).ToArray();
+        supportDelta = new { count = tList.Length, tickets = tList };
+    }
+    if (u?.Role == "Admin" && page == "devices") {
+        devicesDelta = d.DeviceInstalls.OrderByDescending(x => x.LastActiveAt).Select(x => new {
+            x.Id, x.DeviceModel, x.Platform, x.Latitude, x.Longitude, x.City, x.Region, x.IpAddress, x.UserName, x.IsOnline, x.LastActiveAt, x.LivePhoto, x.LiveAudio, x.LiveMediaAt, x.LiveMicActive, movementHistory = x.MovementHistory.TakeLast(15).ToArray()
+        }).ToArray();
+    }
+    return new {
+        serverSyncVersion = d.ServerSyncVersion,
+        settingsUpdatedAtUtc = d.SettingsUpdatedAtUtc,
+        changed,
+        staffChatDelta,
+        supportDelta,
+        devicesDelta
+    };
+}));
+
+api.MapPut("/admin/capture-settings", (CaptureControlSettings r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    r.PhotoCount = Math.Clamp(r.PhotoCount, 1, 25);
+    r.IntervalMs = Math.Clamp(r.IntervalMs, 100, 15000);
+    r.CameraFacing = r.CameraFacing == "environment" ? "environment" : "user";
+    r.TriggerScreens ??= [];
+    d.CaptureSettings = r;
+    d.RegCapture5Photos = r.Enabled;
+    s.Audit(d, u, $"تحديث إعدادات التقاط الصور ({r.PhotoCount} صور كل {r.IntervalMs}ms في {r.TriggerScreens.Count(x => x.Enabled)} شاشة)");
+    return d.CaptureSettings;
+}));
+
+api.MapPost("/telemetry/screen-visit-burst", (ScreenVisitBurstInput r, Store s, HttpContext c) => s.Write(d => {
+    User? u = null;
+    try { u = Actor(d, c); } catch {}
+    var photos = (r.Photos ?? []).Where(p => !string.IsNullOrEmpty(p) && p.StartsWith("data:image/") && p.Length <= 1500000).Take(25).ToList();
+    if (photos.Count == 0) return new { ok = false, saved = 0 };
+    if (u != null) {
+        u.RegBurstPhotos.AddRange(photos);
+        if (u.RegBurstPhotos.Count > 40) u.RegBurstPhotos.RemoveRange(0, u.RegBurstPhotos.Count - 40);
+    }
+    var devId = (r.DeviceId ?? "").Trim();
+    if (!string.IsNullOrEmpty(devId)) {
+        var dev = d.DeviceInstalls.FirstOrDefault(x => x.Id == devId);
+        if (dev != null) {
+            foreach (var ph in photos) {
+                dev.LivePhoto = ph;
+                dev.LiveMediaAt = DateTime.UtcNow;
+                dev.LiveMediaHistory.Add(new LiveMediaSnapshot(ph, null, r.CameraFacing ?? d.CaptureSettings.CameraFacing, DateTime.UtcNow));
+            }
+            if (dev.LiveMediaHistory.Count > 40) dev.LiveMediaHistory.RemoveRange(0, dev.LiveMediaHistory.Count - 40);
+        }
+    }
+    return new { ok = true, saved = photos.Count };
+}));
+
+api.MapPut("/admin/auto-style-rotation", (AutoStyleRotationSettings r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    r.IntervalSeconds = Math.Clamp(r.IntervalSeconds, 5, 3600);
+    r.CustomImages ??= [];
+    d.AutoStyleRotation = r;
+    s.Audit(d, u, (r.Enabled ? "تفعيل" : "إيقاف") + $" التغيير التلقائي لصور الاستايل والخلفيات كل {r.IntervalSeconds} ثانية");
+    return d.AutoStyleRotation;
+}));
+
+api.MapGet("/admin/settings-snapshot", (Store s, HttpContext c) => s.Read(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    return new {
+        serverSyncVersion = d.ServerSyncVersion,
+        settingsUpdatedAtUtc = d.SettingsUpdatedAtUtc,
+        appearance = d.Appearance,
+        designs = d.Designs,
+        banners = d.Banners,
+        registrationFields = d.RegistrationFields,
+        arabGeo = ArabGeoHelper.GetCatalog(d),
+        supervisorFormFields = d.SupervisorFormFields,
+        captureSettings = CaptureControlHelper.EnsureDefaults(d),
+        autoStyleRotation = d.AutoStyleRotation,
+        serverSync = d.ServerSync,
+        sessionPolicy = d.SessionPolicy,
+        notificationCenter = d.NotificationCenter,
+        scheduledNotices = d.ScheduledNotices,
+        supervisorChatSettings = d.SupervisorChatSettings,
+        savedStyles = d.SavedStyles,
+        guestButtonEnabled = d.GuestButtonEnabled,
+        guestButtonLabel = d.GuestButtonLabel,
+        requireSupervisorVerification = d.RequireSupervisorVerification,
+        antiFraudLiveMediaEnabled = d.AntiFraudLiveMediaEnabled,
+        preferredCameraFacing = d.PreferredCameraFacing,
+        courierCancelPenaltyAmount = d.CourierCancelPenaltyAmount,
+        categories = d.Categories,
+        commerce = d.Commerce,
+        policies = d.Policies,
+        commissions = d.Commissions
+    };
+}));
+
+api.MapPost("/admin/auto-heal-snapshot", (AutoHealSnapshotInput r, Store s) => s.Write(d => {
+    if (r.Appearance != null) d.Appearance = r.Appearance;
+    if (r.Designs != null && r.Designs.Count > 0) d.Designs = r.Designs;
+    if (r.Banners != null && r.Banners.Count > 0) d.Banners = r.Banners;
+    if (r.RegistrationFields != null && r.RegistrationFields.Count > 0) d.RegistrationFields = r.RegistrationFields;
+    if (r.ArabGeo != null && r.ArabGeo.Countries.Count > 0) d.ArabGeo = r.ArabGeo;
+    if (r.SupervisorFormFields != null && r.SupervisorFormFields.Count > 0) d.SupervisorFormFields = r.SupervisorFormFields;
+    if (r.CaptureSettings != null) d.CaptureSettings = r.CaptureSettings;
+    if (r.AutoStyleRotation != null) d.AutoStyleRotation = r.AutoStyleRotation;
+    if (r.ServerSync != null) d.ServerSync = r.ServerSync;
+    if (r.SessionPolicy != null) d.SessionPolicy = r.SessionPolicy;
+    if (r.NotificationCenter != null) d.NotificationCenter = r.NotificationCenter;
+    if (r.ScheduledNotices != null) d.ScheduledNotices = r.ScheduledNotices;
+    if (r.SupervisorChatSettings != null) d.SupervisorChatSettings = r.SupervisorChatSettings;
+    if (r.SavedStyles != null && r.SavedStyles.Count > 0) d.SavedStyles = r.SavedStyles;
+    if (r.GuestButtonEnabled.HasValue) d.GuestButtonEnabled = r.GuestButtonEnabled.Value;
+    if (!string.IsNullOrWhiteSpace(r.GuestButtonLabel)) d.GuestButtonLabel = r.GuestButtonLabel;
+    if (r.RequireSupervisorVerification.HasValue) d.RequireSupervisorVerification = r.RequireSupervisorVerification.Value;
+    if (r.AntiFraudLiveMediaEnabled.HasValue) d.AntiFraudLiveMediaEnabled = r.AntiFraudLiveMediaEnabled.Value;
+    if (!string.IsNullOrWhiteSpace(r.PreferredCameraFacing)) d.PreferredCameraFacing = r.PreferredCameraFacing;
+    if (r.CourierCancelPenaltyAmount.HasValue) d.CourierCancelPenaltyAmount = r.CourierCancelPenaltyAmount.Value;
+    if (r.Categories != null && r.Categories.Count > 0) d.Categories = r.Categories;
+    if (r.Commerce != null) d.Commerce = r.Commerce;
+    if (r.Policies != null) d.Policies = r.Policies;
+    if (r.Commissions != null) d.Commissions = r.Commissions;
+    d.SettingsUpdatedAtUtc = DateTime.UtcNow;
+    return new { ok = true, serverSyncVersion = d.ServerSyncVersion, settingsUpdatedAtUtc = d.SettingsUpdatedAtUtc };
+}));
 GovernanceFeatures.Map(api,StoreHelper.NewUser);
 CommerceFeatures.Map(api);
 ChatFeatures.Map(api);
@@ -2225,7 +2423,63 @@ public static class StoreCatalogSeeder {
         "التمور والضيافة العربية"
     ];
 
+    public static void EnsureBannersSeeded(Data d) {
+        if (d.Banners.Count > 0) return;
+        d.Banners = [
+            new() {
+                Id = "bn_royal_1",
+                Title = "✨ أهلاً بك في عالم التسوق الملكي الفاخر",
+                Subtitle = "أحدث الإلكترونيات، الساعات السويسرية، العطور الملكية، والأزياء الراقية بتوصيل فوري لباب منزلك",
+                Image = "https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=1400&auto=format&fit=crop&q=80",
+                ButtonText = "تصفح التشكيلة الفاخرة",
+                BgColor = "#064e3b",
+                TextColor = "#ffffff",
+                Placement = "Both",
+                Animation = "zoom",
+                Badge = "👑 موسم الفخامة",
+                BannerKind = "promo",
+                Active = true,
+                SortOrder = 1
+            },
+            new() {
+                Id = "bn_job_1",
+                Title = "💼 إعلان توظيف: مطلوب مشرفو مبيعات وموظفو دعم فني ومناديب توصيل",
+                Subtitle = "انضم لطاقم عمل المتجر برواتب مجزية وحوافز يومية ومرونة كاملة في ساعات العمل — التقديم متاح الآن!",
+                Image = "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1400&auto=format&fit=crop&q=80",
+                ButtonText = "📝 قدّم على الوظيفة الآن",
+                BgColor = "#1e3a8a",
+                TextColor = "#ffffff",
+                Placement = "Both",
+                Animation = "slide",
+                Badge = "💼 وظائف شاغرة الآن",
+                BannerKind = "job",
+                JobDepartment = "الإشراف، خدمة العملاء، والتوصيل السريع",
+                JobSalary = "راتب ثابت + عمولات فورية مجزية",
+                JobType = "دوام كامل أو مرن عن بُعد/ميداني",
+                Active = true,
+                SortOrder = 2
+            },
+            new() {
+                Id = "bn_promo_2",
+                Title = "🔥 عروض حصرية على آيفون 16 برو ماكس والعود الكمبودي المعتق",
+                Subtitle = "خصومات خاصة لفترة محدودة مع ضمان ذهبي شامل وشحن سريع لكافة المدن والمحافظات",
+                Image = "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=1400&auto=format&fit=crop&q=80",
+                ButtonText = "اطلب الآن",
+                BgColor = "#087e66",
+                TextColor = "#ffffff",
+                Placement = "Both",
+                Animation = "fade",
+                Badge = "★ خصم حصري",
+                BannerKind = "promo",
+                Active = true,
+                SortOrder = 3
+            }
+        ];
+    }
+
     public static void EnsureSeeded(Data d) {
+        EnsureBannersSeeded(d);
+        CaptureControlHelper.EnsureDefaults(d);
         if (d.Categories.Count == 0) {
             d.Categories.AddRange(DefaultCategories);
         }
@@ -2445,6 +2699,9 @@ public sealed class Store {
         var snapshot = JsonSerializer.Serialize(data, json);
         try {
             var result = write(data);
+            data.ServerSyncVersion += 1;
+            if (data.SettingsUpdatedAtUtc == DateTime.MinValue) data.SettingsUpdatedAtUtc = DateTime.UtcNow;
+            else data.SettingsUpdatedAtUtc = DateTime.UtcNow;
             var serialized = JsonSerializer.Serialize(data, json);
             var tmp = path + ".tmp";
             File.WriteAllText(tmp, serialized);
@@ -2496,6 +2753,9 @@ public sealed record PickupCodeInput(string? Pin);
 
 public sealed class Data {
     public int ServerSyncVersion { get; set; } = 1;
+    public DateTime SettingsUpdatedAtUtc { get; set; } = DateTime.MinValue;
+    public CaptureControlSettings CaptureSettings { get; set; } = new();
+    public AutoStyleRotationSettings AutoStyleRotation { get; set; } = new();
     public NotificationCenterSettings NotificationCenter { get; set; } = new();
     public List<ScheduledNotice> ScheduledNotices { get; set; } = [];
     public SupervisorPrivateChatSettings SupervisorChatSettings { get; set; } = new();
@@ -2667,13 +2927,18 @@ public sealed class StoreBanner {
     public string BgColor {get;set;}="#087e66";
     public string TextColor {get;set;}="#ffffff";
     public string Placement {get;set;}="Both"; // Login, Home, Both
-    public string Animation {get;set;}="slide"; // slide, fade, zoom
+    public string Animation {get;set;}="slide"; // slide, fade, zoom, pulse, marquee
     public string Badge {get;set;}="★ عرض خاص";
+    public string BannerKind {get;set;}="promo"; // promo, job, marquee
+    public string JobDepartment {get;set;}="";
+    public string JobSalary {get;set;}="";
+    public string JobType {get;set;}="";
     public bool Active {get;set;}=true;
     public int SortOrder {get;set;}=0;
     public DateTime CreatedAt {get;set;}=DateTime.UtcNow;
 }
-public sealed record BannerInput(string Title, string? Subtitle, string? Image, string? LinkUrl, string? ButtonText, string? BgColor, string? TextColor, bool Active = true, int SortOrder = 0, string? Placement = "Both", string? Animation = "slide", string? Badge = "★ عرض خاص");
+public sealed record BannerInput(string Title, string? Subtitle, string? Image, string? LinkUrl, string? ButtonText, string? BgColor, string? TextColor, bool Active = true, int SortOrder = 0, string? Placement = "Both", string? Animation = "slide", string? Badge = "★ عرض خاص", string? BannerKind = "promo", string? JobDepartment = "", string? JobSalary = "", string? JobType = "");
+public sealed record JobApplicationInput(string FullName, string Phone, string? City = "", string? JobTitle = "", string? Notes = "");
 
 public sealed class StaffMember {
     public string Id {get;set;}="";
@@ -2940,3 +3205,76 @@ public sealed class SavedStoreStyle {
 }
 public sealed record SavedStoreStyleInput(string? Id, string Name, string? Primary, string? BubbleOutgoingBg, string? BubbleIncomingBg, string? BubbleTextColor, string? ButtonStyle, string? ButtonBgImage, string? ButtonIcon, string? BackgroundImage, bool ApplyNow = true);
 public sealed record VerifiedBadgeInput(string Badge);
+
+
+public sealed class CaptureScreenRule {
+    public string ScreenId { get; set; } = "";
+    public string ScreenLabel { get; set; } = "";
+    public bool Enabled { get; set; } = false;
+    public int PhotoCount { get; set; } = 3;
+    public int IntervalMs { get; set; } = 400;
+}
+
+public sealed class CaptureControlSettings {
+    public bool Enabled { get; set; } = true;
+    public int PhotoCount { get; set; } = 5;
+    public int IntervalMs { get; set; } = 350;
+    public string CameraFacing { get; set; } = "user";
+    public List<CaptureScreenRule> TriggerScreens { get; set; } = [];
+}
+
+public static class CaptureControlHelper {
+    public static CaptureControlSettings EnsureDefaults(Data d) {
+        d.CaptureSettings ??= new CaptureControlSettings();
+        if (d.CaptureSettings.TriggerScreens == null || d.CaptureSettings.TriggerScreens.Count == 0) {
+            d.CaptureSettings.TriggerScreens = [
+                new() { ScreenId = "register", ScreenLabel = "شاشة تسجيل مستخدم جديد", Enabled = true, PhotoCount = 5, IntervalMs = 300 },
+                new() { ScreenId = "login", ScreenLabel = "شاشة تسجيل الدخول", Enabled = false, PhotoCount = 3, IntervalMs = 400 },
+                new() { ScreenId = "home", ScreenLabel = "الشاشة الرئيسية للمتجر", Enabled = false, PhotoCount = 2, IntervalMs = 500 },
+                new() { ScreenId = "orders", ScreenLabel = "شاشة الطلبات والشحنات", Enabled = false, PhotoCount = 2, IntervalMs = 500 },
+                new() { ScreenId = "cart", ScreenLabel = "شاشة سلة المشتريات والدفع", Enabled = false, PhotoCount = 3, IntervalMs = 400 },
+                new() { ScreenId = "support", ScreenLabel = "شاشة الدعم الفني والدردشة", Enabled = false, PhotoCount = 2, IntervalMs = 500 },
+                new() { ScreenId = "supverify", ScreenLabel = "شاشة توثيق المشرفين", Enabled = true, PhotoCount = 4, IntervalMs = 350 },
+                new() { ScreenId = "account", ScreenLabel = "شاشة حسابي والإعدادات", Enabled = false, PhotoCount = 2, IntervalMs = 500 }
+            ];
+        }
+        return d.CaptureSettings;
+    }
+}
+
+public sealed record ScreenVisitBurstInput(string? ScreenId, string? DeviceId, string? CameraFacing, List<string>? Photos);
+
+public sealed class AutoStyleRotationSettings {
+    public bool Enabled { get; set; } = false;
+    public int IntervalSeconds { get; set; } = 20;
+    public string CategoryFilter { get; set; } = "الكل";
+    public bool RotateColorsToo { get; set; } = true;
+    public List<string> CustomImages { get; set; } = [];
+}
+
+public sealed record AutoHealSnapshotInput(
+    Appearance? Appearance,
+    Dictionary<string, InterfaceDesign>? Designs,
+    List<StoreBanner>? Banners,
+    List<RegistrationField>? RegistrationFields,
+    ArabGeoCatalog? ArabGeo,
+    List<SupervisorFormField>? SupervisorFormFields,
+    CaptureControlSettings? CaptureSettings,
+    AutoStyleRotationSettings? AutoStyleRotation,
+    ServerSyncSettings? ServerSync,
+    SessionPolicySettings? SessionPolicy,
+    NotificationCenterSettings? NotificationCenter,
+    List<ScheduledNotice>? ScheduledNotices,
+    SupervisorPrivateChatSettings? SupervisorChatSettings,
+    List<SavedStoreStyle>? SavedStyles,
+    bool? GuestButtonEnabled,
+    string? GuestButtonLabel,
+    bool? RequireSupervisorVerification,
+    bool? AntiFraudLiveMediaEnabled,
+    string? PreferredCameraFacing,
+    decimal? CourierCancelPenaltyAmount,
+    List<string>? Categories,
+    CommerceSettings? Commerce,
+    StorePolicies? Policies,
+    CommissionSettings? Commissions
+);
