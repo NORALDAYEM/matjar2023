@@ -2513,6 +2513,38 @@ api.MapPut("/admin/users/{id}/chat-config", (string id, UserChatPermissionConfig
     return new { ok = true, userId = target.Id, directChatConfig = target.DirectChatConfig };
 }));
 
+
+api.MapPost("/admin/ringtones", (CustomRingtoneInput r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    Require(!string.IsNullOrWhiteSpace(r.Name) && !string.IsNullOrWhiteSpace(r.AudioData), "أدخل اسم النغمة وارفع المقطع الصوتي");
+    Require(r.AudioData.Length <= 3500000, "حجم المقطع الصوتي كبير جداً (الحد الأقصى 2.5 ميجابايت)");
+    var item = new CustomRingtoneItem {
+        Id = "rt_" + Guid.NewGuid().ToString("N")[..10],
+        Name = r.Name.Trim(),
+        AudioData = r.AudioData,
+        CreatedAt = DateTime.UtcNow
+    };
+    d.NotificationCenter.CustomRingtones.Insert(0, item);
+    if (d.NotificationCenter.CustomRingtones.Count > 30) d.NotificationCenter.CustomRingtones.RemoveRange(30, d.NotificationCenter.CustomRingtones.Count - 30);
+    s.Audit(d, u, "رفع نغمة إشعار صوتية جديدة: " + item.Name);
+    return item;
+}));
+
+api.MapDelete("/admin/ringtones/{id}", (string id, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    d.NotificationCenter.CustomRingtones.RemoveAll(x => x.Id == id);
+    s.Audit(d, u, "حذف نغمة إشعار من المخزن: " + id);
+    return new { ok = true };
+}));
+
+api.MapPost("/admin/app-update-banner", (AppUpdateBannerInput r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    d.Appearance.ForceUpdateBannerEnabled = r.Enabled;
+    if (!string.IsNullOrWhiteSpace(r.Version)) d.Appearance.ForceUpdateVersion = r.Version.Trim();
+    if (!string.IsNullOrWhiteSpace(r.Message)) d.Appearance.ForceUpdateMessage = r.Message.Trim();
+    s.Audit(d, u, (r.Enabled ? "تفعيل" : "إيقاف") + " رسالة تحديث التطبيق للمستخدمين (" + d.Appearance.ForceUpdateVersion + ")");
+    return d.Appearance;
+}));
 GovernanceFeatures.Map(api,StoreHelper.NewUser);
 CommerceFeatures.Map(api);
 ChatFeatures.Map(api);
@@ -2990,7 +3022,7 @@ public sealed class Store {
 }
 public static class Permissions {
     public static readonly string[] Roles = ["Customer", "Merchant", "Courier", "Support", "Supervisor", "Admin"];
-    public static readonly Dictionary<string, string> All = new() { ["commissions.manage"]="إدارة العمولات وكشفها",["policies.manage"]="إدارة الاتفاقيات وشروط المتجر",["registrations.manage"]="مراجعة تسجيل العملاء والتجار والمناديب",["commerce.manage"]="إدارة العملات واللغة وطرق الدفع",["payments.review"]="مراجعة إيصالات واعتماد الدفع",["chat.read"]="قراءة الدردشة", ["chat.delivery"]="دردشة العميل والمندوب", ["chat.support"]="دردشة الدعم", ["chat.text"]="إرسال نص في الدردشة", ["chat.image"]="إرسال صورة في الدردشة", ["chat.audio"]="إرسال تسجيل صوتي", ["chat.camera"]="التصوير داخل الدردشة", ["appearance.manage"] = "تعديل مظهر المتجر", ["notifications.send"] = "إرسال إشعارات", ["support.manage"] = "إدارة تذاكر الدعم", ["tracking.read"] = "عرض مواقع الطلبات", ["orders.create"] = "إنشاء طلب", ["orders.cancel"] = "إلغاء الطلب قبل التوصيل", ["orders.prepare"] = "تجهيز طلبات المتجر", ["orders.manage"] = "إدارة جميع الطلبات", ["products.write"] = "إضافة وتعديل المنتجات", ["delivery.assign"] = "إسناد مندوب التوصيل", ["delivery.update"] = "استلام وتسليم الشحنات", ["users.manage"] = "إدارة المستخدمين والصلاحيات", ["audit.read"] = "عرض سجل النشاط", ["account.options"] = "إظهار خيارات حسابي المتقدمة وتخصيص النغمات (للعميل والمندوب)" };
+    public static readonly Dictionary<string, string> All = new() { ["commissions.manage"]="إدارة العمولات وكشفها",["policies.manage"]="إدارة الاتفاقيات وشروط المتجر",["registrations.manage"]="مراجعة تسجيل العملاء والتجار والمناديب",["commerce.manage"]="إدارة العملات واللغة وطرق الدفع",["payments.review"]="مراجعة إيصالات واعتماد الدفع",["chat.visible"]="إظهار وإخفاء الدردشة بالكامل",["chat.staff.visible"]="إظهار وإخفاء دردشة المشرفين",["chat.support.visible"]="إظهار وإخفاء دردشة الدعم الفني",["chat.read"]="قراءة الدردشة", ["chat.delivery"]="دردشة العميل والمندوب", ["chat.support"]="دردشة الدعم", ["chat.text"]="إرسال نص في الدردشة", ["chat.image"]="إرسال صورة في الدردشة", ["chat.audio"]="إرسال تسجيل صوتي", ["chat.camera"]="التصوير داخل الدردشة", ["appearance.manage"] = "تعديل مظهر المتجر", ["notifications.send"] = "إرسال إشعارات", ["support.manage"] = "إدارة تذاكر الدعم", ["tracking.read"] = "عرض مواقع الطلبات", ["orders.create"] = "إنشاء طلب", ["orders.cancel"] = "إلغاء الطلب قبل التوصيل", ["orders.prepare"] = "تجهيز طلبات المتجر", ["orders.manage"] = "إدارة جميع الطلبات", ["products.write"] = "إضافة وتعديل المنتجات", ["delivery.assign"] = "إسناد مندوب التوصيل", ["delivery.update"] = "استلام وتسليم الشحنات", ["users.manage"] = "إدارة المستخدمين والصلاحيات", ["audit.read"] = "عرض سجل النشاط", ["account.options"] = "إظهار خيارات حسابي المتقدمة وتخصيص النغمات (للعميل والمندوب)" };
     public static string[] Defaults(string role) => role switch { 
     "Support" => [..ChatFeatures.ChatRights.Where(p=>p!="chat.delivery"), "support.manage", "orders.manage", "tracking.read"], 
     "Customer" => [..ChatFeatures.ChatRights.Where(p=>true), "orders.create", "orders.cancel"], 
@@ -3199,6 +3231,9 @@ public sealed class Appearance {
     public string ButtonStyle {get;set;}="gold-gradient";
     public string ButtonBgImage {get;set;}="";
     public string ButtonIcon {get;set;}="";
+    public bool ForceUpdateBannerEnabled {get;set;}=false;
+    public string ForceUpdateVersion {get;set;}="v7.1.0";
+    public string ForceUpdateMessage {get;set;}="🚀 يتوفر تحديث جديد ومهم للتطبيق بميزات وتحسينات أسرع — اضغط تحديث الآن لتنزيل الملفات الجديدة.";
 }
 public sealed class StoreBanner {
     public string Id {get;set;}="";
@@ -3361,6 +3396,8 @@ public sealed class ArabGeoCatalog {
     public bool ShowBirthDateField { get; set; } = true;
     public bool GenderRequired { get; set; } = true;
     public bool BirthDateRequired { get; set; } = true;
+    public bool EnableGeoInJobForm { get; set; } = true;
+    public Dictionary<string, List<string>> CityDistricts { get; set; } = [];
     public List<ArabCountryItem> Countries { get; set; } = [];
 }
 public sealed record GuestSettingsInput(bool Enabled, string? Label);
@@ -3372,6 +3409,7 @@ public sealed class NotificationCenterSettings {
     public bool PopupEnabled { get; set; } = true;
     public bool SoundEnabled { get; set; } = true;
     public bool AutoTimerEnabled { get; set; } = true;
+    public List<CustomRingtoneItem> CustomRingtones { get; set; } = [];
 }
 
 public sealed class ScheduledNotice {
@@ -3711,3 +3749,13 @@ public sealed class UserChatPermissionConfig {
     public bool ShowOnlineStatus { get; set; } = true;
     public List<string> AllowedPeerIds { get; set; } = [];
 }
+
+
+public sealed class CustomRingtoneItem {
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string AudioData { get; set; } = "";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+public sealed record CustomRingtoneInput(string Name, string AudioData);
+public sealed record AppUpdateBannerInput(bool Enabled, string? Version, string? Message);
