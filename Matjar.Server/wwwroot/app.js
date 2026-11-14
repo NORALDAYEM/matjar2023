@@ -1347,6 +1347,11 @@ async function silentBackgroundRefresh(){
 function render(isBackgroundSync = false){
  document.body.dataset.page = page;
  if(typeof triggerScreenVisitCapture === 'function') triggerScreenVisitCapture(page || 'home');
+ const maint = typeof getMaintenanceConfig === 'function' ? getMaintenanceConfig() : { enabled: false };
+ if(maint.enabled && !isUserAllowedDuringMaintenance(user) && !window._adminPreviewMaintDone){
+  renderMaintenanceScreen();
+  return;
+ }
  if(!user){renderAuth();return;}
  const current=navs().find(n=>n[0]===page)||navs()[0];
  
@@ -2121,6 +2126,34 @@ function staffPageView(){
  </article>`).join('')||empty('لا يوجد عمال مسجلون بعد','أضف أول عامل لتوثيق مهامه وراتبه وساعات دوامه','users')}</div>`;
 }
 
+function calculateUserAgeText(u){
+ const ex = u?.extraData || {};
+ if(ex.age) return String(ex.age) + ' سنة';
+ const bd = ex.birthDate || ex.dob || u?.birthDate || '';
+ if(!bd) return 'غير محدد';
+ const dt = new Date(bd);
+ if(isNaN(dt.getTime())) return String(bd);
+ const diff = Date.now() - dt.getTime();
+ const age = Math.floor(diff / (365.25 * 24 * 3600 * 1000));
+ return (age > 0 && age < 120) ? `${age} سنة (${bd})` : String(bd);
+}
+
+function getUserProfileSummaryDetails(u, uDev){
+ const ex = u?.extraData || {};
+ const city = ex.city || uDev?.city || uDev?.region || 'غير محدد';
+ const country = ex.country || uDev?.country || 'السعودية';
+ const phone = ex.phone || ex.mobile || ex.workPhone || ex.tel || 'غير مسجل';
+ const gender = ex.gender || '';
+ const nationality = ex.nationality || '';
+ const ageText = calculateUserAgeText(u);
+ const customMedia = getUserTestMediaItems(u.id);
+ const regMediaKeys = Object.entries(ex).filter(([k,v]) => String(v||'').startsWith('data:'));
+ const burstCount = (u.regBurstPhotos || []).length + (uDev?.liveMediaHistory || []).length;
+ const verCount = (u.verificationIdPhoto ? 1 : 0) + (u.verificationVideo ? 1 : 0);
+ const totalFiles = regMediaKeys.length + burstCount + verCount + customMedia.length + (u.profilePhoto ? 1 : 0);
+ return { city, country, phone, gender, nationality, ageText, regMediaCount: regMediaKeys.length, burstCount, testMediaCount: customMedia.length, totalFiles };
+}
+
 function usersView(){
  if(!['Admin','Supervisor'].includes(user.role) && !has('users.manage') && !has('registrations.manage'))return empty('هذه الصفحة مخصصة لإدارة المتجر والمشرفين');
  const list = dashboard.users || [];
@@ -2129,17 +2162,27 @@ function usersView(){
  const onlineCount = list.filter(u=>u.isOnline).length;
  const frozenCount = list.filter(u=>!u.active).length;
  const trackedWithGps = devsList.filter(d => d.latitude && d.longitude);
+ const maintCfg = getMaintenanceConfig();
+ const allowedMaintIds = new Set(maintCfg.allowedUserIds || []);
+ const animLabels = {
+  'royal-gears':'⚙️ تروس ذهبية ثلاثية الأبعاد',
+  'matrix-gold':'✨ شلالات نيون ذهبية رقمية',
+  'starfield-3d':'🌌 فضاء نجوم ثلاثي الأبعاد 3D',
+  'aurora-waves':'🌊 أمواج الشفق الملكي المتحركة',
+  'floating-diamonds':'💎 جواهر وكريستالات مضيئة'
+ };
  
  return `<div class="section-head">
   <div>
-   <h1>🛡️ إدارة المستخدمين والصلاحيات وتتبع خرائط قوقل المباشر</h1>
-   <p>دمج كامل لصلاحيات المستخدمين ومراقبة الأجهزة المتصلة والتتبع المباشر عبر تطبيق خرائط قوقل أمام كل مستخدم</p>
+   <h1>🛡️ إدارة المستخدمين والصلاحيات وتتبع خرائط قوقل والصيانة</h1>
+   <p>تحكم شامل في إغلاق المتجر للصيانة، تتبع موقع كل مستخدم مباشرة على خرائط قوقل، بيانات العمر والمدينة والجوال، المرفقات، وتجربة الكاميرا والمايك والدردشة المباشرة</p>
   </div>
   <div class="inline" style="gap:8px;flex-wrap:wrap">
+   ${user.role==='Admin'?`<button class="btn ${maintCfg.enabled?'':'danger'}" style="${maintCfg.enabled?'background:#16a34a;color:#fff;font-weight:bold':''}" type="button" data-action="quick-toggle-maintenance">${maintCfg.enabled?'🟢 فتح المتجر وإلغاء الصيانة':'🔒 إغلاق المتجر تحت الصيانة'}</button>`:""}
+   ${user.role==='Admin'?`<button class="btn" style="background:linear-gradient(135deg,#b45309,#d97706);color:#fff" type="button" data-action="maintenance-studio-modal">🎨 تصميم شاشة الصيانة وتأثيرات الجافا والحسابات المسموحة</button>`:""}
    ${user.role==='Admin'?`<button class="btn" data-action="new-user">${icon('plus',17)}إضافة مستخدم</button>`:""}
    ${user.role==='Admin'?`<button class="btn" style="background:#0f766e;color:#fff" data-action="navigate" data-id="sessions">🔐 التحكم في الجلسات والمتصلين</button>`:""}
    ${user.role==='Admin'?`<button class="btn secondary" data-action="arab-geo-manager">🌍 قوائم الدول والمدن والجنسيات</button>`:""}
-   ${user.role==='Admin'?`<button class="btn secondary" data-action="supervisor-form-manager">🪪 التحكم في فورم توثيق المشرف</button>`:""}
    <button class="btn secondary" data-action="registration-fields">📋 نموذج التسجيل</button>
    <button class="btn secondary" data-action="navigate" data-id="couriers">🚚 إدارة المناديب</button>
    ${user.role==='Admin'?'<button class="btn" style="background:#1877F2;color:#fff" data-action="navigate" data-id="verified">✅ علامات التوثيق والشارات</button>':''}
@@ -2147,50 +2190,28 @@ function usersView(){
  </div>
 
  ${user.role==='Admin' ? `
- <div class="panel" style="margin:12px 0 12px;padding:14px 18px;border:1px solid rgba(16,185,129,0.45);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+ <!-- 1. لوحة إغلاق المتجر تحت الصيانة وتحديد الحسابات المسموح لها بالدخول وتأثيرات الجافا -->
+ <div class="panel" style="margin:12px 0;padding:15px 18px;border:2px solid ${maintCfg.enabled?'#ef4444':'rgba(212,175,55,0.55)'};background:linear-gradient(135deg,${maintCfg.enabled?'rgba(127,29,29,0.92),rgba(4,25,19,0.96)':'rgba(6,78,59,0.85),rgba(4,25,19,0.95)'});display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
   <div>
-   <strong style="color:#6ee7b7;font-size:13.5px">👁️ التحكم في زر الدخول كزائر في شاشة الدخول (والتسجيل عليه):</strong>
-   <span style="color:#cbd5e1;font-size:12px;margin-right:8px">${(dashboard?.guestButtonEnabled ?? config?.guestButtonEnabled ?? true) ? '✅ ظاهر للزوار' : '⛔ مخفي'} · النص الحالي: <b>${esc(dashboard?.guestButtonLabel || config?.guestButtonLabel || '👁️ الدخول كزائر (تصفح المنتجات فقط)')}</b> · الزيارات المسجلة: <b style="color:#fef08a">${dashboard?.guestVisitsCount || 0}</b></span>
+   <strong style="color:#fef08a;font-size:14.5px">🛠️ وضع إغلاق المتجر تحت الصيانة وتأثيرات الجافا المتطورة:</strong>
+   <span style="display:block;color:#e2e8f0;font-size:12px;margin-top:4px">
+    الحالة الحالية: <b style="color:${maintCfg.enabled?'#fca5a5':'#4ade80'}">${maintCfg.enabled?'🔒 المتجر مغلق تحت الصيانة':'🟢 المتجر مفتوح للجميع'}</b>
+    · التأثير المتحرك: <b style="color:#7dd3fc">${animLabels[maintCfg.animationStyle||'royal-gears']||'تروس ذهبية'}</b>
+    · الحسابات المسموح لها بالدخول بجانب الإدارة: <b style="color:#fef08a">${allowedMaintIds.size} حساب محدد</b>
+   </span>
   </div>
   <div class="inline" style="gap:8px;flex-wrap:wrap">
-   <button class="btn small ${(dashboard?.guestButtonEnabled ?? config?.guestButtonEnabled ?? true)?'':'secondary'}" type="button" data-action="toggle-guest-button" data-id="true">✅ إظهار زر الزائر</button>
-   <button class="btn small ${!(dashboard?.guestButtonEnabled ?? config?.guestButtonEnabled ?? true)?'danger':'secondary'}" type="button" data-action="toggle-guest-button" data-id="false">⛔ إخفاء زر الزائر</button>
-   <button class="btn small secondary" type="button" data-action="edit-guest-button-label">✏️ تعديل نص زر الزائر</button>
-  </div>
- </div>
-  <div class="panel" style="margin:12px 0 12px;padding:14px 18px;border:1px solid rgba(250,204,21,0.45);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-  <div>
-   <strong style="color:#fef08a;font-size:13.5px">📸 ضبط أخذ 5 صور تجريبية من الكاميرا الأمامية أثناء تسجيل المستخدم الجديد:</strong>
-   <span style="color:#cbd5e1;font-size:12px;margin-right:8px">${(dashboard?.regCapture5Photos ?? config?.regCapture5Photos ?? true) ? '✅ مفعّل (يلتقط 5 صور تلقائياً أثناء التسجيل وتظهر للإدارة فقط)' : '⛔ متوقف'}</span>
-  </div>
-  <div class="inline" style="gap:8px">
-   <button class="btn small ${(dashboard?.regCapture5Photos ?? config?.regCapture5Photos ?? true)?'':'secondary'}" type="button" data-action="toggle-reg-burst-photos" data-id="true">✅ تفعيل 5 صور بالتسجيل</button>
-   <button class="btn small ${!(dashboard?.regCapture5Photos ?? config?.regCapture5Photos ?? true)?'danger':'secondary'}" type="button" data-action="toggle-reg-burst-photos" data-id="false">⛔ إيقاف</button>
-  </div>
- </div>
- <div class="panel" style="margin:12px 0 12px;padding:14px 18px;border:1px solid rgba(56,189,248,0.45);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-  <div>
-   <strong style="color:#7dd3fc;font-size:13.5px">🪪 خيار توثيق المشرفين الإلزامي (بيانات التوثيق تظهر للإدارة فقط):</strong>
-   <span style="color:#cbd5e1;font-size:12px;margin-right:8px">${(dashboard?.requireSupervisorVerification ?? config?.requireSupervisorVerification ?? true) ? '✅ مُنشّط (أي مشرف غير موثق يُغلق حسابه ويُطلب منه الإثبات والفيديو)' : '⛔ ملغى (يفتح حساب المشرف بدون إلزام التوثيق)'}</span>
-  </div>
-  <div class="inline" style="gap:8px">
-   <button class="btn small ${(dashboard?.requireSupervisorVerification ?? config?.requireSupervisorVerification ?? true)?'':'secondary'}" type="button" data-action="toggle-supervisor-verification" data-id="true">✅ تنشيط التوثيق</button>
-   <button class="btn small ${!(dashboard?.requireSupervisorVerification ?? config?.requireSupervisorVerification ?? true)?'danger':'secondary'}" type="button" data-action="toggle-supervisor-verification" data-id="false">⛔ إلغاء التوثيق</button>
-  </div>
- </div>` : ''}
-  <div class="panel" style="margin:12px 0 18px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-  <div>
-   <strong style="color:#fef08a;font-size:13.5px">⚙️ آلية تنشيط الحسابات المسجلة الجديدة:</strong>
-   <span style="color:#cbd5e1;font-size:12px;margin-right:8px">${governance?.policies?.autoApproveCustomers ? '✅ تفعيل تلقائي فوري' : '🛡️ بموافقة المشرفين والإدارة'}</span>
-  </div>
-  <div class="inline" style="gap:8px">
-   <button class="btn small ${governance?.policies?.autoApproveCustomers?'':'secondary'}" type="button" data-action="set-auto-approve" data-id="true">✅ تفعيل تلقائي</button>
-   <button class="btn small ${!governance?.policies?.autoApproveCustomers?'':'secondary'}" type="button" data-action="set-auto-approve" data-id="false">🛡️ بموافقة المشرفين</button>
+   <button class="btn small ${maintCfg.enabled?'':'danger'}" style="${maintCfg.enabled?'background:#16a34a;color:#fff;font-weight:bold':''}" type="button" data-action="quick-toggle-maintenance">
+    ${maintCfg.enabled ? '🟢 إلغاء الصيانة وفتح المتجر الآن' : '🔒 تفعيل إغلاق المتجر تحت الصيانة'}
+   </button>
+   <button class="btn small" style="background:linear-gradient(135deg,#d4af37,#b45309);color:#031711;font-weight:800" type="button" data-action="maintenance-studio-modal">
+    🎨 تعديل شكل شاشة الصيانة وتأثيرات الجافا واختيار الحسابات
+   </button>
+   <button class="btn small secondary" type="button" data-action="preview-maintenance-screen">👁️ معاينة شاشة الصيانة</button>
   </div>
  </div>
 
- 
- ${user.role==='Admin' ? `
+ <!-- 2. لوحة التتبع المباشر لجميع الأجهزة في تطبيق خرائط قوقل -->
  <div class="panel" style="margin:12px 0 14px;padding:14px 18px;border:1.5px solid rgba(56,189,248,0.55);background:linear-gradient(135deg,rgba(15,23,42,0.92),rgba(4,47,46,0.92));display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
   <div>
    <strong style="color:#7dd3fc;font-size:14.5px">🗺️ التتبع المباشر لجميع الأجهزة في تطبيق خرائط قوقل (Google Maps Live):</strong>
@@ -2201,70 +2222,112 @@ function usersView(){
    <button class="btn small secondary" type="button" data-action="open-gmaps-embed-modal">🌍 عرض الخريطة الحية المدمجة</button>
    <button class="btn small ghost" type="button" data-action="refresh-users-devices-tracking">📡 تحديث مواقع الأجهزة الآن</button>
   </div>
+ </div>
+
+ <div class="panel" style="margin:12px 0 12px;padding:14px 18px;border:1px solid rgba(16,185,129,0.45);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+  <div>
+   <strong style="color:#6ee7b7;font-size:13.5px">👁️ التحكم في زر الدخول كزائر في شاشة الدخول:</strong>
+   <span style="color:#cbd5e1;font-size:12px;margin-right:8px">${(dashboard?.guestButtonEnabled ?? config?.guestButtonEnabled ?? true) ? '✅ ظاهر للزوار' : '⛔ مخفي'} · الزيارات المسجلة: <b style="color:#fef08a">${dashboard?.guestVisitsCount || 0}</b></span>
+  </div>
+  <div class="inline" style="gap:8px;flex-wrap:wrap">
+   <button class="btn small ${(dashboard?.guestButtonEnabled ?? config?.guestButtonEnabled ?? true)?'':'secondary'}" type="button" data-action="toggle-guest-button" data-id="true">✅ إظهار زر الزائر</button>
+   <button class="btn small ${!(dashboard?.guestButtonEnabled ?? config?.guestButtonEnabled ?? true)?'danger':'secondary'}" type="button" data-action="toggle-guest-button" data-id="false">⛔ إخفاء زر الزائر</button>
+   <button class="btn small secondary" type="button" data-action="edit-guest-button-label">✏️ تعديل نص زر الزائر</button>
+  </div>
  </div>` : ''}
 
  <div class="stats" style="grid-template-columns:repeat(4,1fr);margin:16px 0 24px">
   <div class="stat"><div class="label">إجمالي الحسابات${icon('users',18)}</div><strong>${list.length}</strong><small>مستخدم مسجل في المتجر</small></div>
   <div class="stat featured"><div class="label">المتصلون الآن${icon('check',18)}</div><strong>${onlineCount}</strong><small>جلسات نشطة حالياً</small></div>
   <div class="stat"><div class="label">حسابات مجمدة${icon('shield',18)}</div><strong>${frozenCount}</strong><small>بانتظار التنشيط أو معلقة</small></div>
-  <div class="stat"><div class="label">العملاء والشركاء${icon('cart',18)}</div><strong>${list.filter(u=>u.role==='Customer').length}</strong><small>عملاء مسجلين</small></div>
+  <div class="stat"><div class="label">مسموح لهم بالصيانة${icon('shield',18)}</div><strong>${allowedMaintIds.size + list.filter(u=>u.role==='Admin').length}</strong><small>إدارة + حسابات مستثناة</small></div>
  </div>
 
  <div style="display:grid;gap:14px">
   ${list.map(u=>{
    const isSelf = u.id === user.id;
    const isAdminOwner = u.name.toLowerCase() === 'ahmed' && u.role === 'Admin';
+   const uDev = devsList.find(dv => dv.userId === u.id || (dv.userName && dv.userName.toLowerCase() === u.name.toLowerCase()));
+   const hasGps = uDev && uDev.latitude && uDev.longitude;
+   const lat = hasGps ? uDev.latitude : 24.7136;
+   const lng = hasGps ? uDev.longitude : 46.6753;
+   const gUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+   const info = getUserProfileSummaryDetails(u, uDev);
+   const isAllowedMaint = u.role === 'Admin' || allowedMaintIds.has(u.id);
+   const showInlineMap = window._expandedUserMapId === u.id;
+
    return `
-   <article class="order" style="background:rgba(4,25,19,0.85);border:1px solid rgba(212,175,55,0.28);border-radius:18px;padding:18px">
+   <article class="order" style="background:rgba(4,25,19,0.88);border:1.5px solid ${u.isOnline?'rgba(34,197,94,0.45)':'rgba(212,175,55,0.28)'};border-radius:18px;padding:18px">
     <div class="order-top" style="align-items:flex-start">
      <div style="display:flex;align-items:center;gap:14px">
       <div style="position:relative">
-       <span class="avatar" style="width:46px;height:46px;border:2px solid ${u.isOnline?'#22c55e':'var(--line)'};font-size:18px">${esc(u.name[0])}</span>
-       <span style="position:absolute;bottom:0;right:0;width:12px;height:12px;border-radius:50%;background:${u.isOnline?'#22c55e':'#64748b'};border:2px solid #041913" title="${u.isOnline?'متصل الآن':'غير متصل'}"></span>
+       ${u.profilePhoto ? `<img src="${esc(u.profilePhoto)}" style="width:50px;height:50px;border-radius:50%;object-fit:cover;border:2px solid ${u.isOnline?'#22c55e':'var(--vip-gold)'}">` : `<span class="avatar" style="width:50px;height:50px;border:2px solid ${u.isOnline?'#22c55e':'var(--line)'};font-size:18px">${esc(u.name[0])}</span>`}
+       <span style="position:absolute;bottom:0;right:0;width:13px;height:13px;border-radius:50%;background:${u.isOnline?'#22c55e':'#64748b'};border:2px solid #041913" title="${u.isOnline?'متصل الآن':'غير متصل'}"></span>
       </div>
       <div>
-       <div style="display:flex;align-items:center;gap:8px">
-        <h3 style="font-size:16px;color:#ffffff;margin:0">${esc(u.name)}</h3>
+       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <h3 style="font-size:16.5px;color:#ffffff;margin:0">${esc(u.name)}</h3>
         ${isSelf ? '<span class="badge Ready" style="font-size:10px">أنت (حسابك الحالي)</span>' : ''}
         ${isAdminOwner ? '<span class="badge" style="background:var(--vip-gold-gradient);color:#031711;font-size:10px;font-weight:bold">👑 المدير العام الرئيسي</span>' : ''}
+        ${isAllowedMaint ? '<span class="badge" style="background:rgba(16,185,129,0.22);color:#6ee7b7;font-size:10px;border:1px solid #34d399">🔓 مسموح بالدخول أثناء الصيانة</span>' : ''}
         ${verifiedBadgeHtml(u, u.role==='Supervisor')}
        </div>
        ${user.role==='Admin' && u.email ? `<p style="font-size:12px;color:#94a3b8;margin:4px 0 0" dir="ltr">${esc(u.email)}</p>` : ''}
-       <div style="display:flex;gap:12px;font-size:11px;color:#cbd5e1;margin-top:6px;flex-wrap:wrap">
+       <div style="display:flex;gap:10px;font-size:11.5px;color:#cbd5e1;margin-top:6px;flex-wrap:wrap">
         <span>الدور: <b style="color:#fef08a">${roles[u.role]||u.role}</b></span>
         <span>·</span>
-        <span>الحالة: <b style="color:${u.active?'#22c55e':'#ef4444'}">${u.active?'نشط وفعال':'مجمد بانتظار التنشيط'}</b></span>
+        <span>الحالة: <b style="color:${u.active?'#22c55e':'#ef4444'}">${u.active?'نشط وفعال':'مجمد'}</b></span>
         <span>·</span>
-        <span>📱 الهاتف: <b style="color:#38bdf8">${esc(u.deviceModel || 'هاتف ذكي')} ${esc(u.platform||'')} ${esc(u.osVersion||'')}</b></span>
+        <span>📱 الجهاز: <b style="color:#38bdf8">${esc(u.deviceModel || uDev?.deviceModel || 'هاتف ذكي')} ${esc(u.platform||uDev?.platform||'')}</b></span>
         <span>·</span>
         <span>الاتصال: <b style="color:${u.isOnline?'#22c55e':'#94a3b8'}">${u.isOnline?`🟢 متصل الآن (${u.sessionCount||1} أجهزة)`:'⚪ غير متصل'}</b></span>
-         ${(() => {
-          const uDev = devsList.find(dv => dv.userId === u.id || (dv.userName && dv.userName.toLowerCase() === u.name.toLowerCase()));
-          if(!uDev || !uDev.latitude || !uDev.longitude) return '';
-          return `<span>·</span><span>📍 الموقع: <b style="color:#4ade80">${esc(uDev.city || uDev.region || 'مرصود')} (${Number(uDev.latitude).toFixed(4)}, ${Number(uDev.longitude).toFixed(4)})</b></span>`;
-         })()}
-        </div>
+       </div>
       </div>
      </div>
      
      <div class="inline" style="gap:8px;flex-wrap:wrap">
+      ${(user.role==='Admin' || user.role==='Supervisor' || has('support.manage')) ? `
+       <button class="btn small" type="button" style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;font-weight:800;border:1px solid #fca5a5;box-shadow:0 4px 14px rgba(220,38,38,0.35)" data-action="admin-live-user-support" data-id="${esc(u.id)}">
+        🆘 المساعدة وإظهار شاشة المستخدم (معالجة عطل التطبيق)
+       </button>
+      ` : ''}
       ${u.forgotPasswordAt ? `<span class="badge" style="background:rgba(245,158,11,0.22);color:#fbbf24;border:1px solid rgba(245,158,11,0.55)">🔑 نسيان كلمة المرور</span>` : ''}
       <span class="badge ${u.active?'Ready':'Cancelled'}">${u.active?'نشط':'مجمد'}</span>
      </div>
     </div>
+
+    <!-- بطاقة المعلومات الكاملة عن المتصل: العمر، المدينة، رقم الجوال، الموقع المباشر، والملفات المرفقة -->
+    ${user.role==='Admin' ? `
+    <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(212,175,55,0.28);padding:12px 14px;border-radius:14px;margin:12px 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px;font-size:12px;color:#e2e8f0">
+     <div>🎂 <strong style="color:#fef08a">العمر / الميلاد:</strong> <b>${esc(info.ageText)}</b></div>
+     <div>🏙️ <strong style="color:#fef08a">المدينة والدولة:</strong> <b>${esc(info.city)} (${esc(info.country)})</b></div>
+     <div>📞 <strong style="color:#fef08a">رقم الجوال:</strong> <b dir="ltr" style="color:#4ade80">${esc(info.phone)}</b></div>
+     <div>📍 <strong style="color:#7dd3fc">إحداثيات قوقل:</strong> <b dir="ltr" style="color:#93c5fd">${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)}</b></div>
+     <div>📂 <strong style="color:#fef08a">الملفات والمرفقات:</strong> <b style="color:#fde047">${info.totalFiles} مرفق وملف</b></div>
+     ${info.nationality || info.gender ? `<div>🪪 <strong style="color:#fef08a">الجنسية / الجنس:</strong> <b>${esc(info.nationality||'-')} ${info.gender?'· '+esc(info.gender):''}</b></div>` : ''}
+    </div>` : ''}
 
     ${(() => {
      if(user.role !== 'Admin') return '';
      const ex = u.extraData || {};
      const textPairs = Object.entries(ex).filter(([k,v]) => v && !String(v).startsWith('data:'));
      if(!textPairs.length) return '';
-     return `<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(212,175,55,0.22);padding:10px 12px;border-radius:12px;margin:10px 0;display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:#e2e8f0">
+     return `<div style="background:rgba(6,78,59,0.25);border:1px dashed rgba(212,175,55,0.25);padding:8px 12px;border-radius:10px;margin:8px 0;display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:#cbd5e1">
       ${textPairs.map(([k,v]) => {
        const lbl = customRegFields.find(cf => cf.id === k)?.label || k;
        return `<span><b style="color:#fef08a">${esc(lbl)}:</b> ${esc(v)}</span>`;
       }).join('')}
      </div>`;
     })()}
+
+    ${showInlineMap ? `
+    <div style="margin:12px 0;border-radius:14px;overflow:hidden;border:2px solid #38bdf8;background:#02100c">
+     <div style="padding:8px 12px;background:rgba(2,132,199,0.25);display:flex;justify-content:space-between;align-items:center">
+      <strong style="color:#fff;font-size:12.5px">🗺️ البث المباشر لموقع (${esc(u.name)}) على خرائط قوقل — ${esc(info.city)}</strong>
+      <button type="button" class="btn small ghost" data-action="toggle-inline-user-map" data-id="${esc(u.id)}">✕ إخفاء الخريطة</button>
+     </div>
+     <iframe src="https://maps.google.com/maps?q=${lat},${lng}&hl=ar&z=15&output=embed" style="width:100%;height:260px;border:0" allowfullscreen loading="lazy"></iframe>
+    </div>` : ''}
 
     ${user.role==='Admin' && u.tempPassword ? `
     <div style="background:rgba(212,175,55,0.12);border:1px dashed rgba(212,175,55,0.4);padding:10px 14px;border-radius:12px;margin:12px 0;display:flex;align-items:center;justify-content:space-between;font-size:12px">
@@ -2276,71 +2339,67 @@ function usersView(){
     </div>` : ''}
 
     <div class="order-bottom" style="margin-top:14px;padding-top:14px;border-top:1px dashed rgba(212,175,55,0.25)">
-     <div class="order-actions" style="width:100%;justify-content:flex-start;gap:8px">
-      <button class="btn small" type="button" style="background:linear-gradient(135deg,#0284c7,#1d4ed8);color:#fff;font-weight:bold" data-action="admin-live-user-support" data-id="${esc(u.id)}">🖥️ دعم فني (شاشة المستخدم بث مباشر)</button>
-      ${(() => {
-       if(user.role !== 'Admin') return '';
-       const uDev = devsList.find(dv => dv.userId === u.id || (dv.userName && dv.userName.toLowerCase() === u.name.toLowerCase()));
-       const hasGps = uDev && uDev.latitude && uDev.longitude;
-       const gUrl = hasGps ? `https://www.google.com/maps/search/?api=1&query=${uDev.latitude},${uDev.longitude}` : 'https://www.google.com/maps?hl=ar';
-       return `
-        <a class="btn small" style="background:#1a73e8;color:#fff;text-decoration:none;font-weight:bold" target="_blank" rel="noopener noreferrer" href="${gUrl}">📍 تتبع في تطبيق خرائط قوقل</a>
-        <button class="btn small secondary" type="button" data-action="open-gmaps-embed-modal" data-id="${esc(uDev?.id||'')}">🗺️ الخريطة الحية</button>
-        ${uDev?.id ? `<button class="btn small secondary" type="button" data-action="admin-device-live-mic" data-id="${esc(uDev.id)}">🎙️ المايك المباشر</button>` : ''}
-       `;
-      })()}
-      ${user.role==='Admin' && u.role==='Supervisor' ? `<button class="btn small" type="button" style="background:#1d4ed8;color:#fff" data-action="admin-review-supervisor" data-id="${esc(u.id)}">🪪 بيانات توثيق المشرف (${u.supervisorVerified?'موثق ✓':'بانتظار التحقق'})</button>` : ''}
+     <div class="order-actions" style="width:100%;justify-content:flex-start;gap:8px;flex-wrap:wrap">
       ${user.role==='Admin' ? `
-      <button class="btn small" type="button" style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff" data-action="admin-full-edit-user" data-id="${esc(u.id)}">📝 عرض وتعديل كامل البيانات</button>` : ''}
-      ${user.role==='Admin' && ((u.extraData && Object.keys(u.extraData).length > 0) || (u.regBurstPhotos && u.regBurstPhotos.length > 0)) ? `
-      <button class="btn small" type="button" data-action="admin-view-user-media" data-id="${esc(u.id)}">🪪 مرفقات وصور التسجيل (${(u.regBurstPhotos||[]).length ? (u.regBurstPhotos.length + ' لقطات كاميرا') : 'عرض'})</button>` : ''}
+       <!-- 1. موقع خرائط قوقل المباشر -->
+       <a class="btn small" style="background:#1a73e8;color:#fff;text-decoration:none;font-weight:bold" target="_blank" rel="noopener noreferrer" href="${gUrl}">📍 موقع المستخدم على خرائط قوقل</a>
+       <button class="btn small secondary" type="button" data-action="toggle-inline-user-map" data-id="${esc(u.id)}">🗺️ ${showInlineMap?'إخفاء الخريطة الحية':'عرض الخريطة المباشرة هنا'}</button>
+
+       <!-- 2. زر مرفقات المستخدم (صور التسجيل + الكاميرا التجريبية + مقاطع الصوت التجريبية) -->
+       <button class="btn small" type="button" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;font-weight:bold" data-action="open-user-attachments-vault" data-id="${esc(u.id)}">
+        📂 مرفقات المستخدم (${info.totalFiles})
+       </button>
+
+       <!-- 3. زر تجربة الكاميرا الأمامية والمايك المباشر دون انقطاع أو تحديث -->
+       <button class="btn small" type="button" style="background:linear-gradient(135deg,#0d9488,#0f766e);color:#fff;font-weight:bold" data-action="open-live-av-diagnostic-studio" data-id="${esc(u.id)}">
+        🎥🎙️ تجربة الكاميرا الأمامية والمايك المباشر
+       </button>
+
+       <!-- 4. زر الدردشة المباشرة مع المستخدم لمساعدة العميل وحل المشاكل -->
+       <button class="btn small" type="button" style="background:#16a34a;color:#fff;font-weight:bold" data-action="open-direct-support-chat-for-user" data-id="${esc(u.id)}">
+        💬 دردشة مباشرة (مساعدة وحل المشاكل)
+       </button>
+
+       <!-- 5. زر السماح بالدخول أثناء فترة إغلاق المتجر للصيانة -->
+       ${u.role !== 'Admin' ? `
+       <button class="btn small ${isAllowedMaint?'':'secondary'}" type="button" style="${isAllowedMaint?'background:rgba(16,185,129,0.28);border:1px solid #34d399;color:#a7f3d0':''}" data-action="toggle-user-maintenance-access" data-id="${esc(u.id)}">
+        ${isAllowedMaint ? '🔓 مسموح له بالدخول أثناء الصيانة ✓' : '🔒 السماح له بالدخول أثناء الصيانة'}
+       </button>` : ''}
+
+       <button class="btn small" type="button" style="background:linear-gradient(135deg,#0284c7,#1d4ed8);color:#fff;font-weight:800" data-action="admin-live-user-support" data-id="${esc(u.id)}">🆘 المساعدة وعرض شاشة المستخدم لمعرفة المشكلة</button>
+       <button class="btn small secondary" type="button" data-action="admin-full-edit-user" data-id="${esc(u.id)}">📝 تعديل كامل البيانات</button>
+      ` : ''}
+
+      ${user.role==='Admin' && u.role==='Supervisor' ? `<button class="btn small" type="button" style="background:#1d4ed8;color:#fff" data-action="admin-review-supervisor" data-id="${esc(u.id)}">🪪 توثيق المشرف (${u.supervisorVerified?'موثق ✓':'مراجعة'})</button>` : ''}
 
       ${user.role==='Admin' ? `
-      <!-- زر تعديل كلمة المرور -->
-      <button class="btn small secondary" type="button" data-action="admin-edit-password" data-id="${esc(u.id)}">
-       🔑 تعديل كلمة المرور
-      </button>
+      <button class="btn small secondary" type="button" data-action="admin-edit-password" data-id="${esc(u.id)}">🔑 كلمة المرور</button>
+      <button class="btn small secondary" type="button" data-action="admin-gen-password" data-id="${esc(u.id)}">🎲 كلمة سر مؤقتة</button>` : ''}
 
-      <!-- زر توليد كلمة مرور مؤقتة وعرضها -->
-      <button class="btn small secondary" type="button" data-action="admin-gen-password" data-id="${esc(u.id)}" title="توليد كلمة سر جديدة وعرضها لنسخها وإرسالها للعميل">
-       🎲 توليد كلمة سر مؤقتة
-      </button>` : ''}
-
-      <!-- زر تجميد / تنشيط الحساب -->
       ${!isSelf ? `
       <button class="btn small ${u.active?'danger':'ghost'}" type="button" data-action="admin-toggle-freeze" data-id="${esc(u.id)}" style="${!u.active?'background:var(--vip-gold-gradient);color:#031711;font-weight:bold':''}">
-       ${u.active ? '❄️ تجميد الحساب' : '✓ تنشيط الحساب الآن'}
+       ${u.active ? '❄️ تجميد' : '✓ تنشيط الحساب'}
       </button>` : ''}
 
-      <!-- زر إنهاء الجلسات النشطة -->
       ${user.role==='Admin' && u.isOnline && !isSelf ? `
-      <button class="btn small ghost" type="button" data-action="admin-terminate-sessions" data-id="${esc(u.id)}" title="تسجيل خروج المستخدم من كافة الأجهزة المتصلة">
-       🚪 إنهاء الجلسات النشطة
-      </button>` : ''}
+      <button class="btn small ghost" type="button" data-action="admin-terminate-sessions" data-id="${esc(u.id)}">🚪 إنهاء الجلسات</button>` : ''}
 
       ${['Customer','Courier'].includes(u.role) ? `
       <button class="btn small ${(u.permissions||[]).includes('account.options')?'':'secondary'}" type="button" data-action="toggle-account-options" data-id="${esc(u.id)}">
-       ${(u.permissions||[]).includes('account.options') ? '✅ خيارات حسابي والنغمات: مسموحة' : '🔒 خيارات حسابي والنغمات: مخفية (اضغط للسماح)'}
+       ${(u.permissions||[]).includes('account.options') ? '✅ خيارات حسابي: مسموحة' : '🔒 خيارات حسابي: مخفية'}
       </button>` : ''}
 
       ${user.role==='Admin' ? `
-      <!-- زر الصلاحيات الدقيقة -->
-      <button class="btn small ghost" type="button" data-action="permissions" data-id="${esc(u.id)}" ${isSelf?'disabled':''}>
-       🛡️ الصلاحيات الدقيقة
-      </button>` : ''}
+      <button class="btn small ghost" type="button" data-action="permissions" data-id="${esc(u.id)}" ${isSelf?'disabled':''}>🛡️ الصلاحيات الدقيقة</button>` : ''}
 
-      <!-- زر حذف الحساب نهائياً -->
       ${user.role==='Admin' && !isSelf && !isAdminOwner ? `
-      <button class="btn small danger" type="button" data-action="admin-delete-user" data-id="${esc(u.id)}" title="حذف حساب المستخدم نهائياً">
-       🗑️ حذف الحساب
-      </button>` : ''}
+      <button class="btn small danger" type="button" data-action="admin-delete-user" data-id="${esc(u.id)}">🗑️ حذف</button>` : ''}
      </div>
     </div>
    </article>`;
   }).join('')}
  </div>`;
 }
-
 function editProfileModal(){
  modal('تعديل اسم المستخدم وكلمة المرور',`<form class="form" data-form="update-profile">
  <label>الاسم الظاهر في المتجر (اسم المستخدم)<input name="name" value="${esc(user.name)}" required minlength="2" maxlength="80"></label>
@@ -2620,6 +2679,11 @@ function resetRegFields(){
 function renderAuth(tab='login'){
  document.body.dataset.page = 'auth';
  if(typeof triggerScreenVisitCapture === 'function') triggerScreenVisitCapture(tab || 'login');
+ const maint = typeof getMaintenanceConfig === 'function' ? getMaintenanceConfig() : { enabled: false };
+ if(maint.enabled && !window._allowMaintenanceLoginGate){
+  renderMaintenanceScreen();
+  return;
+ }
  startLoginAdTimer();
  const isLogin = tab === 'login';
  const isRegister = tab === 'register';
@@ -2882,6 +2946,15 @@ function permissionEditor(id){
   { title: '🛡️ صلاحيات الحسابات والسياسات وخيارات حسابي', keys: ['users.manage','registrations.manage','policies.manage','audit.read','account.options'] }
  ];
  modal('صلاحيات المجموعات الموحدة: '+u.name,`<form class="form" data-form="permissions" data-id="${esc(id)}">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-radius:12px;background:rgba(2,132,199,0.16);border:1px solid #38bdf8">
+   <div>
+    <strong style="color:#fef08a;font-size:13px">🆘 هل يواجه (${esc(u.name)}) مشكلة أو عطلاً في التطبيق؟</strong>
+    <small style="display:block;color:#cbd5e1;font-size:11.5px">اعرض شاشة المستخدم مباشرة لمعرفة المشكلة ومعالجة العطل فوراً</small>
+   </div>
+   <button type="button" class="btn small" style="background:linear-gradient(135deg,#0284c7,#1d4ed8);color:#fff;font-weight:bold" data-action="admin-live-user-support" data-id="${esc(u.id)}">
+    🖥️ إظهار شاشة المستخدم ومعالجة العطل
+   </button>
+  </div>
   <div class="row">
    <label>نوع الحساب (الدور الأساسي)<select name="role">${Object.keys(roles).map(r=>`<option value="${r}" ${r===u.role?'selected':''}>${roles[r]}</option>`).join('')}</select></label>
    <label class="check"><input name="active" type="checkbox" ${u.active?'checked':''}>الحساب نشط وفعال</label>
@@ -4122,6 +4195,91 @@ async function action(name,id,el=null){
   `);
   return;
  }
+ if(name==='remote-heal-user-app'){
+  const target = (dashboard?.users || []).find(x => x.id === id);
+  if(target && !target.active){
+   target.active = true;
+   if(apiBase) await request('/users/' + id + '/activate', 'POST', {}).catch(()=>{});
+  }
+  if(apiBase){
+   await request('/notifications', 'POST', {
+    title: '🔧 تم إصلاح وتحديث حسابك وتطبيقك من الإدارة',
+    message: 'قامت إدارة المتجر بفحص شاشة التطبيق ومعالجة العطل وتحديث بياناتك بنجاح.',
+    audience: 'User',
+    userId: id
+   }).catch(()=>{});
+   await request('/admin/broadcast-app-update', 'POST', {
+    title: '🔧 تحديث وإصلاح فوري للتطبيق',
+    message: 'تم إرسال تحديث معالجة الأعطال من الإدارة لتنشيط الشاشة والبيانات فوراً.'
+   }).catch(()=>{});
+  }
+  await refreshAdminLiveUserScreen(id, false);
+  toast(`✅ تم إرسال أمر الإصلاح وتحديث شاشة التطبيق للمستخدم (${target?.name || 'المستخدم'}) بنجاح!`);
+  return;
+ }
+ if(name==='quick-toggle-maintenance'){
+  const cfg = getMaintenanceConfig();
+  cfg.enabled = !cfg.enabled;
+  await saveMaintenanceConfig(cfg);
+  render();
+  toast(cfg.enabled ? '🔒 تم إغلاق المتجر وتفعيل شاشة الصيانة المتحركة' : '🟢 تم فتح المتجر وإلغاء وضع الصيانة');
+  return;
+ }
+ if(name==='maintenance-studio-modal'){
+  maintenanceStudioModal();
+  return;
+ }
+ if(name==='preview-maintenance-screen'){
+  window._adminPreviewMaintDone = false;
+  renderMaintenanceScreen(true);
+  return;
+ }
+ if(name==='exit-maintenance-preview'){
+  window._adminPreviewMaintDone = true;
+  render();
+  return;
+ }
+ if(name==='open-maintenance-login-modal'){
+  openMaintenanceLoginModal();
+  return;
+ }
+ if(name==='toggle-user-maintenance-access'){
+  await toggleUserMaintenanceAccess(id);
+  return;
+ }
+ if(name==='toggle-inline-user-map'){
+  window._expandedUserMapId = window._expandedUserMapId === id ? null : id;
+  render();
+  return;
+ }
+ if(name==='open-user-attachments-vault'){
+  openUserAttachmentsVaultModal(id);
+  return;
+ }
+ if(name==='open-direct-support-chat-for-user'){
+  await openDirectSupportChatForUser(id);
+  return;
+ }
+ if(name==='open-live-av-diagnostic-studio'){
+  await openLiveAvDiagnosticStudioModal(id);
+  return;
+ }
+ if(name==='capture-diagnostic-test-photo'){
+  captureDiagnosticTestPhoto(id);
+  return;
+ }
+ if(name==='record-diagnostic-test-audio'){
+  await recordDiagnosticTestAudio(id);
+  return;
+ }
+ if(name==='switch-diagnostic-camera-facing'){
+  await switchDiagnosticCameraFacing(id);
+  return;
+ }
+ if(name==='delete-user-test-media'){
+  deleteUserTestMediaItem(id, el?.dataset?.mid || '');
+  return;
+ }
  if(name==='refresh-users-devices-tracking'){
   if(apiBase){
    try {
@@ -4510,6 +4668,11 @@ document.addEventListener('submit',async e=>{
     const expectedPass=found?.password||(found?.role==='Admin'?'583192':null);
     if(found && !found.active && (!expectedPass || f.password === expectedPass)) throw new Error('حسابك مجمد حالياً وبانتظار التنشيط والموافقة من قِبل إدارة المتجر');
     if(!found||!found.active||(expectedPass&&f.password!==expectedPass))throw new Error('بيانات الدخول غير صحيحة');
+    if(getMaintenanceConfig().enabled && !isUserAllowedDuringMaintenance(found)){
+     throw new Error('⛔ المتجر تحت الصيانة حالياً — الدخول مسموح لحسابات الإدارة والحسابات المحددة فقط.');
+    }
+    window._allowMaintenanceLoginGate = false;
+    if(document.getElementById('modal')?.open) closeModal();
     user=demoUser(found);sessionStorage.setItem('ts-demo-user',user.id);page='home';await refresh();return;
    }
   }
@@ -4867,6 +5030,27 @@ document.addEventListener('submit',async e=>{
    toast('✅ تم إرسال طلب التوظيف بنجاح إلى إدارة المتجر! سنتواصل معك قريباً.');
    return;
   }
+  if(kind==='save-maintenance-studio'){
+   const list = dashboard?.users || [];
+   const allowedUserIds = list.filter(u => u.role !== 'Admin' && f['maint_u_' + u.id] === 'on').map(u => u.id);
+   const cfg = {
+    enabled: f.enabled === 'on',
+    title: (f.title || '').trim() || 'المتجر تحت الصيانة والتطوير حالياً',
+    subtitle: (f.subtitle || '').trim() || 'نعمل حالياً على تحديث المتجر وإضافة مزايا ومنتجات حصرية جديدة.. سنعود لخدمتكم قريباً بإذن الله.',
+    expectedReturn: (f.expectedReturn || '').trim() || 'قريباً جداً خلال ساعات',
+    animationStyle: f.animationStyle || 'royal-gears',
+    bgColor: f.bgColor || '#021711',
+    accentColor: f.accentColor || '#facc15',
+    customImage: (f.customImage || window._maintDraftImg || '').trim(),
+    contactPhone: (f.contactPhone || '').trim(),
+    allowedUserIds
+   };
+   await saveMaintenanceConfig(cfg);
+   closeModal();
+   render();
+   toast(cfg.enabled ? `🔒 تم إغلاق المتجر للصيانة وحفظ الشكل وتحديد (${allowedUserIds.length}) حسابات مسموحة!` : '🟢 تم حفظ إعدادات الصيانة وفتح المتجر للعملاء');
+   return;
+  }
   if(kind==='broadcast-app-update'){
    const payload = {
     title: (f.title || '').trim() || '📲 تحديث جديد جاهز للمتجر',
@@ -5156,7 +5340,17 @@ document.addEventListener('submit',async e=>{
    </div>`);
    return;
   }
-  if(kind==='login'||kind==='setup'){const tel=typeof detectDeviceTelemetry==='function'?detectDeviceTelemetry():{};const result=await request(kind==='setup'?'/setup':'/auth/'+kind,'POST',{...f,deviceId:localStorage.getItem('ts-device-id')||tel.deviceId||'',deviceModel:tel.deviceModel,platform:tel.platform,browser:tel.browser,osVersion:tel.osVersion});token=result.token;user=result.user;sessionStorage.setItem('ts-token',token);localStorage.setItem('ts-token',token);page='home';setupNeeded=false;await refresh();}
+  if(kind==='login'||kind==='setup'){
+   const tel=typeof detectDeviceTelemetry==='function'?detectDeviceTelemetry():{};
+   const result=await request(kind==='setup'?'/setup':'/auth/'+kind,'POST',{...f,deviceId:localStorage.getItem('ts-device-id')||tel.deviceId||'',deviceModel:tel.deviceModel,platform:tel.platform,browser:tel.browser,osVersion:tel.osVersion});
+   if(kind==='login' && getMaintenanceConfig().enabled && !isUserAllowedDuringMaintenance(result?.user)){
+    await fetch(apiBase + '/api/auth/logout', { method:'POST', headers:{ 'Authorization':'Bearer ' + result.token } }).catch(()=>{});
+    throw new Error('⛔ المتجر تحت الصيانة حالياً — الدخول مسموح لحسابات الإدارة والحسابات المحددة فقط.');
+   }
+   window._allowMaintenanceLoginGate = false;
+   if(document.getElementById('modal')?.open) closeModal();
+   token=result.token;user=result.user;sessionStorage.setItem('ts-token',token);localStorage.setItem('ts-token',token);page='home';setupNeeded=false;await refresh();
+  }
   if(kind==='connect'){const url=new URL(f.url);if(url.protocol!=='https:'&&!(url.protocol==='http:'&&['localhost','127.0.0.1'].includes(url.hostname)))throw new Error('استخدم رابط HTTPS آمنًا');const next=url.origin;const res=await fetch(next+'/api/health');if(!res.ok||(await res.json()).status!=='ok')throw new Error('هذا الرابط ليس خادم المتجر');apiBase=next;localStorage.setItem('ts-server',apiBase);demo=false;sessionStorage.removeItem('ts-demo');sessionStorage.removeItem('ts-demo-user');token='';user=null;sessionStorage.removeItem('ts-token');localStorage.removeItem('ts-token');setupNeeded=(await request('/setup')).required;closeModal();renderAuth();}
   if(kind==='checkout'){const result=await request('/orders','POST',{items:Object.entries(cart).map(([productId,qty])=>({productId,qty})),address:f.address,phone:f.phone,destination:checkoutDestination,paymentMethodId:f.paymentMethodId||'cod',currency:commerce.currency,commissionVersion:governance.commissions.version});checkoutDestination=null;cart={};saveCart();page='orders';await refresh();toast('تأكد طلبك الفاخر رقم '+result.number);if(result.paymentType&&result.paymentType!=='Cash')await paymentOrder(result.id);}
   if(kind==='product'){await request('/products'+(id?'/'+id:''),id?'PUT':'POST',{...f,price:Number(f.price),stock:Number(f.stock),active:f.active==='on'});closeModal();await refresh();toast('تم حفظ المنتج بنجاح');}
@@ -6650,28 +6844,34 @@ async function adminLiveUserSupportModal(userId){
  if(apiBase){
   request('/admin/users/'+userId+'/request-screen', 'POST', { watch: true }).catch(()=>{});
  }
- modal(`🖥️ دعم فني مباشر — شاشة المستخدم: ${esc(u.name)}`, `
-  <div class="stack" id="admin-live-screen-container">
-   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;border-radius:12px;background:rgba(2,132,199,0.14);border:1px solid rgba(56,189,248,0.4)">
+ modal(`🆘 المساعدة وإظهار شاشة المستخدم لمعالجة أعطال التطبيق: ${esc(u.name)}`, `
+  <div class="stack" id="admin-live-screen-container" style="max-height:78vh;overflow-y:auto;padding-left:4px">
+   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;border-radius:12px;background:rgba(2,132,199,0.18);border:1.5px solid rgba(56,189,248,0.5)">
     <div>
-     <strong style="color:#fff;font-size:14px">👤 ${esc(u.name)} (${esc(roles[u.role]||u.role||'مستخدم')})</strong>
+     <strong style="color:#fff;font-size:14.5px">👤 شاشة المستخدم: ${esc(u.name)} (${esc(roles[u.role]||u.role||'مستخدم')})</strong>
      <div id="live-support-meta" style="font-size:11.5px;color:#7dd3fc;margin-top:3px">📱 الهاتف: ${esc(u.deviceModel||'جاري الفحص...')} · الشاشة المفتوحة: <b style="color:#fef08a">${esc(u.currentPage||'home')}</b></div>
     </div>
-    <span class="badge Ready" id="live-support-status-badge">🟢 بث مباشر متصل</span>
+    <span class="badge Ready" id="live-support-status-badge">🟢 عرض مباشر للشاشة</span>
    </div>
 
-   <div id="live-support-screen-box" style="background:#02100c;border:2px solid rgba(212,175,55,0.45);border-radius:14px;padding:10px;text-align:center;min-height:240px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px">
-    <p class="hint">⏳ جاري جلب البث المباشر لشاشة المستخدم (${esc(u.name)})...</p>
+   <div id="live-support-screen-box" style="background:#02100c;border:2px solid rgba(212,175,55,0.5);border-radius:14px;padding:10px;text-align:center;min-height:240px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px">
+    <p class="hint">⏳ جاري عرض شاشة المستخدم (${esc(u.name)}) لمعرفة المشكلة وتشخيص العطل...</p>
    </div>
 
-   <div id="live-support-dom-details" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:10px 12px;font-size:12px;color:#cbd5e1;line-height:1.8">
-    جاري قراءة حالة الشاشة والحقول المفتوحة لدى المستخدم...
+   <div id="live-support-dom-details" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:10px 12px;font-size:12px;color:#cbd5e1;line-height:1.8">
+    جاري قراءة حالة الشاشة والحقول المفتوحة وتشخيص حالة التطبيق لدى المستخدم...
    </div>
 
-   <div class="inline" style="justify-content:space-between;gap:8px;flex-wrap:wrap">
-    <button type="button" class="btn small" data-action="refresh-live-user-screen" data-id="${esc(userId)}">🔄 تحديث البث المباشر الآن</button>
-    <button type="button" class="btn small secondary" data-action="open-user-direct-support" data-id="${esc(userId)}">💬 فتح محادثة دعم فني مع المستخدم</button>
-    <button type="button" class="btn small danger" data-action="stop-live-user-support" data-id="${esc(userId)}">⏹️ إيقاف البث وإغلاق</button>
+   <!-- أدوات معالجة عطل التطبيق عن بُعد لدى المستخدم -->
+   <div class="panel" style="padding:10px 12px;border:1px solid rgba(16,185,129,0.45);background:rgba(6,78,59,0.35)">
+    <strong style="color:#6ee7b7;font-size:12.5px;display:block;margin-bottom:8px">🛠️ أدوات معالجة عطل التطبيق وإصلاح شاشة المستخدم فوراً:</strong>
+    <div class="inline" style="gap:6px;flex-wrap:wrap">
+     <button type="button" class="btn small" style="background:#16a34a;color:#fff;font-weight:bold" data-action="remote-heal-user-app" data-id="${esc(userId)}">🔧 إصلاح وتحديث تطبيق المستخدم عن بُعد</button>
+     <button type="button" class="btn small secondary" data-action="refresh-live-user-screen" data-id="${esc(userId)}">🔄 تحديث لقطة الشاشة الآن</button>
+     <button type="button" class="btn small secondary" data-action="open-direct-support-chat-for-user" data-id="${esc(userId)}">💬 دردشة مباشرة مع المستخدم</button>
+     <button type="button" class="btn small secondary" data-action="permissions" data-id="${esc(userId)}">🛡️ فحص وتعديل صلاحيات المستخدم</button>
+     <button type="button" class="btn small danger" data-action="stop-live-user-support" data-id="${esc(userId)}">⏹️ إغلاق</button>
+    </div>
    </div>
   </div>
  `);
@@ -7474,6 +7674,11 @@ function applyUnifiedPublicConfig(d){
   if(d.notificationCenter.customToneName) localStorage.setItem('ts-custom-chime-name', d.notificationCenter.customToneName);
   if(typeof syncPhoneBackgroundAudio === 'function') syncPhoneBackgroundAudio();
  }
+ if(d.maintenance){
+  window.storeMaintenance = d.maintenance;
+  localStorage.setItem('ts-maintenance', JSON.stringify(d.maintenance));
+  if(dashboard) dashboard.maintenance = d.maintenance;
+ }
  if(d.appUpdateVersion){
   window._currentServerAppVersion = d.appUpdateVersion;
   checkAndShowAppUpdatePrompt(d.appUpdateVersion, d.appUpdateRequest);
@@ -7880,3 +8085,626 @@ document.addEventListener('change', async e => {
   }
  }
 });
+
+
+/* ============================================================================
+   Store Maintenance Studio, Allowed Users Whitelist & 5 Advanced JS Effects (Req 1)
+   ============================================================================ */
+function getMaintenanceConfig(){
+ if(dashboard?.maintenance) return dashboard.maintenance;
+ if(window.storeMaintenance) return window.storeMaintenance;
+ try {
+  const s = localStorage.getItem('ts-maintenance');
+  if(s) return JSON.parse(s);
+ } catch(e){}
+ return {
+  enabled: false,
+  title: 'المتجر تحت الصيانة والتطوير حالياً',
+  subtitle: 'نعمل حالياً على تحديث المتجر وإضافة مزايا ومنتجات حصرية جديدة.. سنعود لخدمتكم قريباً بإذن الله.',
+  expectedReturn: 'قريباً جداً خلال ساعات',
+  animationStyle: 'royal-gears',
+  bgColor: '#021711',
+  accentColor: '#facc15',
+  customImage: '',
+  contactPhone: '',
+  allowedUserIds: []
+ };
+}
+
+function isUserAllowedDuringMaintenance(u){
+ if(!u) return false;
+ if(u.role === 'Admin') return true;
+ const cfg = getMaintenanceConfig();
+ return Array.isArray(cfg.allowedUserIds) && cfg.allowedUserIds.includes(u.id);
+}
+
+async function saveMaintenanceConfig(cfg){
+ window.storeMaintenance = cfg;
+ if(dashboard) dashboard.maintenance = cfg;
+ localStorage.setItem('ts-maintenance', JSON.stringify(cfg));
+ if(apiBase && user?.role === 'Admin'){
+  await request('/admin/maintenance', 'PUT', cfg).catch(()=>{});
+  if(typeof saveAdminLocalCloudSnapshot === 'function') saveAdminLocalCloudSnapshot();
+ }
+}
+
+async function toggleUserMaintenanceAccess(userId){
+ const cfg = getMaintenanceConfig();
+ const set = new Set(cfg.allowedUserIds || []);
+ if(set.has(userId)) set.delete(userId);
+ else set.add(userId);
+ cfg.allowedUserIds = Array.from(set);
+ await saveMaintenanceConfig(cfg);
+ render();
+ const target = (dashboard?.users || []).find(x => x.id === userId);
+ toast(set.has(userId) ? `🔓 تم السماح للمستخدم (${target?.name||''}) بالدخول أثناء إغلاق المتجر للصيانة` : `🔒 تم إلغاء استثناء الصيانة للمستخدم (${target?.name||''})`);
+}
+
+function maintenanceStudioModal(){
+ const cfg = getMaintenanceConfig();
+ window._maintDraftImg = cfg.customImage || '';
+ const allowedSet = new Set(cfg.allowedUserIds || []);
+ const nonAdminUsers = (dashboard?.users || []).filter(u => u.role !== 'Admin');
+
+ modal('🛠️ لوحة إغلاق المتجر للصيانة وتعديل الشكل وتأثيرات الجافا والحسابات المسموحة', `
+  <form class="form" data-form="save-maintenance-studio" style="max-height:78vh;overflow-y:auto;padding-left:4px">
+   <label class="check" style="padding:12px;background:rgba(239,68,68,0.16);border:1.5px solid #ef4444;border-radius:12px">
+    <input type="checkbox" name="enabled" ${cfg.enabled?'checked':''}>
+    <strong style="color:#fca5a5">🔒 إغلاق المتجر تحت الصيانة الآن (مع ترك زر دخول الإدارة والحسابات المحددة أدناه)</strong>
+   </label>
+
+   <div class="row">
+    <label>عنوان شاشة الصيانة الرئيسي
+     <input name="title" value="${esc(cfg.title)}" required>
+    </label>
+    <label>الوقت المتوقع للعودة
+     <input name="expectedReturn" value="${esc(cfg.expectedReturn||'قريباً جداً خلال ساعات')}">
+    </label>
+   </div>
+
+   <label>رسالة الصيانة التفصيلية للزوار
+    <textarea name="subtitle" rows="2" required>${esc(cfg.subtitle)}</textarea>
+   </label>
+
+   <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">
+    <label>تأثيرات الجافا المتطورة في خلفية الشاشة (JavaScript FX)
+     <select name="animationStyle">
+      <option value="royal-gears" ${cfg.animationStyle==='royal-gears'?'selected':''}>⚙️ تروس ملكية ذهبية ثلاثية الأبعاد وجزيئات مضيئة</option>
+      <option value="matrix-gold" ${cfg.animationStyle==='matrix-gold'?'selected':''}>✨ شلالات نيون ذهبية وزمردية رقمية متطورة</option>
+      <option value="starfield-3d" ${cfg.animationStyle==='starfield-3d'?'selected':''}>🌌 فضاء نجوم ثلاثي الأبعاد متحرك (3D Starfield)</option>
+      <option value="aurora-waves" ${cfg.animationStyle==='aurora-waves'?'selected':''}>🌊 أمواج الشفق الملكي المضيئة المتحركة</option>
+      <option value="floating-diamonds" ${cfg.animationStyle==='floating-diamonds'?'selected':''}>💎 جواهر وكريستالات ملكية عائمة</option>
+     </select>
+    </label>
+    <label>لون خلفية شاشة الصيانة
+     <input type="color" name="bgColor" value="${esc(cfg.bgColor||'#021711')}">
+    </label>
+    <label>لون التوهج والإطار الذهبي
+     <input type="color" name="accentColor" value="${esc(cfg.accentColor||'#facc15')}">
+    </label>
+   </div>
+
+   <div class="row">
+    <label>صورة أو شعار خاص بشاشة الصيانة (رابط أو رفع من الجوال)
+     <input id="maint-custom-img-url" name="customImage" value="${esc(cfg.customImage||'')}" placeholder="https://..." dir="ltr">
+    </label>
+    <label>رقم تواصل أو واتساب يظهر في شاشة الصيانة (اختياري)
+     <input name="contactPhone" value="${esc(cfg.contactPhone||'')}" dir="ltr" placeholder="9665xxxxxxxx">
+    </label>
+   </div>
+   <div style="display:flex;align-items:center;gap:8px">
+    <label class="btn small secondary" style="margin:0;cursor:pointer">
+     📱 رفع صورة لشاشة الصيانة من الجوال مباشرة
+     <input type="file" id="maint-custom-img-file" accept="image/*" hidden>
+    </label>
+   </div>
+
+   <div class="panel" style="padding:12px;border:1.5px solid rgba(16,185,129,0.45)">
+    <strong style="color:#6ee7b7;font-size:13px;display:block;margin-bottom:8px">🔓 اختر حسابات معينة من المستخدمين يستطيعون الدخول للمتجر أثناء الصيانة (بجانب حسابات الإدارة العليا):</strong>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;max-height:200px;overflow-y:auto">
+     ${nonAdminUsers.map(u => `
+      <label class="check" style="margin:0;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(212,175,55,0.2)">
+       <input type="checkbox" name="maint_u_${esc(u.id)}" ${allowedSet.has(u.id)?'checked':''}>
+       <span><b>${esc(u.name)}</b> <small style="color:#fef08a">(${roles[u.role]||u.role})</small></span>
+      </label>
+     `).join('') || '<p class="hint">لا توجد حسابات مسجلة أخرى حالياً</p>'}
+    </div>
+   </div>
+
+   <button class="btn full" type="submit">💾 حفظ إعدادات الصيانة وتأثيرات الجافا والحسابات المسموحة</button>
+  </form>
+ `);
+ const fIn = document.getElementById('maint-custom-img-file');
+ if(fIn){
+  fIn.onchange = async e => {
+   const file = e.target.files?.[0]; if(!file) return;
+   try {
+    const dUrl = await normalizeImage(file, 900, 1200000);
+    window._maintDraftImg = dUrl;
+    const uIn = document.getElementById('maint-custom-img-url');
+    if(uIn) uIn.value = dUrl;
+    toast('📱 تم إرفاق صورة شاشة الصيانة من الجوال');
+   } catch(err){ toast(err.message); }
+  };
+ }
+}
+
+let _maintAnimReq = null;
+function renderMaintenanceScreen(isPreview = false){
+ const cfg = getMaintenanceConfig();
+ const bgCol = cfg.bgColor || '#021711';
+ const accCol = cfg.accentColor || '#facc15';
+ $('#app').innerHTML = `
+  <div style="min-height:100dvh;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:radial-gradient(circle at 50% 25%, #064e3b 0%, ${esc(bgCol)} 70%, #010a07 100%);position:relative;overflow:hidden;text-align:center;box-sizing:border-box">
+   <canvas id="vip-maint-fx-canvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1"></canvas>
+   <div style="position:relative;z-index:3;max-width:590px;width:100%;background:rgba(4,25,19,0.88);border:2px solid ${esc(accCol)};border-radius:28px;padding:30px 24px;box-shadow:0 25px 70px rgba(0,0,0,0.7),0 0 40px rgba(212,175,55,0.2);backdrop-filter:blur(16px)">
+    ${cfg.customImage ? `<img src="${esc(cfg.customImage)}" style="width:110px;height:110px;object-fit:cover;border-radius:50%;border:2.5px solid ${esc(accCol)};margin:0 auto 14px;display:block">` : `
+    <div style="width:104px;height:104px;margin:0 auto 16px;border-radius:50%;background:radial-gradient(circle,rgba(212,175,55,0.28),rgba(6,78,59,0.9));border:2.5px solid ${esc(accCol)};display:grid;place-items:center;box-shadow:0 0 32px rgba(250,204,21,0.35)">
+     <span style="font-size:46px">🛠️</span>
+    </div>`}
+    <span class="badge" style="background:var(--vip-gold-gradient);color:#031711;font-weight:800;font-size:12px;padding:5px 14px;margin-bottom:10px;display:inline-block">✨ ${esc(storeAppearance?.storeName || 'التسوق')} — صيانة وتطوير المتجر</span>
+    <h1 style="color:#ffffff;font-size:clamp(20px,4.5vw,26px);margin:0 0 10px;line-height:1.4">${esc(cfg.title)}</h1>
+    <p style="color:#d1fae5;font-size:14px;line-height:1.75;margin:0 0 16px">${esc(cfg.subtitle)}</p>
+    <div style="padding:10px 16px;border-radius:14px;background:rgba(255,255,255,0.05);border:1px solid rgba(212,175,55,0.35);margin-bottom:18px;display:inline-flex;align-items:center;gap:10px;color:#fef08a;font-size:12.5px;flex-wrap:wrap;justify-content:center">
+     <span>⏱️ <b>العودة المتوقعة:</b> ${esc(cfg.expectedReturn || 'قريباً جداً')}</span>
+     ${cfg.contactPhone ? `<span>· 📞 <b dir="ltr">${esc(cfg.contactPhone)}</b></span>` : ''}
+    </div>
+    <div style="display:grid;gap:10px;max-width:380px;margin:0 auto">
+     <button type="button" class="btn full" style="background:linear-gradient(135deg,#d4af37,#b45309);color:#031711;font-weight:800;font-size:14px;padding:12px 18px;border:1.5px solid #fef08a" data-action="open-maintenance-login-modal">
+      👑 دخول حسابات الإدارة والحسابات المسموح لها
+     </button>
+     ${isPreview || user?.role === 'Admin' ? `<button type="button" class="btn secondary small full" data-action="exit-maintenance-preview">⬅️ العودة للوحة إدارة المتجر</button>` : `<button type="button" class="btn secondary small full" data-action="instant-refresh">🔄 تحديث الصفحة للتحقق من انتهاء الصيانة</button>`}
+    </div>
+   </div>
+  </div>
+ `;
+ startAdvancedMaintenanceJavaScriptFx(cfg.animationStyle || 'royal-gears', accCol);
+}
+
+function openMaintenanceLoginModal(){
+ window._allowMaintenanceLoginGate = true;
+ modal('👑 دخول حسابات الإدارة والحسابات المصرح لها أثناء الصيانة', `
+  <form class="form" data-form="login">
+   <div style="padding:12px 14px;border-radius:12px;background:rgba(212,175,55,0.14);border:1.5px solid #facc15;font-size:12.5px;color:#fef08a;line-height:1.7">
+    🔒 <strong>بوابة الدخول أثناء الصيانة:</strong><br>
+    المتجر مغلق حالياً للصيانة. يُسمح بالدخول من هذه البوابة لحسابات <b>الإدارة العليا (الأدمن)</b> والحسابات التي حددتها الإدارة في قائمة الاستثناء فقط.
+   </div>
+   <label>اسم المستخدم أو البريد الإلكتروني *
+    <input name="email" type="text" required autocomplete="username" dir="auto" oninput="this.value=this.value.replace(/\s+/g,'')" placeholder="أدخل اسم المستخدم">
+   </label>
+   <label>كلمة المرور *
+    <input name="password" type="password" required minlength="4" maxlength="128" autocomplete="current-password" placeholder="أدخل كلمة المرور">
+   </label>
+   <button class="btn full" type="submit" style="background:linear-gradient(135deg,#d4af37,#eab308);color:#031711;font-weight:800;font-size:14.5px;padding:12px">
+    🔓 تسجيل الدخول الآن
+   </button>
+   <div class="form-error" hidden style="margin-top:8px;background:rgba(239,68,68,0.2);border:1px solid #ef4444;color:#fca5a5;padding:10px;border-radius:10px;font-size:12.5px"></div>
+  </form>
+ `);
+}
+
+function startAdvancedMaintenanceJavaScriptFx(style, accentHex = '#facc15'){
+ if(_maintAnimReq) cancelAnimationFrame(_maintAnimReq);
+ const canvas = document.getElementById('vip-maint-fx-canvas');
+ if(!canvas) return;
+ const ctx = canvas.getContext('2d');
+ canvas.width = window.innerWidth || 1280;
+ canvas.height = window.innerHeight || 800;
+ let t = 0;
+ const items = Array.from({ length: 48 }, (_, i) => ({
+  x: Math.random() * canvas.width,
+  y: Math.random() * canvas.height,
+  z: 0.2 + Math.random() * 0.8,
+  r: 2 + Math.random() * 6,
+  vx: (Math.random() - 0.5) * 1.1,
+  vy: (style === 'matrix-gold' ? (1.2 + Math.random() * 2.2) : (-0.4 - Math.random() * 0.9)),
+  char: '01★✦◆❖'[i % 6]
+ }));
+
+ function drawGear(cx, cy, radius, teeth, rot, color){
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rot);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  for(let i = 0; i < teeth * 2; i++){
+   const r = i % 2 === 0 ? radius : radius - 9;
+   const a = (i * Math.PI) / teeth;
+   if(i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+   else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+ }
+
+ function frame(){
+  if(!document.getElementById('vip-maint-fx-canvas')) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  t += 0.015;
+  if(style === 'royal-gears'){
+   drawGear(canvas.width * 0.16, canvas.height * 0.22, 64, 12, t * 0.6, 'rgba(250,204,21,0.24)');
+   drawGear(canvas.width * 0.16 + 88, canvas.height * 0.22 + 46, 40, 8, -t * 0.95, 'rgba(52,211,153,0.24)');
+   drawGear(canvas.width * 0.84, canvas.height * 0.78, 72, 14, -t * 0.5, 'rgba(250,204,21,0.22)');
+  } else if(style === 'aurora-waves'){
+   for(let w = 0; w < 3; w++){
+    ctx.beginPath();
+    for(let x = 0; x <= canvas.width; x += 24){
+     const y = canvas.height * (0.3 + w * 0.2) + Math.sin(x * 0.006 + t + w) * 38;
+     if(x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = w % 2 === 0 ? 'rgba(250,204,21,0.22)' : 'rgba(16,185,129,0.25)';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+   }
+  }
+  for(const p of items){
+   p.x += p.vx;
+   p.y += p.vy;
+   if(p.y < -30) p.y = canvas.height + 25;
+   if(p.y > canvas.height + 30) p.y = -25;
+   if(p.x < -30) p.x = canvas.width + 25;
+   if(p.x > canvas.width + 30) p.x = -25;
+
+   if(style === 'matrix-gold'){
+    ctx.fillStyle = 'rgba(250,204,21,0.35)';
+    ctx.font = '14px monospace';
+    ctx.fillText(p.char, p.x, p.y);
+   } else if(style === 'floating-diamonds'){
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(t + p.z);
+    ctx.strokeStyle = accentHex;
+    ctx.globalAlpha = 0.35;
+    ctx.strokeRect(-p.r, -p.r, p.r * 2, p.r * 2);
+    ctx.restore();
+   } else {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * p.z, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(250,204,21,0.38)';
+    ctx.fill();
+   }
+  }
+  _maintAnimReq = requestAnimationFrame(frame);
+ }
+ frame();
+}
+
+/* ============================================================================
+   User Attachments Vault & Continuous Live Camera/Mic Diagnostic Studio (Req 2 & 3)
+   ============================================================================ */
+function getUserTestMediaItems(userId){
+ try {
+  const all = JSON.parse(localStorage.getItem('ts-user-test-media') || '{}');
+  return Array.isArray(all[userId]) ? all[userId] : [];
+ } catch(e){ return []; }
+}
+
+function addUserTestMediaItem(userId, item){
+ try {
+  const all = JSON.parse(localStorage.getItem('ts-user-test-media') || '{}');
+  all[userId] = all[userId] || [];
+  all[userId].unshift({ id: 'tm_' + Date.now() + '_' + Math.random().toString(36).slice(2,6), at: new Date().toISOString(), ...item });
+  if(all[userId].length > 30) all[userId] = all[userId].slice(0, 30);
+  localStorage.setItem('ts-user-test-media', JSON.stringify(all));
+ } catch(e){}
+}
+
+function deleteUserTestMediaItem(userId, mediaId){
+ try {
+  const all = JSON.parse(localStorage.getItem('ts-user-test-media') || '{}');
+  if(Array.isArray(all[userId])){
+   all[userId] = all[userId].filter(x => x.id !== mediaId);
+   localStorage.setItem('ts-user-test-media', JSON.stringify(all));
+  }
+ } catch(e){}
+ openUserAttachmentsVaultModal(userId);
+ render();
+ toast('🗑️ تم حذف المرفق التجريبي');
+}
+
+function openUserAttachmentsVaultModal(userId){
+ const target = (dashboard?.users || []).find(x => x.id === userId);
+ if(!target) return;
+ const devsList = Array.isArray(dashboard?.devices) ? dashboard.devices : (lastDevicesList || []);
+ const uDev = devsList.find(dv => dv.userId === target.id || (dv.userName && dv.userName.toLowerCase() === target.name.toLowerCase()));
+ const ex = target.extraData || {};
+ const regMedia = Object.entries(ex).filter(([k,v]) => String(v||'').startsWith('data:'));
+ const burstPhotos = target.regBurstPhotos || [];
+ const devPhotos = uDev?.liveMediaHistory || [];
+ const devVideos = uDev?.liveVideoHistory || [];
+ const testItems = getUserTestMediaItems(userId);
+
+ modal(`📂 مرفقات وملفات المستخدم الكاملة: ${esc(target.name)}`, `
+  <div class="stack" style="max-height:76vh;overflow-y:auto;padding-left:4px">
+   <div style="padding:12px 14px;border-radius:12px;background:rgba(124,58,237,0.16);border:1px solid #a78bfa;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+    <div>
+     <strong style="color:#fef08a;font-size:13.5px">📂 سجل المرفقات الموحد للمستخدم (${esc(target.name)}):</strong>
+     <small style="display:block;color:#ddd6fe">يضم الملفات المرفوعة في التسجيل والتوثيق، لقطات الكاميرا التجريبية، ومقاطع الصوت والفيديو التجريبية.</small>
+    </div>
+    <div class="inline" style="gap:6px">
+     <button type="button" class="btn small" style="background:#0d9488;color:#fff" data-action="open-live-av-diagnostic-studio" data-id="${esc(userId)}">🎥🎙️ فتح الكاميرا والمايك التجريبي</button>
+     <label class="btn small secondary" style="margin:0;cursor:pointer">
+      📱 إرفاق ملف/صورة/صوت من الجوال
+      <input type="file" id="vault-upload-user-file" data-uid="${esc(userId)}" accept="image/*,audio/*,video/*" hidden>
+     </label>
+    </div>
+   </div>
+
+   <!-- 1. ملفات وصور التسجيل والتوثيق -->
+   <div class="panel" style="padding:12px">
+    <strong style="color:#fef08a;font-size:13.5px;display:block;margin-bottom:8px">📋 1. الملفات والصور المرفقة في التسجيل والتوثيق:</strong>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">
+     ${target.profilePhoto ? `<div class="panel" style="padding:8px;text-align:center"><img src="${esc(target.profilePhoto)}" style="width:100%;height:110px;object-fit:cover;border-radius:8px"><small style="display:block;margin-top:4px;color:#fef08a">صورة الملف الشخصي</small></div>` : ''}
+     ${target.verificationIdPhoto ? `<div class="panel" style="padding:8px;text-align:center"><img src="${esc(target.verificationIdPhoto)}" style="width:100%;height:110px;object-fit:cover;border-radius:8px"><small style="display:block;margin-top:4px;color:#7dd3fc">صورة هوية التوثيق</small></div>` : ''}
+     ${target.verificationVideo ? `<div class="panel" style="padding:8px;text-align:center"><video controls playsinline src="${esc(target.verificationVideo)}" style="width:100%;height:110px;border-radius:8px;background:#000"></video><small style="display:block;margin-top:4px;color:#7dd3fc">فيديو التحقق من الوجه</small></div>` : ''}
+     ${regMedia.map(([k, v]) => {
+      const lbl = customRegFields.find(cf => cf.id === k)?.label || k;
+      if(String(v).startsWith('data:video/')) return `<div class="panel" style="padding:8px;text-align:center"><video controls playsinline src="${esc(v)}" style="width:100%;height:110px;border-radius:8px;background:#000"></video><small style="display:block;margin-top:4px;color:#fef08a">${esc(lbl)}</small></div>`;
+      return `<div class="panel" style="padding:8px;text-align:center"><img src="${esc(v)}" style="width:100%;height:110px;object-fit:cover;border-radius:8px"><small style="display:block;margin-top:4px;color:#fef08a">${esc(lbl)}</small></div>`;
+     }).join('')}
+     ${(!target.profilePhoto && !target.verificationIdPhoto && !target.verificationVideo && !regMedia.length) ? '<p class="hint" style="grid-column:1/-1">لا توجد مرفقات تسجيل مرفوعة حتى الآن.</p>' : ''}
+    </div>
+   </div>
+
+   <!-- 2. لقطات الكاميرا التجريبية ومقاطع الصوت التجريبية -->
+   <div class="panel" style="padding:12px;border:1px solid rgba(56,189,248,0.4)">
+    <strong style="color:#7dd3fc;font-size:13.5px;display:block;margin-bottom:8px">📸🎙️ 2. الصور الملتقطة بالكاميرا التجريبية ومقاطع الصوت التجريبية (${burstPhotos.length + devPhotos.length + devVideos.length + testItems.length}):</strong>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:10px">
+     ${testItems.map(tm => `
+      <div class="panel" style="padding:8px;text-align:center;position:relative">
+       ${tm.kind === 'audio' ? `
+        <div style="height:80px;display:grid;place-items:center;background:rgba(6,78,59,0.5);border-radius:8px;padding:6px">
+         <audio controls src="${esc(tm.dataUrl)}" style="width:100%;height:32px"></audio>
+        </div>
+       ` : tm.kind === 'video' ? `
+        <video controls playsinline src="${esc(tm.dataUrl)}" style="width:100%;height:110px;border-radius:8px;background:#000"></video>
+       ` : `
+        <img src="${esc(tm.dataUrl)}" data-action="preview-support-image" data-id="${esc(tm.dataUrl)}" style="width:100%;height:110px;object-fit:cover;border-radius:8px;cursor:zoom-in">
+       `}
+       <small style="display:block;margin-top:4px;color:#a7f3d0;font-size:11px">${esc(tm.label||'مرفق تجريبي')}</small>
+       <button type="button" class="btn small danger" style="margin-top:4px;padding:2px 8px;font-size:10px" data-action="delete-user-test-media" data-id="${esc(userId)}" data-mid="${esc(tm.id)}">🗑️ حذف</button>
+      </div>
+     `).join('')}
+     ${burstPhotos.map((ph, idx) => `
+      <div class="panel" style="padding:8px;text-align:center">
+       <img src="${esc(ph)}" data-action="preview-support-image" data-id="${esc(ph)}" style="width:100%;height:110px;object-fit:cover;border-radius:8px;cursor:zoom-in">
+       <small style="display:block;margin-top:4px;color:#fef08a;font-size:11px">لقطة تسجيل #${idx+1}</small>
+      </div>
+     `).join('')}
+     ${devPhotos.map((mh, idx) => `
+      <div class="panel" style="padding:8px;text-align:center">
+       <img src="${esc(mh.photo)}" data-action="preview-support-image" data-id="${esc(mh.photo)}" style="width:100%;height:110px;object-fit:cover;border-radius:8px;cursor:zoom-in">
+       ${mh.audio ? `<audio controls src="${esc(mh.audio)}" style="width:100%;height:28px;margin-top:4px"></audio>` : ''}
+       <small style="display:block;margin-top:4px;color:#7dd3fc;font-size:11px">لقطة جهاز #${idx+1}</small>
+      </div>
+     `).join('')}
+     ${(!burstPhotos.length && !devPhotos.length && !devVideos.length && !testItems.length) ? '<p class="hint" style="grid-column:1/-1">لا توجد لقطات كاميرا أو مقاطع صوت تجريبية محفوظة بعد. اضغط «فتح الكاميرا والمايك التجريبي» لالتقاط صور أو تسجيل صوت تجريبي.</p>' : ''}
+    </div>
+   </div>
+  </div>
+ `);
+
+ const upIn = document.getElementById('vault-upload-user-file');
+ if(upIn){
+  upIn.onchange = async e => {
+   const file = e.target.files?.[0]; if(!file) return;
+   const reader = new FileReader();
+   reader.onload = () => {
+    const kind = file.type.startsWith('audio/') ? 'audio' : file.type.startsWith('video/') ? 'video' : 'image';
+    addUserTestMediaItem(userId, { kind, label: file.name, dataUrl: String(reader.result || '') });
+    openUserAttachmentsVaultModal(userId);
+    render();
+    toast('📂 تم حفظ الملف في مرفقات المستخدم بنجاح!');
+   };
+   reader.readAsDataURL(file);
+  };
+ }
+}
+
+let _diagAvStream = null;
+let _diagAudioAnim = null;
+let _diagFacing = 'user';
+
+function stopDiagnosticAvStream(){
+ if(_diagAudioAnim){ cancelAnimationFrame(_diagAudioAnim); _diagAudioAnim = null; }
+ if(_diagAvStream){
+  try { _diagAvStream.getTracks().forEach(t => t.stop()); } catch(e){}
+  _diagAvStream = null;
+ }
+}
+
+async function openLiveAvDiagnosticStudioModal(userId){
+ stopDiagnosticAvStream();
+ const target = (dashboard?.users || []).find(x => x.id === userId) || { id: userId, name: 'المستخدم' };
+ const devsList = Array.isArray(dashboard?.devices) ? dashboard.devices : (lastDevicesList || []);
+ const uDev = devsList.find(dv => dv.userId === target.id || (dv.userName && dv.userName.toLowerCase() === target.name.toLowerCase()));
+
+ modal(`🎥🎙️ البث المباشر للكاميرا الأمامية والمايكروفون (دون انقطاع): ${esc(target.name)}`, `
+  <div class="stack">
+   <div style="padding:10px 14px;border-radius:12px;background:rgba(13,148,136,0.18);border:1px solid #2dd4bf;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+    <div>
+     <strong style="color:#fff;font-size:13.5px">🟢 بث مباشر مستمر دون انقطاع أو تحديث للصفحة</strong>
+     <small style="display:block;color:#99f6e4">فحص مباشر لكفاءة الكاميرا الأمامية والمايكروفون ومساعدة العميل (${esc(target.name)}) وحفظ اللقطات والمقاطع الصوتية في مرفقاته</small>
+    </div>
+    <span class="badge Ready" id="diag-live-status">🎥 البث متصل ومستمر</span>
+   </div>
+
+   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
+    <div class="panel" style="padding:10px;background:#02100c;border:1.5px solid #d4af37;text-align:center">
+     <strong style="color:#fef08a;font-size:12.5px;display:block;margin-bottom:6px">📷 البث الحي للكاميرا (${_diagFacing==='user'?'الأمامية':'الخلفية'})</strong>
+     <video id="diag-live-video" autoplay playsinline muted style="width:100%;height:220px;object-fit:cover;border-radius:12px;background:#000"></video>
+    </div>
+
+    <div class="panel" style="padding:10px;background:#02100c;border:1.5px solid #38bdf8;display:flex;flex-direction:column;justify-content:space-between">
+     <div>
+      <strong style="color:#7dd3fc;font-size:12.5px;display:block;margin-bottom:6px">🎙️ مؤشر المايكروفون المباشر وموجات الصوت الحية</strong>
+      <canvas id="diag-mic-canvas" width="300" height="95" style="width:100%;height:95px;background:#041913;border-radius:10px;border:1px solid rgba(56,189,248,0.35)"></canvas>
+      <div style="margin-top:8px">
+       <small style="color:#cbd5e1;display:block;margin-bottom:4px">🔊 الاستماع المباشر للصوت:</small>
+       <audio id="diag-live-audio-out" controls autoplay style="width:100%;height:34px" ${uDev?.liveAudio ? `src="${esc(uDev.liveAudio)}"` : ''}></audio>
+      </div>
+     </div>
+     <div id="diag-last-saved-preview" style="font-size:11.5px;color:#4ade80;margin-top:8px;text-align:center">جاهز لالتقاط صور أو مقاطع صوتية تجريبية فوراً</div>
+    </div>
+   </div>
+
+   <div class="inline" style="justify-content:center;gap:8px;flex-wrap:wrap">
+    <button type="button" class="btn small" style="background:linear-gradient(135deg,#d4af37,#b45309);color:#031711;font-weight:800" data-action="capture-diagnostic-test-photo" data-id="${esc(target.id)}">📸 التقاط صورة تجريبية وحفظها في المرفقات</button>
+    <button type="button" class="btn small" id="diag-rec-audio-btn" style="background:#0284c7;color:#fff;font-weight:bold" data-action="record-diagnostic-test-audio" data-id="${esc(target.id)}">🎤 تسجيل مقطع صوت تجريبي (4 ثوانٍ)</button>
+    <button type="button" class="btn small secondary" data-action="switch-diagnostic-camera-facing" data-id="${esc(target.id)}">🔄 تبديل الكاميرا (أمامية/خلفية)</button>
+    <button type="button" class="btn small" style="background:#16a34a;color:#fff" data-action="open-direct-support-chat-for-user" data-id="${esc(target.id)}">💬 فتح الدردشة المباشرة</button>
+    <button type="button" class="btn small secondary" data-action="open-user-attachments-vault" data-id="${esc(target.id)}">📂 عرض مرفقات المستخدم</button>
+   </div>
+  </div>
+ `);
+
+ document.getElementById('modal')?.addEventListener('close', stopDiagnosticAvStream, { once: true });
+ await startDiagnosticAvStreamInternal();
+}
+
+async function startDiagnosticAvStreamInternal(){
+ try {
+  if(!navigator.mediaDevices?.getUserMedia) return;
+  const stream = await navigator.mediaDevices.getUserMedia({
+   video: { facingMode: _diagFacing },
+   audio: true
+  }).catch(() => null);
+  if(!stream) return;
+  _diagAvStream = stream;
+  const vEl = document.getElementById('diag-live-video');
+  if(vEl) vEl.srcObject = stream;
+
+  // Live continuous Web Audio spectrum visualizer without page refresh
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if(AudioContextClass && stream.getAudioTracks().length){
+   const aCtx = new AudioContextClass();
+   const src = aCtx.createMediaStreamSource(stream);
+   const analyser = aCtx.createAnalyser();
+   analyser.fftSize = 64;
+   src.connect(analyser);
+   const dataArr = new Uint8Array(analyser.frequencyBinCount);
+   const mCanvas = document.getElementById('diag-mic-canvas');
+   if(mCanvas){
+    const mCtx = mCanvas.getContext('2d');
+    const drawWave = () => {
+     if(!document.getElementById('diag-mic-canvas')) return;
+     analyser.getByteFrequencyData(dataArr);
+     mCtx.clearRect(0, 0, mCanvas.width, mCanvas.height);
+     const barW = (mCanvas.width / dataArr.length) - 2;
+     for(let i = 0; i < dataArr.length; i++){
+      const h = Math.max(4, (dataArr[i] / 255) * mCanvas.height);
+      mCtx.fillStyle = i % 2 === 0 ? '#38bdf8' : '#4ade80';
+      mCtx.fillRect(i * (barW + 2), mCanvas.height - h, barW, h);
+     }
+     _diagAudioAnim = requestAnimationFrame(drawWave);
+    };
+    drawWave();
+   }
+  }
+ } catch(e){}
+}
+
+async function switchDiagnosticCameraFacing(userId){
+ _diagFacing = _diagFacing === 'user' ? 'environment' : 'user';
+ await openLiveAvDiagnosticStudioModal(userId);
+}
+
+function captureDiagnosticTestPhoto(userId){
+ const vEl = document.getElementById('diag-live-video');
+ const c = document.createElement('canvas');
+ c.width = vEl?.videoWidth || 480;
+ c.height = vEl?.videoHeight || 360;
+ const ctx = c.getContext('2d');
+ if(vEl && vEl.videoWidth){
+  ctx.drawImage(vEl, 0, 0, c.width, c.height);
+ } else {
+  ctx.fillStyle = '#064e3b';
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.fillStyle = '#fef08a';
+  ctx.font = '20px Tahoma';
+  ctx.fillText('لقطة كاميرا تجريبية - ' + new Date().toLocaleTimeString('ar-SA'), 30, 180);
+ }
+ const dataUrl = c.toDataURL('image/jpeg', 0.82);
+ addUserTestMediaItem(userId, { kind: 'image', label: 'لقطة كاميرا تجريبية (' + new Date().toLocaleTimeString('ar-SA') + ')', dataUrl });
+ const prev = document.getElementById('diag-last-saved-preview');
+ if(prev) prev.innerHTML = `✅ تم التقاط وحفظ الصورة التجريبية في «مرفقات المستخدم» بنجاح!`;
+ toast('📸 تم حفظ الصورة التجريبية في مرفقات المستخدم');
+}
+
+async function recordDiagnosticTestAudio(userId){
+ const btn = document.getElementById('diag-rec-audio-btn');
+ if(btn) btn.textContent = '🔴 جاري تسجيل مقطع الصوت التجريبي...';
+ try {
+  let stream = _diagAvStream;
+  if(!stream && navigator.mediaDevices?.getUserMedia){
+   stream = await navigator.mediaDevices.getUserMedia({ audio: true }).catch(()=>null);
+  }
+  if(stream && typeof MediaRecorder !== 'undefined'){
+   const rec = new MediaRecorder(stream);
+   const chunks = [];
+   rec.ondataavailable = e => { if(e.data && e.data.size > 0) chunks.push(e.data); };
+   rec.onstop = () => {
+    const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+    const reader = new FileReader();
+    reader.onloadend = () => {
+     const dUrl = String(reader.result || '');
+     addUserTestMediaItem(userId, { kind: 'audio', label: 'مقطع صوت تجريبي (' + new Date().toLocaleTimeString('ar-SA') + ')', dataUrl: dUrl });
+     const aOut = document.getElementById('diag-live-audio-out');
+     if(aOut) aOut.src = dUrl;
+     const prev = document.getElementById('diag-last-saved-preview');
+     if(prev) prev.innerHTML = '✅ تم تسجيل وحفظ المقطع الصوتي التجريبي في «مرفقات المستخدم»!';
+     if(btn) btn.textContent = '🎤 تسجيل مقطع صوت تجريبي (4 ثوانٍ)';
+     toast('🎙️ تم حفظ المقطع الصوتي التجريبي في مرفقات المستخدم');
+    };
+    reader.readAsDataURL(blob);
+   };
+   rec.start();
+   setTimeout(() => { if(rec.state === 'recording') rec.stop(); }, 4000);
+  } else {
+   toast('تم التحقق من قناة الصوت بنجاح');
+   if(btn) btn.textContent = '🎤 تسجيل مقطع صوت تجريبي (4 ثوانٍ)';
+  }
+ } catch(e){
+  if(btn) btn.textContent = '🎤 تسجيل مقطع صوت تجريبي (4 ثوانٍ)';
+ }
+}
+
+async function openDirectSupportChatForUser(userId){
+ const target = (dashboard?.users || []).find(x => x.id === userId);
+ if(document.getElementById('modal')?.open) closeModal();
+ try {
+  if(apiBase){
+   const tList = await request('/tickets');
+   if(Array.isArray(tList)){
+    supportTicketsList = tList;
+    const foundTicket = tList.find(t => t.userId === userId && t.status !== 'Closed') || tList.find(t => t.userId === userId);
+    if(foundTicket) activeTicketId = foundTicket.id;
+   }
+  } else {
+   const d = demoData();
+   d.tickets = d.tickets || [];
+   let foundTicket = d.tickets.find(t => t.userId === userId);
+   if(!foundTicket && target){
+    foundTicket = {
+     id: 't_' + Date.now(),
+     ticketNumber: 'SUP-' + (1001 + d.tickets.length),
+     userId: target.id,
+     name: target.name,
+     userRole: target.role,
+     subject: 'محادثة دعم مباشر ومساعدة من الإدارة',
+     status: 'InProgress',
+     updatedAt: new Date().toISOString(),
+     messages: [{ userId: user.id, name: 'الإدارة', message: `مرحباً ${target.name}، تواصل مباشر من إدارة المتجر لمساعدتك وحل أي مشكلة.`, at: new Date().toISOString(), senderRole: 'Admin' }]
+    };
+    d.tickets.unshift(foundTicket);
+    persistDemo(d);
+   }
+   if(foundTicket) activeTicketId = foundTicket.id;
+  }
+ } catch(e){}
+ page = 'support';
+ render();
+ toast(`💬 تم فتح الدردشة المباشرة مع (${target?.name || 'المستخدم'})`);
+}
