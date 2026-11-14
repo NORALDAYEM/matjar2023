@@ -2529,3 +2529,190 @@ body {
     border-radius: 11px !important;
   }
 }
+
+
+/* === Compact Single-Screen Mobile Login (No Vertical Scrollbar) === */
+@media (max-width: 768px) {
+  body[data-page="auth"] {
+    overflow: hidden !important;
+    height: 100dvh !important;
+  }
+  .vip-auth-page {
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+    padding: 8px 12px !important;
+    gap: 8px !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-content: center !important;
+  }
+  #login-ads-container {
+    width: 100% !important;
+  }
+  .login-ads-wrapper {
+    gap: 6px !important;
+    max-width: 100% !important;
+  }
+  .vip-login-motion-strip {
+    gap: 6px !important;
+    margin-bottom: 0 !important;
+  }
+  .vip-login-motion-card {
+    height: 42px !important;
+    border-radius: 10px !important;
+  }
+  .vip-login-motion-card span {
+    font-size: 9px !important;
+    padding: 8px 4px 3px !important;
+  }
+  .login-ad-card {
+    min-height: 82px !important;
+    max-height: 98px !important;
+    padding: 10px 12px !important;
+    border-radius: 16px !important;
+  }
+  .login-ad-card .badge,
+  .login-ad-card .vip-job-ad-badge {
+    font-size: 9.5px !important;
+    padding: 2px 8px !important;
+    margin-bottom: 4px !important;
+  }
+  .login-ad-card h2 {
+    font-size: 13px !important;
+    line-height: 1.3 !important;
+    margin-bottom: 2px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .login-ad-card p {
+    font-size: 10.5px !important;
+    line-height: 1.3 !important;
+    margin-bottom: 4px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .login-ad-dots {
+    margin-top: 2px !important;
+  }
+  .login-job-mini-bar {
+    padding: 6px 10px !important;
+    border-radius: 12px !important;
+    gap: 6px !important;
+  }
+  .login-job-mini-bar strong {
+    font-size: 11px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .login-job-mini-bar small {
+    display: none !important;
+  }
+  .vip-auth-card {
+    padding: 14px 16px !important;
+    border-radius: 20px !important;
+  }
+  .vip-logo-container {
+    width: 44px !important;
+    height: 44px !important;
+    margin: 0 auto 6px !important;
+  }
+  .vip-logo-container svg {
+    width: 22px !important;
+    height: 22px !important;
+  }
+  .vip-auth-title {
+    font-size: 19px !important;
+    margin-bottom: 2px !important;
+  }
+  .vip-auth-subtitle {
+    font-size: 11px !important;
+    margin-bottom: 10px !important;
+  }
+  .vip-auth-card .form {
+    gap: 8px !important;
+  }
+  .vip-input-group {
+    margin-bottom: 2px !important;
+  }
+  .vip-input-group label {
+    font-size: 11.5px !important;
+    margin-bottom: 3px !important;
+  }
+  .vip-input {
+    padding: 9px 36px 9px 10px !important;
+    font-size: 13.5px !important;
+    border-radius: 11px !important;
+  }
+  .vip-btn-login {
+    padding: 10px !important;
+    font-size: 14px !important;
+    border-radius: 12px !important;
+  }
+  .vip-auth-card [data-action="enter-guest"] {
+    margin-top: 7px !important;
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+  }
+  .vip-auth-footer {
+    margin-top: 8px !important;
+    padding-top: 8px !important;
+    font-size: 11px !important;
+  }
+}
+
+
+/* === v5.9.8: Full-Width Exclusive Profile Oval Bar + Dynamic Scale/Hide/Show Variables === */
+:root {
+  --ui-font-scale: 1;
+  --ui-profile-scale: 1;
+  --ui-miniad-scale: 1;
+  --ui-icons-scale: 1;
+  --ui-cards-scale: 1;
+  --ui-buttons-scale: 1;
+  --ui-images-scale: 1;
+}
+.topbar-profile-oval-bar.exclusive-profile {
+  padding: 6px 10px !important;
+  justify-content: center !important;
+  transform: scale(var(--ui-profile-scale, 1));
+  transform-origin: center top;
+}
+.topbar-profile-oval-bar.exclusive-profile .topbar-profile-standalone-row {
+  width: 100% !important;
+  margin: 0 !important;
+}
+.topbar-profile-oval-bar.exclusive-profile .topbar-profile-btn {
+  width: 100% !important;
+  justify-content: space-between !important;
+  padding: 7px 14px 7px 10px !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: none !important;
+}
+.topbar-profile-oval-bar.exclusive-profile .topbar-dropdown {
+  width: min(340px, 92vw) !important;
+  left: 0 !important;
+  right: auto !important;
+}
+.topbar-mini-ad-strip {
+  transform: scale(var(--ui-miniad-scale, 1));
+  transform-origin: center;
+}
+.topbar-icons-oval-bar {
+  transform: scale(var(--ui-icons-scale, 1));
+  transform-origin: center;
+}
+.vip-product-card, .perm-hub-card, .stat, .panel {
+  border-radius: calc(18px * var(--ui-cards-scale, 1));
+}
+.vip-product-img-box img, .vip-product-img {
+  transform: scale(var(--ui-images-scale, 1));
+}
+.btn {
+  font-size: calc(13px * var(--ui-buttons-scale, 1));
+}

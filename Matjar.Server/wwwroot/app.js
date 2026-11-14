@@ -1127,7 +1127,8 @@ async function refresh(){
    if(d && d.user){
     dashboard = d; user = d.user;
     if(d.captureSettings) window.captureSettings = d.captureSettings;
-    if(d.autoStyleRotation){ window.autoStyleRotation = d.autoStyleRotation; if(typeof startAutoStyleRotationEngine === 'function') startAutoStyleRotationEngine(); }
+    if(d.uiControl){ window.storeUiControl = { ...DEFAULT_UI_CONTROL, ...d.uiControl }; localStorage.setItem('ts-ui-control', JSON.stringify(window.storeUiControl)); applyUiControlStyles(); }
+ if(d.autoStyleRotation){ window.autoStyleRotation = d.autoStyleRotation; if(typeof startAutoStyleRotationEngine === 'function') startAutoStyleRotationEngine(); }
     if(user.role === 'Admin' && typeof saveAdminLocalCloudSnapshot === 'function') saveAdminLocalCloudSnapshot();
    }
   }).catch(()=>{}) : Promise.resolve()
@@ -1229,56 +1230,66 @@ function render(){
  const existingView = document.getElementById('view');
  if(!existingView || !document.querySelector('.sidebar')){
   $('#app').innerHTML=`<div id="announcement-banner" class="announcement-bar" hidden></div><aside class="sidebar"><div class="brand"><img src="icon.svg" alt="شعار المتجر"><div>${esc(storeAppearance.storeName)}<small style="color:var(--vip-gold);font-weight:bold">★ متجر رسمي معتمد</small></div></div><nav class="nav" aria-label="القائمة الرئيسية">${navHtml()}</nav><div class="sidebar-footer"><div class="panel" style="background:linear-gradient(135deg, rgba(6,78,59,0.08) 0%, rgba(212,175,55,0.12) 100%);border:1px solid rgba(212,175,55,0.3);padding:17px"><strong style="font-size:12px;color:var(--vip-emerald)">تجربة تسوق فاخرة واستثنائية</strong><p class="hint" style="margin-top:8px">منتجات حصرية بجودة فائقة وخدمة تسليم مباشرة على مدار الساعة.</p></div><div class="profile"><span class="avatar" style="border:2px solid var(--vip-gold)">${esc(user.name[0])}</span><div><strong>${esc(user.name)}</strong><small style="color:var(--vip-gold)">${roles[user.role]}</small></div></div><button class="btn ghost small" data-action="logout">${icon('logout',17)}تسجيل الخروج</button></div></aside><main class="content"><div class="vip-top-stack-header">
-  <!-- 1. الشريط البيضاوي الطويل للملف الشخصي واسم المستخدم في أول الصفحة ومنفصل تماماً -->
-  <header class="topbar-profile-oval-bar">
-   <div class="topbar-oval-title-side">
-    <div class="eyebrow">${user.role==='Customer'?'مرحباً بك في عالم '+esc(storeAppearance.storeName)+' الفاخر':(roles[user.role]||user.role)+' / مساحة التحكم الرئيسية'}</div>
-    <div class="title" id="topbar-title-el">${current[2]} <small>· ${esc(user.name)}</small></div>
-   </div>
+  <!-- 1. دائرة اسم المستخدم وصورته في أعلى الصفحة على طول الصفحة منفرداً بدون أي نصوص جانبية -->
+  ${getUiControlConfig().showProfileBar !== false ? `
+  <header class="topbar-profile-oval-bar exclusive-profile">
    <div class="topbar-profile-standalone-row">
-    ${(user.role==='Supervisor' && !user.supervisorVerified) ? `<button type="button" class="unverified-Supervisor-pill" data-action="open-sup-verify" title="اضغط للانتقال إلى ملف التوثيق">⚠️ غير موثق (اضغط للتوثيق)</button>` : ''}
     <button type="button" class="topbar-profile-btn" data-action="toggle-topbar-profile" aria-label="قائمة حسابي السريعة">
-     <div class="topbar-avatar-circle" id="topbar-avatar-box" style="width:44px;height:44px">
-      ${user.profilePhoto ? `<img src="${esc(user.profilePhoto)}" alt="${esc(user.name)}">` : `<span class="avatar-letter">${esc((user.name||'?')[0])}</span>`}
-      <span class="topbar-avatar-badge" id="topbar-badge-slot">${verifiedBadgeIcon(user, 18)}</span>
-     </div>
-     <div style="text-align:right;line-height:1.3">
-      <div style="display:flex;align-items:center;gap:5px;font-size:13.5px;color:#fff;font-weight:800">
-       <span>${esc(user.name)}</span>
-       ${verifiedBadgeIcon(user, 15)}
+     <div style="display:flex;align-items:center;gap:12px">
+      <div class="topbar-avatar-circle" id="topbar-avatar-box" style="width:46px;height:46px">
+       ${user.profilePhoto ? `<img src="${esc(user.profilePhoto)}" alt="${esc(user.name)}">` : `<span class="avatar-letter">${esc((user.name||'?')[0])}</span>`}
+       <span class="topbar-avatar-badge" id="topbar-badge-slot">${verifiedBadgeIcon(user, 19)}</span>
       </div>
-      <small style="display:block;font-size:10.5px;color:${(user.role==='Supervisor' && !user.supervisorVerified)?'#fca5a5':'#fef08a'}">
-       ${(user.role==='Supervisor' && !user.supervisorVerified) ? '⚠️ غير موثق — اضغط للتوثيق' : (roles[user.role]||user.role)}
-      </small>
+      <div style="text-align:right;line-height:1.35">
+       <div style="display:flex;align-items:center;gap:6px;font-size:15.5px;color:#fff;font-weight:800">
+        <span>${esc(user.name)}</span>
+        ${verifiedBadgeIcon(user, 16)}
+       </div>
+       <small style="display:block;font-size:11px;color:${(user.role==='Supervisor' && !user.supervisorVerified)?'#fca5a5':'#fef08a'}">
+        ${(user.role==='Supervisor' && !user.supervisorVerified) ? '⚠️ غير موثق — اضغط للتوثيق' : (roles[user.role]||user.role)}
+       </small>
+      </div>
      </div>
-     <span style="color:#fef08a;font-size:13px">▾</span>
+     <div style="display:flex;align-items:center;gap:8px">
+      ${(user.role==='Supervisor' && !user.supervisorVerified) ? `<span class="unverified-Supervisor-pill" style="font-size:10.5px;padding:3px 8px">⚠️ غير موثق</span>` : ''}
+      <span style="color:#fef08a;font-size:15px;padding:4px 8px;border-radius:999px;background:rgba(212,175,55,0.16)">▾</span>
+     </div>
     </button>
     <div id="topbar-profile-dropdown" class="topbar-dropdown" hidden>
+     <div style="padding:10px 12px;border-bottom:1px solid rgba(212,175,55,0.28);background:rgba(212,175,55,0.08);border-radius:10px;margin-bottom:6px;text-align:right">
+      <div style="display:flex;align-items:center;gap:6px;font-weight:800;color:#fef08a;font-size:13.5px">
+       <span>👤 ${esc(user.name)}</span>
+       ${verifiedBadgeIcon(user, 15)}
+      </div>
+      <div style="font-size:11.5px;color:#cbd5e1;margin-top:3px">🛡️ الصلاحية: <b>${esc(roles[user.role]||user.role)}</b></div>
+      ${user.email ? `<div style="font-size:11px;color:#93c5fd;margin-top:2px" dir="ltr">📧 ${esc(user.email)}</div>` : ''}
+     </div>
      ${(user.role==='Supervisor' && !user.supervisorVerified) ? `<button type="button" data-action="open-sup-verify" style="color:#fde047;font-weight:bold">🪪 إكمال ملف توثيق المشرف الآن</button>` : ''}
+     ${user.role==='Admin' ? `<button type="button" data-action="global-ui-control" style="color:#7dd3fc;font-weight:bold">🎛️ التحكم الكامل في عناصر المتجر وأحجامها</button>` : ''}
+     <button type="button" data-action="view-my-user-info">ℹ️ معلومات المستخدم الكاملة</button>
+     <button type="button" data-action="edit-profile">🔑 تعديل كلمة المرور والبيانات</button>
      <button type="button" data-action="upload-profile-photo">🖼️ تغيير صورة الملف الشخصي</button>
-     <button type="button" data-action="edit-profile">🔑 تغيير كلمة السر والبيانات</button>
      <button type="button" data-action="language">🌐 تغيير اللغة (العربية / English)</button>
-     <button type="button" data-action="navigate" data-id="orders">📦 طلبياتي السابقة</button>
-     <button type="button" data-action="navigate" data-id="support">💬 الدعم الفني المباشر</button>
      <button type="button" data-action="navigate" data-id="account">⚙️ حسابي وإعداداتي</button>
-     <button type="button" data-action="logout" style="color:#fca5a5">🚪 تسجيل الخروج</button>
+     <button type="button" data-action="logout" style="color:#fca5a5;border-top:1px solid rgba(255,255,255,0.1);margin-top:4px;padding-top:8px">🚪 تسجيل الخروج</button>
     </div>
     <input id="topbar-photo-input" type="file" accept="image/*" hidden>
    </div>
-  </header>
+  </header>` : ''}
 
-  <!-- 2. شريط إعلاني صغير متحرك بالصور والإعلانات المميزة بين الملف الشخصي والأيقونات -->
-  <div id="topbar-mini-ad-slot">${renderTopbarMiniAdStrip()}</div>
+  <!-- 2. شريط إعلاني صغير متحرك بالصور والإعلانات المميزة -->
+  ${getUiControlConfig().showMiniAdStrip !== false ? `<div id="topbar-mini-ad-slot">${renderTopbarMiniAdStrip()}</div>` : ''}
 
   <!-- 3. الشكل البيضاوي المنفصل لأيقونات الجرس وبقية الأدوات باحترافية -->
+  ${getUiControlConfig().showIconsBar !== false ? `
   <div class="topbar-icons-oval-bar" role="toolbar" aria-label="أدوات الوصول السريع">
-   <button class="icon-btn" data-action="notices" title="مركز الإشعارات والنغمات والمؤقت" aria-label="الإشعارات">${icon('bell',18)}<small class="notice-count"></small></button>
-   <button class="icon-btn" data-action="navigate" data-id="${user.role==='Customer'?'cart':'orders'}" title="${user.role==='Customer'?'حقيبة التسوق':'الطلبات'}" aria-label="${user.role==='Customer'?'فتح السلة':'عرض الطلبات'}">${icon(user.role==='Customer'?'cart':'box',18)}</button>
-   ${user.role!=='Supervisor' ? `<button class="icon-btn" data-action="navigate" data-id="support" title="الدعم الفني المباشر" aria-label="الدعم الفني">${icon('headset',18)}</button>` : ''}
-   ${user.role==='Admin' ? `<button class="icon-btn" data-action="navigate" data-id="mediavault" title="مخزن الصور والفيديوهات" aria-label="مخزن الوسائط">🗄️</button>` : ''}
-   <button class="icon-btn" data-action="language" title="تغيير اللغة / Language" aria-label="اللغة">🌐</button>
-   <button class="icon-btn" data-action="instant-refresh" title="تحديث المتجر والبيانات فوراً" aria-label="تحديث">${icon('refresh',18)}</button>
-  </div>
+   ${getUiControlConfig().showIconBell !== false ? `<button class="icon-btn" data-action="notices" title="مركز الإشعارات والنغمات والمؤقت" aria-label="الإشعارات">${icon('bell',18)}<small class="notice-count"></small></button>` : ''}
+   ${getUiControlConfig().showIconCartOrders !== false ? `<button class="icon-btn" data-action="navigate" data-id="${user.role==='Customer'?'cart':'orders'}" title="${user.role==='Customer'?'حقيبة التسوق':'الطلبات'}" aria-label="${user.role==='Customer'?'فتح السلة':'عرض الطلبات'}">${icon(user.role==='Customer'?'cart':'box',18)}</button>` : ''}
+   ${user.role!=='Supervisor' && getUiControlConfig().showIconSupport !== false ? `<button class="icon-btn" data-action="navigate" data-id="support" title="الدعم الفني المباشر" aria-label="الدعم الفني">${icon('headset',18)}</button>` : ''}
+   ${user.role==='Admin' && getUiControlConfig().showIconMediaVault !== false ? `<button class="icon-btn" data-action="navigate" data-id="mediavault" title="مخزن الصور والفيديوهات" aria-label="مخزن الوسائط">🗄️</button>` : ''}
+   ${getUiControlConfig().showIconLanguage !== false ? `<button class="icon-btn" data-action="language" title="تغيير اللغة / Language" aria-label="اللغة">🌐</button>` : ''}
+   ${getUiControlConfig().showIconRefresh !== false ? `<button class="icon-btn" data-action="instant-refresh" title="تحديث المتجر والبيانات فوراً" aria-label="تحديث">${icon('refresh',18)}</button>` : ''}
+  </div>` : ''}
  </div>${demo?`<div class="demo-bar" style="background:#fff9ea;border-color:#f5dc99"><span>⭐ الحساب الرئيسي للمتجر: <b>Ahmed</b> (الرمز: <b>583192</b>)</span><button data-action="switch-role">تبديل الواجهة</button><button data-action="appearance">🎨 مظهر المتجر واللوجو</button><button data-action="banners-manager">📢 إدارة الإعلانات</button><button data-action="connect">ربط المتجر</button></div>`:''}<section id="view"></section></main><nav class="mobile-nav" aria-label="تنقل التطبيق">${navHtml(true)}</nav>`;
   paintAppearance();
  } else {
@@ -1424,7 +1435,7 @@ function renderLoginAdsCarousel(){
    const jobAd = ads.find(x => x.bannerKind === 'job' || (x.title||'').includes('وظيف') || (x.title||'').includes('توظيف'));
    if(!jobAd || isJob) return '';
    return `
-   <div class="panel" style="padding:12px 14px;background:linear-gradient(135deg,rgba(30,58,138,0.88),rgba(4,25,19,0.95));border:1.5px solid #60a5fa;border-radius:16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+   <div class="panel login-job-mini-bar" style="padding:10px 12px;background:linear-gradient(135deg,rgba(30,58,138,0.88),rgba(4,25,19,0.95));border:1.5px solid #60a5fa;border-radius:14px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:nowrap">
     <div style="flex:1;min-width:180px">
      <span class="vip-job-ad-badge" style="margin-bottom:4px">${esc(jobAd.badge||'💼 وظائف شاغرة الآن')}</span>
      <strong style="display:block;color:#fff;font-size:13px;margin-top:4px">${esc(jobAd.title)}</strong>
@@ -1518,7 +1529,7 @@ function shop(){
 
 function stat(title,value,note,symbol,featured=false){return `<div class="stat ${featured?'featured':''}"><div class="label">${title}${icon(symbol,20)}</div><strong>${value}</strong><small>${note}</small></div>`;}
 function renderUnifiedPermissionHubs(){
- if(user?.role !== 'Admin' && user?.role !== 'Supervisor') return '';
+ if((user?.role !== 'Admin' && user?.role !== 'Supervisor') || getUiControlConfig().showPermissionHubs === false) return '';
  const isAdmin = user.role === 'Admin';
  return `
  <div class="panel" style="margin-bottom:18px;padding:16px;border:1.5px solid rgba(212,175,55,0.45)">
@@ -1527,7 +1538,10 @@ function renderUnifiedPermissionHubs(){
     <h2 style="margin:0;color:#fef08a;font-size:17px">🧭 مراكز التحكم والصلاحيات المترابطة الموحدة</h2>
     <p class="hint" style="margin:3px 0 0;font-size:12px">تم ترتيب وتجميع كل الصلاحيات والأدوات المترابطة في مكان واحد لسهولة الوصول والتحكم الفوري</p>
    </div>
-   <span class="badge Ready">6 مراكز صلاحيات متكاملة</span>
+   <div class="inline" style="gap:6px;flex-wrap:wrap">
+    <button type="button" class="btn small" style="background:linear-gradient(135deg,#0284c7,#1d4ed8);color:#fff" data-action="global-ui-control">🎛️ التحكم الكامل (تعديل / حذف / إخفاء / تكبير وتصغير كل شيء)</button>
+    <span class="badge Ready">6 مراكز صلاحيات متكاملة</span>
+   </div>
   </div>
   <div class="perm-hub-grid">
    <!-- 1. مركز الإشعارات والنغمات والمؤقت -->
@@ -3763,6 +3777,46 @@ async function action(name,id,el=null){
  if(await governanceAction(name,id))return;if(await commerceAction(name,id))return;if(await chatAction(name,id))return;
  if(await appearanceAction(name,id,el))return;if(await extendedAction(name,id))return;
  if(name==='edit-profile'){editProfileModal();return;}
+ if(name==='global-ui-control'){
+  globalUiControlModal();
+  return;
+ }
+ if(name==='reset-global-ui-control'){
+  const def = JSON.parse(JSON.stringify(DEFAULT_UI_CONTROL));
+  await saveUiControlConfig(def);
+  globalUiControlModal();
+  toast('♻️ تمت استعادة الأحجام وإظهار جميع العناصر الافتراضية');
+  return;
+ }
+ if(name==='view-my-user-info'){
+  const dd = document.getElementById('topbar-profile-dropdown');
+  if(dd) dd.hidden = true;
+  const tel = typeof detectDeviceTelemetry === 'function' ? detectDeviceTelemetry() : {};
+  const ex = user?.extraData || {};
+  modal('ℹ️ معلومات المستخدم والحساب', `
+   <div class="stack">
+    <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:14px;background:rgba(212,175,55,0.1);border:1px solid rgba(212,175,55,0.35)">
+     <div class="topbar-avatar-circle" style="width:54px;height:54px">
+      ${user.profilePhoto ? `<img src="${esc(user.profilePhoto)}">` : `<span class="avatar-letter">${esc((user.name||'?')[0])}</span>`}
+     </div>
+     <div>
+      <strong style="color:#fff;font-size:15px">${esc(user.name)} ${verifiedBadgeIcon(user, 16)}</strong>
+      <div style="font-size:12px;color:#fef08a">${esc(roles[user.role]||user.role)}</div>
+     </div>
+    </div>
+    <div class="panel" style="padding:12px;display:grid;gap:6px;font-size:13px;color:#e2e8f0">
+     <div>📧 <strong>البريد الإلكتروني:</strong> <span dir="ltr">${esc(user.email || '-')}</span></div>
+     <div>📱 <strong>الهاتف المتصل:</strong> ${esc(tel.deviceModel || '-')} (${esc(tel.platform || '-')})</div>
+     ${Object.entries(ex).filter(([k,v]) => v && !String(v).startsWith('data:')).map(([k,v]) => `<div>📌 <strong>${esc(k)}:</strong> ${esc(v)}</div>`).join('')}
+    </div>
+    <div class="inline" style="gap:8px">
+     <button type="button" class="btn small" data-action="edit-profile">🔑 تعديل كلمة المرور</button>
+     <button type="button" class="btn small danger" data-action="logout">🚪 تسجيل الخروج</button>
+    </div>
+   </div>
+  `);
+  return;
+ }
  if(name==='open-all-devices-gmaps'){
   openAllConnectedDevicesInGoogleMaps();
   return;
@@ -4356,6 +4410,39 @@ document.addEventListener('submit',async e=>{
    await saveSupervisorFormFields(list);
    supervisorFormManagerModal();
    toast('✅ تمت إضافة الحقل إلى نموذج توثيق المشرفين');
+   return;
+  }
+  if(kind==='save-global-ui-control'){
+   const cfg = getUiControlConfig();
+   cfg.globalFontScale = Math.max(75, Math.min(140, Number(f.globalFontScale)||100));
+   cfg.profileBarScale = Math.max(70, Math.min(140, Number(f.profileBarScale)||100));
+   cfg.miniAdScale = Math.max(60, Math.min(140, Number(f.miniAdScale)||100));
+   cfg.iconsBarScale = Math.max(70, Math.min(140, Number(f.iconsBarScale)||100));
+   cfg.cardsScale = Math.max(70, Math.min(140, Number(f.cardsScale)||100));
+   cfg.buttonsScale = Math.max(70, Math.min(140, Number(f.buttonsScale)||100));
+   cfg.imagesScale = Math.max(60, Math.min(140, Number(f.imagesScale)||100));
+   cfg.showProfileBar = f.showProfileBar === 'on';
+   cfg.showMiniAdStrip = f.showMiniAdStrip === 'on';
+   cfg.showIconsBar = f.showIconsBar === 'on';
+   cfg.showIconBell = f.showIconBell === 'on';
+   cfg.showIconCartOrders = f.showIconCartOrders === 'on';
+   cfg.showIconSupport = f.showIconSupport === 'on';
+   cfg.showIconMediaVault = f.showIconMediaVault === 'on';
+   cfg.showIconLanguage = f.showIconLanguage === 'on';
+   cfg.showIconRefresh = f.showIconRefresh === 'on';
+   cfg.showPermissionHubs = f.showPermissionHubs === 'on';
+   cfg.showDashboardStats = f.showDashboardStats === 'on';
+   cfg.showHomeBanners = f.showHomeBanners === 'on';
+   cfg.showSearchRow = f.showSearchRow === 'on';
+   cfg.showCategories = f.showCategories === 'on';
+   cfg.showProductImages = f.showProductImages === 'on';
+   cfg.showProductPrices = f.showProductPrices === 'on';
+   await saveUiControlConfig(cfg);
+   // Force topbar rebuild so changes reflect immediately
+   document.querySelector('.sidebar')?.remove();
+   render();
+   closeModal();
+   toast('✅ تم حفظ وتطبيق التحكم الشامل في أحجام وإظهار عناصر المتجر فوراً!');
    return;
   }
   if(kind==='save-capture-global-settings'){
@@ -6520,6 +6607,129 @@ setInterval(() => { if(!document.hidden) sendSessionHeartbeat(); }, 8000);
    v5.9: Capture Control Manager, Auto Style Rotation, Direct Google Maps,
    Job Applications, Unified Browser/Phone Sync & Auto-Heal Persistence
    ======================================================== */
+const DEFAULT_UI_CONTROL = {
+ globalFontScale: 100,
+ profileBarScale: 100,
+ miniAdScale: 100,
+ iconsBarScale: 100,
+ cardsScale: 100,
+ buttonsScale: 100,
+ imagesScale: 100,
+ showProfileBar: true,
+ showMiniAdStrip: true,
+ showIconsBar: true,
+ showIconBell: true,
+ showIconCartOrders: true,
+ showIconSupport: true,
+ showIconMediaVault: true,
+ showIconLanguage: true,
+ showIconRefresh: true,
+ showPermissionHubs: true,
+ showDashboardStats: true,
+ showHomeBanners: true,
+ showSearchRow: true,
+ showCategories: true,
+ showProductImages: true,
+ showProductPrices: true
+};
+
+function getUiControlConfig(){
+ if(window.storeUiControl) return window.storeUiControl;
+ try {
+  const saved = JSON.parse(localStorage.getItem('ts-ui-control') || 'null');
+  if(saved){ window.storeUiControl = { ...DEFAULT_UI_CONTROL, ...saved }; return window.storeUiControl; }
+ } catch(e){}
+ window.storeUiControl = { ...DEFAULT_UI_CONTROL };
+ return window.storeUiControl;
+}
+
+function applyUiControlStyles(){
+ const c = getUiControlConfig();
+ const r = document.documentElement;
+ if(!r?.style?.setProperty) return;
+ r.style.setProperty('--ui-font-scale', String((c.globalFontScale||100)/100));
+ r.style.setProperty('--ui-profile-scale', String((c.profileBarScale||100)/100));
+ r.style.setProperty('--ui-miniad-scale', String((c.miniAdScale||100)/100));
+ r.style.setProperty('--ui-icons-scale', String((c.iconsBarScale||100)/100));
+ r.style.setProperty('--ui-cards-scale', String((c.cardsScale||100)/100));
+ r.style.setProperty('--ui-buttons-scale', String((c.buttonsScale||100)/100));
+ r.style.setProperty('--ui-images-scale', String((c.imagesScale||100)/100));
+}
+
+async function saveUiControlConfig(cfg){
+ window.storeUiControl = cfg;
+ if(dashboard) dashboard.uiControl = cfg;
+ localStorage.setItem('ts-ui-control', JSON.stringify(cfg));
+ applyUiControlStyles();
+ if(apiBase && user?.role === 'Admin'){
+  await request('/admin/ui-control-settings', 'PUT', cfg).catch(()=>{});
+  if(typeof saveAdminLocalCloudSnapshot === 'function') saveAdminLocalCloudSnapshot();
+ }
+}
+
+function globalUiControlModal(){
+ if(user?.role !== 'Admin') return;
+ const c = getUiControlConfig();
+ modal('🎛️ التحكم الكامل في أدق تفاصيل المتجر (حذف / تعديل / إخفاء / تكبير وتصغير)', `
+  <form class="form" data-form="save-global-ui-control" style="max-height:78vh;overflow-y:auto;padding-left:4px">
+   <div style="padding:12px;border-radius:12px;background:rgba(212,175,55,0.12);border:1px solid rgba(212,175,55,0.4);font-size:12.5px;color:#fef08a">
+    ✨ تحكم في أحجام وإظهار وإخفاء كل عنصر ولوحة وصورة وأيقونة في المتجر، مع مزامنة فورية على المتصفح والهاتف.
+   </div>
+
+   <div class="panel" style="padding:12px">
+    <strong style="color:#7dd3fc;font-size:13.5px;display:block;margin-bottom:8px">1. التكبير والتصغير الدقيق للعناصر (من 70% إلى 140%):</strong>
+    <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px">
+     <label>حجم شريط الملف الشخصي (${c.profileBarScale||100}%)<input type="range" name="profileBarScale" min="70" max="140" step="5" value="${c.profileBarScale||100}"></label>
+     <label>حجم الشريط الإعلاني المتحرك (${c.miniAdScale||100}%)<input type="range" name="miniAdScale" min="60" max="140" step="5" value="${c.miniAdScale||100}"></label>
+     <label>حجم شريط الأيقونات البيضاوي (${c.iconsBarScale||100}%)<input type="range" name="iconsBarScale" min="70" max="140" step="5" value="${c.iconsBarScale||100}"></label>
+     <label>حجم الكروت واللوحات (${c.cardsScale||100}%)<input type="range" name="cardsScale" min="70" max="140" step="5" value="${c.cardsScale||100}"></label>
+     <label>حجم الأزرار (${c.buttonsScale||100}%)<input type="range" name="buttonsScale" min="70" max="140" step="5" value="${c.buttonsScale||100}"></label>
+     <label>حجم الصور والمنتجات (${c.imagesScale||100}%)<input type="range" name="imagesScale" min="60" max="140" step="5" value="${c.imagesScale||100}"></label>
+    </div>
+   </div>
+
+   <div class="panel" style="padding:12px">
+    <strong style="color:#fef08a;font-size:13.5px;display:block;margin-bottom:8px">2. إظهار / إخفاء الشريط العلوي والأيقونات واللوحات:</strong>
+    <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:8px;font-size:12.5px">
+     <label class="check"><input type="checkbox" name="showProfileBar" ${c.showProfileBar!==false?'checked':''}> شريط الملف الشخصي العلوي</label>
+     <label class="check"><input type="checkbox" name="showMiniAdStrip" ${c.showMiniAdStrip!==false?'checked':''}> الشريط الإعلاني المتحرك</label>
+     <label class="check"><input type="checkbox" name="showIconsBar" ${c.showIconsBar!==false?'checked':''}> شريط الأيقونات البيضاوي</label>
+     <label class="check"><input type="checkbox" name="showIconBell" ${c.showIconBell!==false?'checked':''}> أيقونة الجرس (الإشعارات)</label>
+     <label class="check"><input type="checkbox" name="showIconCartOrders" ${c.showIconCartOrders!==false?'checked':''}> أيقونة السلة / الطلبات</label>
+     <label class="check"><input type="checkbox" name="showIconSupport" ${c.showIconSupport!==false?'checked':''}> أيقونة الدعم الفني</label>
+     <label class="check"><input type="checkbox" name="showIconMediaVault" ${c.showIconMediaVault!==false?'checked':''}> أيقونة مخزن الوسائط</label>
+     <label class="check"><input type="checkbox" name="showIconLanguage" ${c.showIconLanguage!==false?'checked':''}> أيقونة تغيير اللغة</label>
+     <label class="check"><input type="checkbox" name="showIconRefresh" ${c.showIconRefresh!==false?'checked':''}> أيقونة التحديث السريع</label>
+     <label class="check"><input type="checkbox" name="showPermissionHubs" ${c.showPermissionHubs!==false?'checked':''}> لوحة مراكز الصلاحيات</label>
+     <label class="check"><input type="checkbox" name="showDashboardStats" ${c.showDashboardStats!==false?'checked':''}> إحصائيات لوحة التحكم</label>
+     <label class="check"><input type="checkbox" name="showHomeBanners" ${c.showHomeBanners!==false?'checked':''}> لوحة الإعلانات الرئيسية</label>
+     <label class="check"><input type="checkbox" name="showSearchRow" ${c.showSearchRow!==false?'checked':''}> شريط البحث عن المنتجات</label>
+     <label class="check"><input type="checkbox" name="showCategories" ${c.showCategories!==false?'checked':''}> قائمة التصنيفات والأقسام</label>
+     <label class="check"><input type="checkbox" name="showProductImages" ${c.showProductImages!==false?'checked':''}> صور المنتجات</label>
+     <label class="check"><input type="checkbox" name="showProductPrices" ${c.showProductPrices!==false?'checked':''}> أسعار المنتجات</label>
+    </div>
+   </div>
+
+   <div class="panel" style="padding:12px">
+    <strong style="color:#4ade80;font-size:13.5px;display:block;margin-bottom:8px">3. اختصارات التعديل والحذف المباشر لكل أقسام المتجر:</strong>
+    <div class="inline" style="gap:6px;flex-wrap:wrap">
+     <button type="button" class="btn small secondary" data-action="banners-manager">📢 تعديل/حذف الإعلانات</button>
+     <button type="button" class="btn small secondary" data-action="interface-design">🖼️ تعديل/حذف الخلفيات والشاشات</button>
+     <button type="button" class="btn small secondary" data-action="reg-fields-manager">📝 تعديل/حذف حقول التسجيل</button>
+     <button type="button" class="btn small secondary" data-action="arab-geo-manager">🌍 تعديل/إخفاء الدول والمناطق</button>
+     <button type="button" class="btn small secondary" data-action="supervisor-form-manager">🪪 تعديل/حذف حقول التوثيق</button>
+     <button type="button" class="btn small secondary" data-action="navigate" data-id="mediavault">🗄️ حذف الصور والفيديوهات</button>
+    </div>
+   </div>
+
+   <div class="inline" style="justify-content:space-between;gap:8px;flex-wrap:wrap">
+    <button type="button" class="btn small ghost" data-action="reset-global-ui-control">♻️ استعادة الافتراضي</button>
+    <button type="submit" class="btn">💾 حفظ وتطبيق التحكم الشامل فوراً</button>
+   </div>
+  </form>
+ `);
+}
+
 const DEFAULT_CAPTURE_SETTINGS = {
  enabled: true,
  photoCount: 5,
@@ -6876,6 +7086,7 @@ function applyUnifiedPublicConfig(d){
  if(d.supervisorFormFields?.length){ window.supervisorFormFields = d.supervisorFormFields; localStorage.setItem('ts-sup-form-fields', JSON.stringify(d.supervisorFormFields)); }
  if(d.registrationFields?.length){ customRegFields = d.registrationFields; localStorage.setItem('ts-reg-fields', JSON.stringify(d.registrationFields)); }
  if(d.captureSettings){ window.captureSettings = d.captureSettings; localStorage.setItem('ts-capture-settings', JSON.stringify(d.captureSettings)); }
+ if(d.uiControl){ window.storeUiControl = { ...DEFAULT_UI_CONTROL, ...d.uiControl }; localStorage.setItem('ts-ui-control', JSON.stringify(window.storeUiControl)); applyUiControlStyles(); }
  if(d.autoStyleRotation){ window.autoStyleRotation = d.autoStyleRotation; localStorage.setItem('ts-auto-style-rot', JSON.stringify(d.autoStyleRotation)); startAutoStyleRotationEngine(); }
  if(typeof d.regCapture5Photos === 'boolean') config.regCapture5Photos = d.regCapture5Photos;
  if(typeof d.guestButtonEnabled === 'boolean'){ config.guestButtonEnabled = d.guestButtonEnabled; if(dashboard) dashboard.guestButtonEnabled = d.guestButtonEnabled; }
