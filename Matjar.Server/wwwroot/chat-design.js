@@ -173,9 +173,12 @@ function interfaceDesignEditor(selectedKey='All'){
    </div>
    <div style="margin-top:10px;display:grid;gap:8px">
     <label>أو الصق رابط صورة خلفية مخصّصة مباشرة<input id="design-bg-url" name="backgroundImage" value="${esc(designBgImage)}" placeholder="https://..." dir="ltr"></label>
-    <label>أو ارفع صورة خلفية عالية الدقة من جهازك أو هاتفك<input id="design-bg-file" type="file" accept="image/*"></label>
-    <div class="inline" style="gap:6px;flex-wrap:wrap">
-     <button type="button" class="btn small danger" data-action="pick-design-bg" data-id="">🗑️ حذف وإزالة صورة الخلفية الحالية</button>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px;border-radius:12px;background:rgba(16,185,129,0.14);border:1px dashed #34d399">
+     <label class="btn small" style="margin:0;cursor:pointer;background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff">
+      📱 رفع صورة خلفية مباشرة من الجوال / الاستوديو
+      <input id="design-bg-file" type="file" accept="image/*" hidden>
+     </label>
+     <small style="color:#a7f3d0;font-size:11.5px">يدعم الصور عالية الدقة من استوديو الهاتف مباشرة</small>
     </div>
    </div>
   </div>

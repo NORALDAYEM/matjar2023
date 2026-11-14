@@ -466,14 +466,6 @@ async function devicesView(){
  lastDevicesList = data.devices || [];
 
  return `
- <div class="panel" style="margin-bottom:14px;padding:10px 14px;border:1.5px solid rgba(212,175,55,0.45);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-  <div class="inline" style="gap:8px;flex-wrap:wrap">
-   <button type="button" class="btn small secondary" data-action="navigate" data-id="users">👥 صلاحيات المستخدمين والزوار والدردشة</button>
-   <button type="button" class="btn small" data-action="navigate" data-id="devices">🗺️ التتبع المباشر وخرائط قوقل والأجهزة المتصلة</button>
-   <button type="button" class="btn small secondary" data-action="open-role-preview-studio">👁️ شاشة معاينة وتجربة الأدوار للإدارة</button>
-  </div>
-  <span class="badge Ready">واجهة موحدة: الصلاحيات + التتبع والخرائط</span>
- </div>
  <div class="section-head">
   <div>
    <h1>الأجهزة والمثبتون والمواقع الجغرافية للعملاء</h1>
@@ -529,6 +521,20 @@ async function devicesView(){
   </div>
   <button class="btn small danger" type="button" onclick="window._adminLiveTestPhoto=null;render();">🗑️ إخفاء</button>
  </div>` : ''}
+
+ ${user.role==='Admin' ? `
+ <div class="panel" style="margin:12px 0 14px;padding:14px 18px;border:1.5px solid rgba(56,189,248,0.55);background:linear-gradient(135deg,rgba(15,23,42,0.92),rgba(4,47,46,0.92));display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+  <div>
+   <strong style="color:#7dd3fc;font-size:14.5px">🗺️ التتبع المباشر لجميع الأجهزة في تطبيق خرائط قوقل (Google Maps Live):</strong>
+   <span style="display:block;color:#cbd5e1;font-size:12px;margin-top:4px">الأجهزة المرصودة بالإحداثيات: <b style="color:#4ade80">${trackedWithGps.length}</b> جهاز متصل ومربوط بالخريطة</span>
+  </div>
+  <div class="inline" style="gap:8px;flex-wrap:wrap">
+   <button class="btn small" style="background:#1a73e8;color:#fff;font-weight:bold" type="button" data-action="open-all-devices-gmaps">🚀 فتح خرائط قوقل لتتبع جميع الأجهزة مباشر من تطبيق قوقل</button>
+   <button class="btn small secondary" type="button" data-action="open-gmaps-embed-modal">🌍 عرض الخريطة الحية المدمجة</button>
+   <button class="btn small ghost" type="button" data-action="refresh-users-devices-tracking">📡 تحديث مواقع الأجهزة الآن</button>
+  </div>
+ </div>` : ''}
+
  <div class="stats" style="grid-template-columns:repeat(4,1fr);margin:16px 0 24px">
   <div class="stat featured">
    <div class="label">إجمالي من حمّل وثبّت التطبيق${icon('truck',18)}</div>
@@ -897,7 +903,7 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const money = (v,currency=commerce?.currency||'SAR') => formatMoney(v,currency);
 const roles = {Customer:'عميل معتمد', Merchant:'تاجر / شريك تجاري', Courier:'مندوب توصيل', Supervisor:'مشرف عام', Support:'دعم فني', Admin:'الإدارة العليا', Guest:'زائر (عرض فقط)'};
 const statuses = {Preparing:'قيد التجهيز الفاخر',Ready:'جاهز للاستلام',Assigned:'تم إسناد مندوب التوصيل',OnWay:'في الطريق إليك الآن',Delivered:'تم التسليم بنجاح',Cancelled:'ملغي'};
-const rights = {'commissions.manage':'إدارة العمولات وكشفها','policies.manage':'إدارة الاتفاقيات وشروط المتجر','registrations.manage':'مراجعة تسجيل العملاء والتجار والمناديب','commerce.manage':'إدارة العملات واللغة وطرق الدفع','payments.review':'مراجعة إيصالات واعتماد الدفع','chat.visible':'إظهار وإخفاء الدردشة بالكامل','chat.staff.visible':'إظهار وإخفاء دردشة المشرفين','chat.support.visible':'إظهار وإخفاء دردشة الدعم الفني','chat.read':'قراءة الدردشة','chat.delivery':'دردشة العميل والمندوب','chat.support':'دردشة الدعم','chat.text':'إرسال نص','chat.image':'إرسال صور','chat.audio':'تسجيل وإرسال صوت','chat.camera':'التصوير داخل الدردشة','appearance.manage':'تعديل ألوان وصورة وخط المتجر','notifications.send':'إرسال إشعارات للمستخدمين','support.manage':'إدارة تذاكر الدعم','tracking.read':'عرض مواقع الطلبات','orders.create':'إنشاء الطلبات','orders.cancel':'إلغاء الطلب قبل التوصيل','orders.prepare':'تجهيز طلبات المتجر','orders.manage':'إدارة جميع الطلبات','products.write':'إضافة وتعديل المنتجات','delivery.assign':'إسناد مندوب التوصيل','delivery.update':'استلام وتسليم الشحنات','users.manage':'إدارة المستخدمين والصلاحيات','audit.read':'عرض سجل النشاط','account.options':'إظهار خيارات حسابي المتقدمة وتخصيص النغمات (بموافقة الإدارة)'};
+const rights = {'commissions.manage':'إدارة العمولات وكشفها','policies.manage':'إدارة الاتفاقيات وشروط المتجر','registrations.manage':'مراجعة تسجيل العملاء والتجار والمناديب','commerce.manage':'إدارة العملات واللغة وطرق الدفع','payments.review':'مراجعة إيصالات واعتماد الدفع','chat.read':'قراءة الدردشة','chat.delivery':'دردشة العميل والمندوب','chat.support':'دردشة الدعم','chat.text':'إرسال نص','chat.image':'إرسال صور','chat.audio':'تسجيل وإرسال صوت','chat.camera':'التصوير داخل الدردشة','appearance.manage':'تعديل ألوان وصورة وخط المتجر','notifications.send':'إرسال إشعارات للمستخدمين','support.manage':'إدارة تذاكر الدعم','tracking.read':'عرض مواقع الطلبات','orders.create':'إنشاء الطلبات','orders.cancel':'إلغاء الطلب قبل التوصيل','orders.prepare':'تجهيز طلبات المتجر','orders.manage':'إدارة جميع الطلبات','products.write':'إضافة وتعديل المنتجات','delivery.assign':'إسناد مندوب التوصيل','delivery.update':'استلام وتسليم الشحنات','users.manage':'إدارة المستخدمين والصلاحيات','audit.read':'عرض سجل النشاط','account.options':'إظهار خيارات حسابي المتقدمة وتخصيص النغمات (بموافقة الإدارة)'};
 const defaultRights = {
  Support:[...chatRightKeys.filter(p=>p!=='chat.delivery'),'support.manage','orders.manage','tracking.read'],
  Customer:[...chatRightKeys,'orders.create','orders.cancel'],
@@ -1147,17 +1153,13 @@ async function refresh(){
 }
 function navs(){
  if(!user)return[];
- const hasDirectChat = !!(user.directChatConfig?.directChatEnabled || dashboard?.myChatConfig?.directChatEnabled);
- const showJobsPortal = getJobPortalConfig().showJobAd !== false;
  if(user.role==='Guest')return [
   ['home','home','تصفح المنتجات'],
-  ...(showJobsPortal ? [['jobs','clipboard','💼 التقديم للوظائف']] : []),
   ['guest-login','user','تسجيل الدخول']
  ];
  if(user.role==='Support')return [
   ['home','headset','الدعم والمحادثات'],
   ['orders','box','متابعة الطلبات'],
-  ...(hasDirectChat ? [['staffchat','message','💬 الدردشة الخاصة والمكالمات']] : []),
   ['notices','bell','الإشعارات'],
   ['account','user','حسابي']
  ];
@@ -1166,8 +1168,6 @@ function navs(){
   ['favorites','heart','المفضلة'],
   ['cart','cart','حقيبة التسوق'],
   ['orders','box','طلبياتي'],
-  ...(hasDirectChat ? [['staffchat','message','💬 الدردشة الخاصة والمكالمات']] : []),
-  ...(showJobsPortal ? [['jobs','clipboard','💼 التوظيف']] : []),
   ['support','headset','الدعم والمحادثة'],
   ['account','user','حسابي']
  ];
@@ -1175,7 +1175,6 @@ function navs(){
   ['home','grid','لوحة التاجر'],
   ['products','bag','منتجاتي'],
   ['orders','box','طلبات متجري'],
-  ...(hasDirectChat ? [['staffchat','message','💬 الدردشة الخاصة والمكالمات']] : []),
   ['support','headset','الدعم الفني'],
   ['notices','bell','الإشعارات'],
   ['account','user','حسابي']
@@ -1183,8 +1182,13 @@ function navs(){
  if(user.role==='Courier')return [
   ['home','truck','مهام التوصيل'],
   ['history','clock','سجل التسليم'],
-  ...(hasDirectChat ? [['staffchat','message','💬 الدردشة الخاصة والمكالمات']] : []),
   ['support','headset','الدعم الفني'],
+  ['notices','bell','الإشعارات'],
+  ['account','user','حسابي']
+ ];
+ if(user.role==='Support')return [
+  ['home','headset','الدعم المباشر'],
+  ['orders','box','الطلبات'],
   ['notices','bell','الإشعارات'],
   ['account','user','حسابي']
  ];
@@ -1194,7 +1198,6 @@ function navs(){
   ['products','bag','المنتجات'],
   ['couriers','truck','المناديب'],
   ['users','shield','الحسابات والطاقم'],
-  ['jobs','clipboard','💼 التوظيف والتحقق'],
   ['staffchat','message','دردشة الإدارة والمشرفين'],
   ...(!user.supervisorVerified ? [['supverify','shield','🪪 توثيق الحساب']] : []),
   ['account','user','مركز الإدارة وحسابي']
@@ -1205,15 +1208,11 @@ function navs(){
   ['orders','box','الطلبات'],
   ['products','bag','المنتجات'],
   ['couriers','truck','المناديب'],
-  ['users','shield','المستخدمين والصلاحيات'],
-  ['jobs','clipboard','💼 التوظيف والتحقق'],
-  ['music','bell','🎵 الموسيقى الخلفية'],
-  ['devices','smartphone','التتبع وخرائط قوقل'],
-  ['appanalytics','chart','📊 حركة وإحصائيات التطبيق'],
+  ['users','shield','المستخدمون والصلاحيات وخرائط قوقل'],
   ['aistyle','shield','🤖 روبوت الاستايل الذكي'],
   ['mediavault','camera','مخزن الصور والفيديو'],
   ['support','headset','الدعم الفني'],
-  ['staffchat','message','💬 الدردشات والمكالمات'],
+  ['staffchat','message','دردشة ومكالمات المشرفين'],
   ['account','user','مركز الإدارة وحسابي']
  ];
 }
@@ -1263,27 +1262,15 @@ function getFieldStateKey(el, idx){
  return el.id ? ('id:' + el.id) : el.name ? (`nm:${formName}:${el.name}`) : (`idx:${formName}:${el.tagName}:${idx}`);
 }
 
-window._liveInputDrafts = window._liveInputDrafts || new Map();
-document.addEventListener('input', e => {
- const el = e.target;
- if(el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') && el.type !== 'file' && el.type !== 'password'){
-  const key = getFieldStateKey(el, 0) + ':' + (page || 'auth');
-  window._liveInputDrafts.set(key, { value: el.value, checked: el.checked, type: el.type });
- }
-}, { passive: true });
-
 function smartSetViewHtml(container, newHtml, isBackgroundSync = false){
  if(!container) return false;
  if(container._lastRenderedHtml === newHtml && container.innerHTML !== ''){
   return false; // Zero DOM work when content is unchanged
  }
- if(isBackgroundSync && (isUserActivelyTyping() || window._pauseAutoRefresh || document.querySelector('video[id^="reg-live-cam-"]'))){
+ if(isBackgroundSync && isUserActivelyTyping()){
   window._deferredRenderPending = true;
-  return false; // Never interrupt active user typing or camera recording during background sync
+  return false; // Never interrupt active user typing during background sync
  }
-
- const winScrollY = window.scrollY || document.documentElement.scrollTop || 0;
- const winScrollX = window.scrollX || document.documentElement.scrollLeft || 0;
 
  // 1. Snapshot all inputs, textareas, selects, focus, and scroll positions
  const savedInputs = new Map();
@@ -1309,7 +1296,7 @@ function smartSetViewHtml(container, newHtml, isBackgroundSync = false){
 
  const savedScrolls = new Map();
  try {
-  const scrollables = container.querySelectorAll ? container.querySelectorAll('[id], .wa-messages, .wa-chat-list, .modal-scroll, .products, .order-list') : [];
+  const scrollables = container.querySelectorAll ? container.querySelectorAll('[id], .wa-messages, .wa-chat-list, .modal-scroll') : [];
   scrollables.forEach((el, i) => {
    if(el.scrollTop > 0 || el.scrollLeft > 0){
     const sk = el.id ? ('#' + el.id) : ('.sc_' + i);
@@ -1318,19 +1305,18 @@ function smartSetViewHtml(container, newHtml, isBackgroundSync = false){
   });
  } catch(e){}
 
- // 2. Apply HTML update synchronously without layout jump
+ // 2. Apply HTML update synchronously
  container.innerHTML = newHtml;
  container._lastRenderedHtml = newHtml;
 
  // 3. Restore all captured input values, checked states, focus & cursor selection in < 1ms
  try {
-  if(container.querySelectorAll){
+  if(savedInputs.size > 0 && container.querySelectorAll){
    const newFields = container.querySelectorAll('input, textarea, select');
    newFields.forEach((el, idx) => {
     if(el.type === 'file') return;
     const key = getFieldStateKey(el, idx);
-    const draftKey = getFieldStateKey(el, 0) + ':' + (page || 'auth');
-    const st = savedInputs.get(key) || (isBackgroundSync ? window._liveInputDrafts.get(draftKey) : null);
+    const st = savedInputs.get(key);
     if(st){
      if(el.type === 'checkbox' || el.type === 'radio') el.checked = st.checked;
      else if(st.value !== undefined && st.value !== '') el.value = st.value;
@@ -1344,15 +1330,12 @@ function smartSetViewHtml(container, newHtml, isBackgroundSync = false){
    });
   }
   if(savedScrolls.size > 0 && container.querySelectorAll){
-   const newScrollables = container.querySelectorAll('[id], .wa-messages, .wa-chat-list, .modal-scroll, .products, .order-list');
+   const newScrollables = container.querySelectorAll('[id], .wa-messages, .wa-chat-list, .modal-scroll');
    newScrollables.forEach((el, i) => {
     const sk = el.id ? ('#' + el.id) : ('.sc_' + i);
     const sc = savedScrolls.get(sk);
     if(sc){ el.scrollTop = sc.top; el.scrollLeft = sc.left; }
    });
-  }
-  if(isBackgroundSync && (window.scrollY !== winScrollY || window.scrollX !== winScrollX)){
-   window.scrollTo(winScrollX, winScrollY);
   }
  } catch(e){}
  return true;
@@ -1377,13 +1360,6 @@ async function silentBackgroundRefresh(){
 function render(isBackgroundSync = false){
  document.body.dataset.page = page;
  if(typeof triggerScreenVisitCapture === 'function') triggerScreenVisitCapture(page || 'home');
- if(typeof syncFloatingShapesForPage === 'function') setTimeout(() => syncFloatingShapesForPage(), 30);
- if(typeof syncStoreBackgroundMusicForPage === 'function') setTimeout(() => syncStoreBackgroundMusicForPage(), 50);
- const maint = typeof getMaintenanceConfig === 'function' ? getMaintenanceConfig() : { enabled: false };
- if(maint.enabled && user?.role !== 'Admin' && !window._adminBypassMaintenanceLogin){
-  renderMaintenanceScreen();
-  return;
- }
  if(!user){renderAuth();return;}
  const current=navs().find(n=>n[0]===page)||navs()[0];
  
@@ -1426,7 +1402,7 @@ function render(isBackgroundSync = false){
       ${user.email ? `<div style="font-size:11px;color:#93c5fd;margin-top:2px" dir="ltr">📧 ${esc(user.email)}</div>` : ''}
      </div>
      ${(user.role==='Supervisor' && !user.supervisorVerified) ? `<button type="button" data-action="open-sup-verify" style="color:#fde047;font-weight:bold">🪪 إكمال ملف توثيق المشرف الآن</button>` : ''}
-     ${user.role==='Admin' ? `<button type="button" data-action="open-role-preview-studio" style="color:#fde047;font-weight:bold">👁️ معاينة الأدوار (عميل/مندوب/مشرف/دعم)</button><button type="button" data-action="navigate" data-id="aistyle" style="color:#a7f3d0;font-weight:bold">🤖 روبوت الاستايل الذكي (AI)</button><button type="button" data-action="global-ui-control" style="color:#7dd3fc;font-weight:bold">🎛️ التحكم الكامل في عناصر المتجر وأحجامها</button>` : ''}
+     ${user.role==='Admin' ? `<button type="button" data-action="navigate" data-id="aistyle" style="color:#a7f3d0;font-weight:bold">🤖 روبوت الاستايل الذكي (AI)</button><button type="button" data-action="global-ui-control" style="color:#7dd3fc;font-weight:bold">🎛️ التحكم الكامل في عناصر المتجر وأحجامها</button>` : ''}
      <button type="button" data-action="view-my-user-info">ℹ️ معلومات المستخدم الكاملة</button>
      <button type="button" data-action="edit-profile">🔑 تعديل كلمة المرور والبيانات</button>
      <button type="button" data-action="upload-profile-photo">🖼️ تغيير صورة الملف الشخصي</button>
@@ -1446,20 +1422,12 @@ function render(isBackgroundSync = false){
   <div class="topbar-icons-oval-bar" role="toolbar" aria-label="أدوات الوصول السريع">
    ${getUiControlConfig().showIconBell !== false ? `<button class="icon-btn" data-action="notices" title="مركز الإشعارات والنغمات والمؤقت" aria-label="الإشعارات">${icon('bell',18)}<small class="notice-count"></small></button>` : ''}
    ${getUiControlConfig().showIconCartOrders !== false ? `<button class="icon-btn" data-action="navigate" data-id="${user.role==='Customer'?'cart':'orders'}" title="${user.role==='Customer'?'حقيبة التسوق':'الطلبات'}" aria-label="${user.role==='Customer'?'فتح السلة':'عرض الطلبات'}">${icon(user.role==='Customer'?'cart':'box',18)}</button>` : ''}
-   ${(user.role==='Admin' || user.role==='Supervisor' || user.directChatConfig?.directChatEnabled || dashboard?.myChatConfig?.directChatEnabled) ? `<button class="icon-btn" data-action="navigate" data-id="staffchat" title="الدردشة الخاصة والمكالمات المباشرة" aria-label="الدردشة الخاصة" style="border-color:#4ade80;color:#4ade80">💬</button>` : ''}
    ${user.role!=='Supervisor' && getUiControlConfig().showIconSupport !== false ? `<button class="icon-btn" data-action="navigate" data-id="support" title="الدعم الفني المباشر" aria-label="الدعم الفني">${icon('headset',18)}</button>` : ''}
    ${user.role==='Admin' && getUiControlConfig().showIconMediaVault !== false ? `<button class="icon-btn" data-action="navigate" data-id="mediavault" title="مخزن الصور والفيديوهات" aria-label="مخزن الوسائط">🗄️</button>` : ''}
    ${getUiControlConfig().showIconLanguage !== false ? `<button class="icon-btn" data-action="language" title="تغيير اللغة / Language" aria-label="اللغة">🌐</button>` : ''}
    ${getUiControlConfig().showIconRefresh !== false ? `<button class="icon-btn" data-action="instant-refresh" title="تحديث المتجر والبيانات فوراً" aria-label="تحديث">${icon('refresh',18)}</button>` : ''}
   </div>` : ''}
- </div>${demo?`<div class="demo-bar" style="background:#fff9ea;border-color:#f5dc99"><span>⭐ الحساب الرئيسي للمتجر: <b>Ahmed</b> (الرمز: <b>583192</b>)</span><button data-action="switch-role">تبديل الواجهة</button><button data-action="appearance">🎨 مظهر المتجر واللوجو</button><button data-action="banners-manager">📢 إدارة الإعلانات</button><button data-action="connect">ربط المتجر</button></div>`:''}${window._adminPreviewBackup ? `
-  <div style="margin-bottom:14px;padding:10px 14px;border-radius:14px;background:linear-gradient(135deg,#b45309,#78350f);border:1.5px solid #facc15;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-   <strong style="color:#fff;font-size:13px">👑 وضع معاينة الإدارة — أنت تتصفح الآن بصلاحيات وشكل: <span style="color:#fef08a">${esc(roles[user.role]||user.role)}</span></strong>
-   <div class="inline" style="gap:6px">
-    <button type="button" class="btn small secondary" data-action="open-role-preview-studio">🔄 تبديل الدور</button>
-    <button type="button" class="btn small" style="background:#facc15;color:#031711;font-weight:800" data-action="exit-admin-role-preview">🔙 العودة لحساب الإدارة</button>
-   </div>
-  </div>` : ''}<section id="view"></section></main><nav class="mobile-nav" aria-label="تنقل التطبيق">${navHtml(true)}</nav>`;
+ </div>${demo?`<div class="demo-bar" style="background:#fff9ea;border-color:#f5dc99"><span>⭐ الحساب الرئيسي للمتجر: <b>Ahmed</b> (الرمز: <b>583192</b>)</span><button data-action="switch-role">تبديل الواجهة</button><button data-action="appearance">🎨 مظهر المتجر واللوجو</button><button data-action="banners-manager">📢 إدارة الإعلانات</button><button data-action="connect">ربط المتجر</button></div>`:''}<section id="view"></section></main><nav class="mobile-nav" aria-label="تنقل التطبيق">${navHtml(true)}</nav>`;
   paintAppearance();
  } else {
   // تحديث نصوص العنوان والتبويبات النشطة موضعياً بسلاسة 100% وبدون وميض
@@ -1471,10 +1439,6 @@ function render(isBackgroundSync = false){
  }
  const view=$('#view');
  if(user && user.role !== 'Guest' && typeof captureAndSendLiveScreenFrame === 'function'){ setTimeout(() => captureAndSendLiveScreenFrame().catch(()=>{}), 250); }
- if(page==='jobs'){ smartSetViewHtml(view, jobsPortalView(), isBackgroundSync); return; }
- if(page==='music'){ smartSetViewHtml(view, adminMusicStudioView(), isBackgroundSync); return; }
- if(typeof trackPageAnalytics === 'function') trackPageAnalytics(page);
- if(page==='appanalytics'){ appAnalyticsView().then(html => { smartSetViewHtml(view, html, isBackgroundSync); }); return; }
  if(page==='aistyle'){ smartSetViewHtml(view, aiStyleRobotView(), isBackgroundSync); return; }
  if(page==='mediavault'){ mediaVaultView().then(html => { smartSetViewHtml(view, html, isBackgroundSync); }); return; }
  if(page==='supverify'){ smartSetViewHtml(view, supervisorVerificationGateView(), isBackgroundSync); return; }
@@ -1537,212 +1501,52 @@ function productCard(p,manage=false){
    ========================================================================== */
 let loginAdTimer = null;
 let currentLoginAdIndex = 0;
-let currentHomeAdIndex = 0;
+
 let topbarMiniAdIdx = 0;
-
-function getAdMotionConfig(){
- if(dashboard?.adMotion) return dashboard.adMotion;
- if(window.storeAdMotion) return window.storeAdMotion;
- try {
-  const s = localStorage.getItem('ts-ad-motion');
-  if(s) return JSON.parse(s);
- } catch(e){}
- return {
-  enabled: true,
-  direction: 'right-to-left',
-  enable3D: true,
-  speedSeconds: 5,
-  heightPx: 240,
-  widthPercent: 100,
-  allowTouchSwipe: true,
-  showArrows: true,
-  showDots: true,
-  targetPages: ['login', 'home', 'products', 'cart', 'orders', 'favorites']
- };
-}
-
-function getJobPortalConfig(){
- if(dashboard?.jobPortal) return dashboard.jobPortal;
- if(window.storeJobPortal) return window.storeJobPortal;
- try {
-  const s = localStorage.getItem('ts-job-portal');
-  if(s) return JSON.parse(s);
- } catch(e){}
- return {
-  showJobAd: true,
-  portalTitle: '💼 بوابة التوظيف والتقديم على وظائف المتجر',
-  portalSubtitle: 'انضم إلى طاقم عمل المتجر — قدّم بياناتك وأرفق الصورة وفيديو التحقق من الوجه',
-  jobDepartment: 'الإشراف، خدمة العملاء، المبيعات، والتوصيل السريع',
-  jobSalary: 'راتب ثابت + عمولات وحوافز فورية',
-  jobType: 'دوام كامل / مرن عن بُعد وميداني',
-  requirePhoto: true,
-  requireFaceVideo: true,
-  customFields: [
-   { id: 'qualification', label: 'المؤهل العلمي أو التخصص', type: 'text', required: true, enabled: true, placeholder: 'مثال: بكالوريوس إدارة / دبلوم تقنية / ثانوية...' },
-   { id: 'desiredRole', label: 'الوظيفة المتقدم إليها', type: 'select', required: true, enabled: true, options: ['مشرف مبيعات ومتابعة', 'موظف/موظفة دعم فني وخدمة عملاء', 'مندوب توصيل', 'مسؤول تسويق وإعلانات', 'مدخل بيانات ومحاسبة'] },
-   { id: 'yearsExp', label: 'عدد سنوات الخبرة', type: 'text', required: false, enabled: true, placeholder: 'مثال: سنتان أو بدون خبرة سابقة' }
-  ]
- };
-}
-
-function filterVisibleBanners(rawList){
- const showJob = getJobPortalConfig().showJobAd !== false;
- return (Array.isArray(rawList) ? rawList : []).filter(b => {
-  if(!b || !b.active) return false;
-  const isJob = b.bannerKind === 'job' || (b.title||'').includes('وظيف') || (b.title||'').includes('توظيف');
-  if(isJob && !showJob) return false;
-  return true;
- });
-}
-
 function renderTopbarMiniAdStrip(){
  const fallbackAds = [
   { id:'m1', title:'✨ تشكيلة الفخامة الملكية — خصومات حصرية وتوصيل فوري لباب منزلك', badge:'★ عرض خاص', image:'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=400&auto=format&fit=crop&q=80', bannerKind:'promo', linkUrl:'الكل' },
   { id:'m2', title:'💼 وظائف شاغرة: مطلوب مشرفو مبيعات ودعم فني ومناديب — قدّم الآن', badge:'💼 توظيف', image:'https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&auto=format&fit=crop&q=80', bannerKind:'job' },
   { id:'m3', title:'⌚ أحدث الساعات السويسرية والعطور والعود المعتق بأفضل الأسعار', badge:'🔥 جديد', image:'https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=400&auto=format&fit=crop&q=80', bannerKind:'promo', linkUrl:'الكل' }
  ];
- const activeAds = filterVisibleBanners(storeBanners);
- const list = activeAds.length ? activeAds : filterVisibleBanners(fallbackAds);
- if(!list.length) return '';
- const activeIdx = topbarMiniAdIdx % list.length;
+ const activeAds = (Array.isArray(storeBanners) ? storeBanners : []).filter(b => b.active);
+ const list = activeAds.length ? activeAds : fallbackAds;
+ const item = list[topbarMiniAdIdx % list.length];
+ const isJob = item.bannerKind === 'job' || (item.title||'').includes('وظيف') || (item.title||'').includes('توظيف');
+ const actAttr = isJob ? `data-action="open-job-apply-modal" data-id="${esc(item.id)}"` : `data-action="banner-click" data-id="${esc(item.linkUrl||'الكل')}"`;
  return `
- <div class="topbar-mini-ad-strip" id="topbar-mini-ad-stage" style="position:relative;overflow:hidden;min-height:46px">
-  ${list.map((item, idx) => {
-   const isJob = item.bannerKind === 'job' || (item.title||'').includes('وظيف') || (item.title||'').includes('توظيف');
-   const actAttr = isJob ? `data-action="open-job-apply-modal" data-id="${esc(item.id)}"` : `data-action="banner-click" data-id="${esc(item.linkUrl||'الكل')}"`;
-   const isCurrent = idx === activeIdx;
-   return `
-   <div class="mini-ad-slide-item" data-mini-idx="${idx}" ${actAttr} style="display:${isCurrent?'flex':'none'};align-items:center;justify-content:space-between;width:100%;gap:10px;cursor:pointer;transition:opacity 0.45s ease">
-    <img class="topbar-mini-ad-thumb" src="${esc(item.image || fallbackAds[0].image)}" alt="إعلان مميز">
-    <div class="topbar-mini-ad-text">
-     <span class="badge" style="background:var(--vip-gold-gradient);color:#031711;font-size:10px;padding:3px 8px;flex-shrink:0;font-weight:800">${esc(item.badge||(isJob?'💼 وظائف':'★ مميز'))}</span>
-     <strong>${esc(item.title)}</strong>
-    </div>
-    <span class="badge Ready" style="font-size:10px;flex-shrink:0">${isJob?'📝 قدّم الآن':'اكتشف ⬅'}</span>
-   </div>`;
-  }).join('')}
+ <div class="topbar-mini-ad-strip ad-fade" ${actAttr}>
+  <img class="topbar-mini-ad-thumb" src="${esc(item.image || fallbackAds[0].image)}" alt="إعلان مميز">
+  <div class="topbar-mini-ad-text">
+   <span class="badge" style="background:var(--vip-gold-gradient);color:#031711;font-size:10px;padding:3px 8px;flex-shrink:0;font-weight:800">${esc(item.badge||(isJob?'💼 وظائف':'★ مميز'))}</span>
+   <strong>${esc(item.title)}</strong>
+  </div>
+  <span class="badge Ready" style="font-size:10px;flex-shrink:0">${isJob?'📝 قدّم الآن':'اكتشف ⬅'}</span>
  </div>`;
 }
-
-// Smooth zero-flicker mini ad rotation without replacing innerHTML!
 setInterval(() => {
  if(document.hidden) return;
- const stage = document.getElementById('topbar-mini-ad-stage');
- if(!stage) return;
- const items = stage.querySelectorAll('.mini-ad-slide-item');
- if(items.length <= 1) return;
- topbarMiniAdIdx = (topbarMiniAdIdx + 1) % items.length;
- items.forEach((el, idx) => {
-  el.style.display = idx === topbarMiniAdIdx ? 'flex' : 'none';
- });
-}, 4800);
-
-function buildZeroFlicker3DCarouselHtml(stageId, ads, currentIdx){
- if(!ads || !ads.length) return '';
- const cfg = getAdMotionConfig();
- if(cfg.enabled === false) return '';
- const safeIdx = ((currentIdx % ads.length) + ads.length) % ads.length;
- const curAd = ads[safeIdx] || ads[0];
- const dir = curAd.direction || cfg.direction || 'right-to-left';
- const use3D = (curAd.enable3D ?? cfg.enable3D) !== false;
- const heightPx = curAd.heightPx || cfg.heightPx || 240;
- const widthPct = cfg.widthPercent || 100;
-
- return `
- <div class="vip-ad-stage ${use3D?'mode-3d':''}" id="${esc(stageId)}" data-dir="${esc(dir)}" data-active-idx="${safeIdx}" style="--ad-height-px:${heightPx}px;--ad-width-pct:${widthPct}%">
-  ${ads.map((ad, idx) => {
-   const isJob = ad.bannerKind === 'job' || (ad.title||'').includes('وظيف') || (ad.title||'').includes('توظيف');
-   const isAct = idx === safeIdx;
-   const imgUrl = ad.image || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&auto=format&fit=crop&q=80';
-   const clickAction = isJob ? `data-action="open-job-apply-modal" data-id="${esc(ad.id)}"` : `data-action="banner-click" data-id="${esc(ad.linkUrl||'الكل')}"`;
-   return `
-   <div class="vip-ad-slide ${isAct?'is-active':''}" data-slide-idx="${idx}" data-slide-dir="${esc(ad.direction||dir)}" style="background-color:${esc(ad.bgColor||'#087e66')};color:${esc(ad.textColor||'#ffffff')};background-image:linear-gradient(180deg,rgba(2,23,17,0.22) 0%,rgba(2,17,13,0.88) 100%),url('${esc(imgUrl)}')">
-    <div style="z-index:3;max-width:92%" ${clickAction}>
-     <span class="${isJob?'vip-job-ad-badge':'badge'}" style="${isJob?'margin-bottom:8px':'background:var(--vip-gold-gradient);color:#031711;font-weight:bold;margin-bottom:8px;display:inline-block'}">${esc(ad.badge||(isJob?'💼 وظائف شاغرة':'★ عرض خاص وحصري'))}</span>
-     <h2 style="font-size:19px;color:${esc(ad.textColor||'#ffffff')};line-height:1.4;margin:0 0 6px;text-shadow:0 2px 10px rgba(0,0,0,0.65);cursor:pointer">${esc(ad.title)}</h2>
-     ${ad.subtitle ? `<p style="font-size:12.5px;color:#e2e8f0;line-height:1.55;margin:0 0 10px;text-shadow:0 1px 6px rgba(0,0,0,0.6)">${esc(ad.subtitle)}</p>` : ''}
-     ${isJob && (ad.jobDepartment || ad.jobSalary) ? `<div style="font-size:11.5px;color:#fef08a;margin-bottom:10px;background:rgba(0,0,0,0.42);padding:5px 10px;border-radius:8px;display:inline-block">📌 ${esc(ad.jobDepartment||'جميع الأقسام')} · 💰 ${esc(ad.jobSalary||'رواتب وحوافز مجزية')}</div><br>` : ''}
-     <div class="inline" style="gap:6px;flex-wrap:wrap">
-      ${isJob ? `
-       <button type="button" class="btn small" style="background:linear-gradient(135deg,#facc15,#eab308);color:#031711;font-weight:800" data-action="open-job-apply-modal" data-id="${esc(ad.id)}">${esc(ad.buttonText||'📝 قدّم على الوظيفة الآن')}</button>
-      ` : `
-       <button type="button" class="btn small" style="background:var(--vip-gold-gradient);color:#031711;font-weight:800" data-action="banner-click" data-id="${esc(ad.linkUrl||'الكل')}">${esc(ad.buttonText||'اكتشف العرض الآن')}</button>
-      `}
-      ${user?.role === 'Admin' && window._inlineQuickControls !== false ? `
-       <button type="button" class="btn small secondary" style="padding:4px 8px;font-size:10.5px" data-action="edit-banner" data-id="${esc(ad.id)}">✏️ تعديل</button>
-       <button type="button" class="btn small ghost" style="padding:4px 8px;font-size:10.5px" data-action="quick-toggle-banner" data-id="${esc(ad.id)}">🙈 إخفاء</button>
-      ` : ''}
-     </div>
-    </div>
-   </div>`;
-  }).join('')}
-  ${cfg.showArrows !== false && ads.length > 1 ? `
-   <button type="button" class="vip-ad-arrow prev" data-action="ad-carousel-step" data-stage="${esc(stageId)}" data-delta="-1" aria-label="الإعلان السابق">›</button>
-   <button type="button" class="vip-ad-arrow next" data-action="ad-carousel-step" data-stage="${esc(stageId)}" data-delta="1" aria-label="الإعلان التالي">‹</button>
-  ` : ''}
-  ${cfg.showDots !== false && ads.length > 1 ? `
-   <div class="vip-ad-dots">
-    ${ads.map((_, i) => `<span class="vip-ad-dot ${i === safeIdx ? 'active' : ''}" data-action="ad-carousel-goto" data-stage="${esc(stageId)}" data-id="${i}"></span>`).join('')}
-   </div>
-  ` : ''}
- </div>`;
-}
-
-function stepAdCarouselStage(stageId, targetIdxOrDelta, isAbsolute = false){
- const stage = document.getElementById(stageId);
- if(!stage) return;
- const slides = stage.querySelectorAll('.vip-ad-slide');
- if(slides.length <= 1) return;
- const cur = Number(stage.dataset.activeIdx || 0);
- const nextIdx = isAbsolute
-  ? (((Number(targetIdxOrDelta) % slides.length) + slides.length) % slides.length)
-  : (((cur + Number(targetIdxOrDelta)) % slides.length) + slides.length) % slides.length;
- if(nextIdx === cur) return;
- stage.dataset.activeIdx = String(nextIdx);
- if(stageId === 'login-ad-stage') currentLoginAdIndex = nextIdx;
- else currentHomeAdIndex = nextIdx;
- const nextSlide = slides[nextIdx];
- if(nextSlide?.dataset?.slideDir) stage.dataset.dir = nextSlide.dataset.slideDir;
- slides.forEach((s, idx) => s.classList.toggle('is-active', idx === nextIdx));
- stage.querySelectorAll('.vip-ad-dot').forEach((d, idx) => d.classList.toggle('active', idx === nextIdx));
-}
-
-// Attach global touch/mouse swipe support for all .vip-ad-stage carousels without page flicker
-(function initAdCarouselSwipeSupport(){
- let startX = null, startY = null, activeStageId = null;
- document.addEventListener('pointerdown', e => {
-  const st = e.target.closest?.('.vip-ad-stage');
-  if(!st || e.target.closest('button')) return;
-  if(getAdMotionConfig().allowTouchSwipe === false) return;
-  activeStageId = st.id;
-  startX = e.clientX;
-  startY = e.clientY;
- }, { passive: true });
- document.addEventListener('pointerup', e => {
-  if(!activeStageId || startX === null) return;
-  const dx = e.clientX - startX;
-  const dy = e.clientY - startY;
-  const sid = activeStageId;
-  activeStageId = null; startX = null; startY = null;
-  if(Math.abs(dx) > 42 && Math.abs(dx) > Math.abs(dy)){
-   stepAdCarouselStage(sid, dx > 0 ? 1 : -1, false);
-  }
- }, { passive: true });
-})();
+ const slot = document.getElementById('topbar-mini-ad-slot');
+ if(slot){
+  topbarMiniAdIdx++;
+  slot.innerHTML = renderTopbarMiniAdStrip();
+ }
+}, 4200);
 
 function renderLoginAdsCarousel(){
  const defaultLoginAds = [
-  { id:'def_1', title:'✨ عالم التسوق الملكي الفاخر', subtitle:'أحدث الهواتف الذكية، الساعات السويسرية، العطور الملكية، والأزياء الراقية بتوصيل فوري', image:'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=1200&auto=format&fit=crop&q=80', badge:'👑 فخامة استثنائية', animation:'zoom', direction:'right-to-left', enable3D:true, bgColor:'#064e3b', textColor:'#ffffff', bannerKind:'promo' },
-  { id:'def_job', title:'💼 إعلان توظيف: مطلوب مشرفو مبيعات وموظفو دعم فني ومناديب توصيل', subtitle:'انضم لفريق عمل المتجر برواتب مجزية وحوافز يومية وساعات عمل مرنة — التقديم متاح الآن!', image:'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&auto=format&fit=crop&q=80', badge:'💼 وظائف شاغرة الآن', buttonText:'📝 قدّم على الوظيفة الآن', animation:'slide', direction:'3d-cube', enable3D:true, bgColor:'#1e3a8a', textColor:'#ffffff', bannerKind:'job', jobDepartment:'الإشراف، الدعم الفني، والتوصيل', jobSalary:'راتب ثابت + عمولات فورية', jobType:'دوام كامل / مرن' },
-  { id:'def_2', title:'⌚ روائع الساعات السويسرية والعود الكمبودي المعتق', subtitle:'تشكيلة منتقاة بعناية لأصحاب الذوق الرفيع مع ضمان الأصالة الذهبي 100%', image:'https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=1200&auto=format&fit=crop&q=80', badge:'🔥 عروض حصرية', animation:'zoom', direction:'left-to-right', enable3D:true, bgColor:'#087e66', textColor:'#ffffff', bannerKind:'promo' }
+  { id:'def_1', title:'✨ عالم التسوق الملكي الفاخر', subtitle:'أحدث الهواتف الذكية، الساعات السويسرية، العطور الملكية، والأزياء الراقية بتوصيل فوري', image:'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=1200&auto=format&fit=crop&q=80', badge:'👑 فخامة استثنائية', animation:'zoom', bgColor:'#064e3b', textColor:'#ffffff', bannerKind:'promo' },
+  { id:'def_job', title:'💼 إعلان توظيف: مطلوب مشرفو مبيعات وموظفو دعم فني ومناديب توصيل', subtitle:'انضم لفريق عمل المتجر برواتب مجزية وحوافز يومية وساعات عمل مرنة — التقديم متاح الآن!', image:'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&auto=format&fit=crop&q=80', badge:'💼 وظائف شاغرة الآن', buttonText:'📝 قدّم على الوظيفة الآن', animation:'slide', bgColor:'#1e3a8a', textColor:'#ffffff', bannerKind:'job', jobDepartment:'الإشراف، الدعم الفني، والتوصيل', jobSalary:'راتب ثابت + عمولات فورية', jobType:'دوام كامل / مرن' }
  ];
- const rawAds = filterVisibleBanners(storeBanners).filter(b => b.placement === 'Login' || b.placement === 'Both' || b.placement === 'All' || !b.placement);
- const ads = rawAds.length ? rawAds : filterVisibleBanners(defaultLoginAds);
- const showJob = getJobPortalConfig().showJobAd !== false;
- const jobAd = showJob ? ads.find(x => x.bannerKind === 'job' || (x.title||'').includes('وظيف') || (x.title||'').includes('توظيف')) : null;
+ const rawAds = (Array.isArray(storeBanners) ? storeBanners : []).filter(b => b.active && (b.placement === 'Login' || b.placement === 'Both' || !b.placement));
+ const ads = rawAds.length ? rawAds : defaultLoginAds;
+ 
+ const ad = ads[currentLoginAdIndex % ads.length];
+ const isJob = ad.bannerKind === 'job' || (ad.title||'').includes('وظيف') || (ad.title||'').includes('توظيف');
+ const animClass = ad.animation === 'fade' ? 'ad-fade' : ad.animation === 'zoom' ? 'ad-zoom' : 'ad-slide';
 
  return `
- <div class="login-ads-wrapper" style="display:grid;gap:12px;max-width:450px;width:100%">
+ <div class="login-ads-wrapper" style="display:grid;gap:12px;max-width:440px;width:100%">
   <div class="vip-login-motion-strip">
    <div class="vip-login-motion-card">
     <img src="https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=500&auto=format&fit=crop&q=80" alt="مقتنيات ملكية">
@@ -1757,8 +1561,24 @@ function renderLoginAdsCarousel(){
     <span>⌚ ساعات وتقنية</span>
    </div>
   </div>
-  ${buildZeroFlicker3DCarouselHtml('login-ad-stage', ads, currentLoginAdIndex)}
-  ${jobAd ? `
+  <div class="login-ad-card ${animClass}" style="background-color:${esc(ad.bgColor||'#087e66')};color:${esc(ad.textColor||'#ffffff')};background-image:linear-gradient(rgba(2,23,17,0.35),rgba(2,17,13,0.82)),url(${esc(ad.image||'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&auto=format&fit=crop&q=80')})">
+   <div class="login-ad-content">
+    <span class="${isJob?'vip-job-ad-badge':'badge'}" style="${isJob?'margin-bottom:8px':'background:var(--vip-gold-gradient);color:#031711;font-weight:bold;margin-bottom:8px;display:inline-block'}">${esc(ad.badge||(isJob?'💼 وظائف شاغرة':'★ عرض خاص وحصري'))}</span>
+    <h2 style="font-size:19px;color:#ffffff;line-height:1.45;margin-bottom:6px">${esc(ad.title)}</h2>
+    <p style="font-size:12.5px;color:#e2e8f0;line-height:1.6;margin-bottom:10px">${esc(ad.subtitle||'')}</p>
+    ${isJob ? `
+     ${(ad.jobDepartment || ad.jobSalary) ? `<div style="font-size:11.5px;color:#fef08a;margin-bottom:10px;background:rgba(0,0,0,0.35);padding:6px 10px;border-radius:8px">📌 ${esc(ad.jobDepartment||'جميع الأقسام')} · 💰 ${esc(ad.jobSalary||'رواتب وحوافز مجزية')}</div>` : ''}
+     <button type="button" class="btn small" style="background:linear-gradient(135deg,#facc15,#eab308);color:#031711;font-weight:800" data-action="open-job-apply-modal" data-id="${esc(ad.id)}">${esc(ad.buttonText||'📝 قدّم على الوظيفة الآن')}</button>
+    ` : ''}
+   </div>
+   <div class="login-ad-dots">
+    ${ads.map((_, i) => `<span class="ad-dot ${i === (currentLoginAdIndex % ads.length) ? 'active' : ''}" data-action="switch-login-ad" data-id="${i}"></span>`).join('')}
+   </div>
+  </div>
+  ${(() => {
+   const jobAd = ads.find(x => x.bannerKind === 'job' || (x.title||'').includes('وظيف') || (x.title||'').includes('توظيف'));
+   if(!jobAd || isJob) return '';
+   return `
    <div class="panel login-job-mini-bar" style="padding:10px 12px;background:linear-gradient(135deg,rgba(30,58,138,0.88),rgba(4,25,19,0.95));border:1.5px solid #60a5fa;border-radius:14px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:nowrap">
     <div style="flex:1;min-width:180px">
      <span class="vip-job-ad-badge" style="margin-bottom:4px">${esc(jobAd.badge||'💼 وظائف شاغرة الآن')}</span>
@@ -1766,42 +1586,66 @@ function renderLoginAdsCarousel(){
      <small style="color:#bfdbfe;font-size:11px">${esc(jobAd.jobDepartment||'الإشراف، خدمة العملاء، والتوصيل')} · ${esc(jobAd.jobSalary||'رواتب وحوافز مجزية')}</small>
     </div>
     <button type="button" class="btn small" style="background:linear-gradient(135deg,#facc15,#eab308);color:#031711;font-weight:800" data-action="open-job-apply-modal" data-id="${esc(jobAd.id)}">${esc(jobAd.buttonText||'📝 قدّم الآن')}</button>
-   </div>` : ''}
+   </div>`;
+  })()}
  </div>`;
 }
 
 function switchLoginAd(idx){
- stepAdCarouselStage('login-ad-stage', Number(idx), true);
+ currentLoginAdIndex = idx;
+ const container = document.getElementById('login-ads-container');
+ if(container){
+  container.innerHTML = renderLoginAdsCarousel();
+ }
 }
 
 function startLoginAdTimer(){
  clearInterval(loginAdTimer);
- const sec = Math.max(3, Number(getAdMotionConfig().speedSeconds || 5));
  loginAdTimer = setInterval(() => {
-  if(document.hidden) return;
-  if(document.getElementById('login-ad-stage')) stepAdCarouselStage('login-ad-stage', 1, false);
-  if(document.getElementById('home-ad-stage')) stepAdCarouselStage('home-ad-stage', 1, false);
- }, sec * 1000);
+  const container = document.getElementById('login-ads-container');
+  if(container){
+   currentLoginAdIndex++;
+   container.innerHTML = renderLoginAdsCarousel();
+  }
+ }, 4500);
 }
-startLoginAdTimer();
 
-function renderBannersCarousel(forPage = 'home'){
- const cfg = getAdMotionConfig();
- if(cfg.enabled === false || getUiControlConfig().showHomeBanners === false) return '';
- const tPages = cfg.targetPages || ['login', 'home'];
- if(forPage !== 'home' && !tPages.includes(forPage) && !tPages.includes('all')) return '';
- const fallbackHomeAds = [
-  { id:'h_def_1', title:'✨ تشكيلة الفخامة الملكية — عروض حصرية وتوصيل فوري', subtitle:'أحدث الإلكترونيات، الساعات السويسرية، العطور الملكية، والأزياء الراقية', image:'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=1200&auto=format&fit=crop&q=80', badge:'👑 موسم الفخامة', direction:'right-to-left', enable3D:true, bgColor:'#064e3b', textColor:'#ffffff', bannerKind:'promo', active:true },
-  { id:'h_def_job', title:'💼 إعلان توظيف: مطلوب مشرفو مبيعات وموظفو دعم فني ومناديب توصيل', subtitle:'انضم لفريق عمل المتجر برواتب مجزية وحوافز يومية — قدّم طلبك الآن مع التحقق الفوري!', image:'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&auto=format&fit=crop&q=80', badge:'💼 وظائف شاغرة الآن', buttonText:'📝 قدّم على الوظيفة الآن', direction:'3d-cube', enable3D:true, bgColor:'#1e3a8a', textColor:'#ffffff', bannerKind:'job', jobDepartment:'الإشراف، الدعم الفني، والتوصيل', jobSalary:'راتب ثابت + عمولات فورية', active:true }
- ];
- const rawAds = filterVisibleBanners(storeBanners).filter(b => b.placement === 'Home' || b.placement === 'Both' || b.placement === 'All' || !b.placement);
- const ads = rawAds.length ? rawAds : filterVisibleBanners(fallbackHomeAds);
+function renderBannersCarousel(){
+ const ads = (Array.isArray(storeBanners) ? storeBanners : []).filter(b => b.active && (b.placement === 'Home' || b.placement === 'Both' || !b.placement));
  if(!ads.length) return '';
- return buildZeroFlicker3DCarouselHtml('home-ad-stage', ads, currentHomeAdIndex);
+ 
+ return `
+ <div class="banner-carousel">
+  ${ads.map(b => {
+   const isJob = b.bannerKind === 'job' || (b.title||'').includes('وظيف') || (b.title||'').includes('توظيف');
+   const animClass = b.animation === 'fade' ? 'ad-fade' : b.animation === 'zoom' ? 'ad-zoom' : 'ad-slide';
+   return `
+   <div class="banner-card ${animClass}" style="background-color:${esc(b.bgColor)};color:${esc(b.textColor)};background-image:linear-gradient(rgba(0,0,0,0.35),rgba(0,0,0,0.78)),url(${esc(b.image||'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&auto=format&fit=crop&q=80')})">
+    <div style="z-index:2">
+     <span class="${isJob?'vip-job-ad-badge':'badge'}" style="${isJob?'margin-bottom:8px':'background:var(--vip-gold-gradient);color:#031711;font-weight:bold;margin-bottom:8px;display:inline-block'}">${esc(b.badge||(isJob?'💼 وظائف شاغرة':'★ عرض حصري'))}</span>
+     <h2>${esc(b.title)}</h2>
+     ${b.subtitle?`<p>${esc(b.subtitle)}</p>`:`''`}
+     ${isJob && (b.jobDepartment || b.jobSalary) ? `<div style="font-size:12px;color:#fef08a;margin-bottom:10px">💼 القسم: <b>${esc(b.jobDepartment||'عام')}</b> · 💰 <b>${esc(b.jobSalary||'رواتب مجزية')}</b> · ⏰ <b>${esc(b.jobType||'مرن')}</b></div>` : ''}
+     ${isJob ? `
+      <button class="btn small" style="background:linear-gradient(135deg,#facc15,#eab308);color:#031711;font-weight:800" data-action="open-job-apply-modal" data-id="${esc(b.id)}">${esc(b.buttonText||'📝 قدّم على الوظيفة الآن')}</button>
+     ` : `
+      <button class="btn small" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="banner-click" data-id="${esc(b.linkUrl||'')}">${esc(b.buttonText||'اكتشف العرض الآن')}</button>
+     `}
+     ${user?.role === 'Admin' && window._inlineQuickControls !== false ? `
+      <div class="inline" style="margin-top:8px;gap:6px">
+       <button type="button" class="btn small secondary" style="padding:4px 8px;font-size:10.5px" data-action="edit-banner" data-id="${esc(b.id)}">✏️ تعديل الإعلان</button>
+       <button type="button" class="btn small danger" style="padding:4px 8px;font-size:10.5px" data-action="delete-banner" data-id="${esc(b.id)}">🗑️ حذف الإعلان</button>
+      </div>
+     ` : ''}
+    </div>
+   </div>`;
+  }).join('')}
+ </div>`;
 }
+
 function favoritesView(){
  const favProds = products.filter(p => favorites.includes(p.id));
- return `${renderBannersCarousel('favorites')}<div class="section-head">
+ return `<div class="section-head">
   <div><h1>مقتنياتك المفضلة</h1><p>${favProds.length} منتج في قائمة أمنياتك</p></div>
   <button class="btn small secondary" data-action="navigate" data-id="home">تصفح المتجر</button>
  </div>
@@ -1837,135 +1681,146 @@ function stat(title,value,note,symbol,featured=false){return `<div class="stat $
 function renderUnifiedPermissionHubs(){
  if((user?.role !== 'Admin' && user?.role !== 'Supervisor') || getUiControlConfig().showPermissionHubs === false) return '';
  const isAdmin = user.role === 'Admin';
- const maint = typeof getMaintenanceConfig === 'function' ? getMaintenanceConfig() : { enabled: false };
- const musicCfg = typeof getMusicStudioConfig === 'function' ? getMusicStudioConfig() : { enabled: false };
- const shapesCfg = typeof getFloatingShapesConfig === 'function' ? getFloatingShapesConfig() : { enabled: false };
- const jobCfg = getJobPortalConfig();
-
  return `
- ${isAdmin && maint.enabled ? `
- <div class="panel" style="margin-bottom:14px;padding:12px 18px;background:linear-gradient(135deg,rgba(185,28,28,0.9),rgba(127,29,29,0.95));border:2px solid #facc15;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-  <div>
-   <strong style="color:#fef08a;font-size:14.5px">🛠️ وضع الصيانة مفعل حالياً — المتجر مغلق أمام الزوار والعملاء:</strong>
-   <small style="display:block;color:#fecaca;margin-top:2px">تظهر للزوار شاشة «${esc(maint.title)}» مع الصورة الجافا المتحركة.</small>
-  </div>
-  <div class="inline" style="gap:8px">
-   <button type="button" class="btn small" style="background:#22c55e;color:#fff;font-weight:bold" data-action="quick-toggle-maintenance">🟢 فتح المتجر للعملاء الآن</button>
-   <button type="button" class="btn small secondary" data-action="maintenance-settings-modal">⚙️ تعديل شاشة الصيانة</button>
-  </div>
- </div>` : ''}
-
  <div class="panel" style="margin-bottom:18px;padding:16px;border:1.5px solid rgba(212,175,55,0.45)">
   <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
    <div>
-    <h2 style="margin:0;color:#fef08a;font-size:17px">🧭 مراكز الصلاحيات والتحكم الموحدة (مرتبة حسب الارتباط دون تكرار)</h2>
-    <p class="hint" style="margin:3px 0 0;font-size:12px">جميع صلاحيات وأدوات المتجر مصنفة في 6 مراكز مترابطة لسرعة الوصول والتحكم الكامل</p>
+    <h2 style="margin:0;color:#fef08a;font-size:17px">🧭 مراكز التحكم والصلاحيات المترابطة الموحدة</h2>
+    <p class="hint" style="margin:3px 0 0;font-size:12px">تم ترتيب وتجميع كل الصلاحيات والأدوات المترابطة في مكان واحد لسهولة الوصول والتحكم الفوري</p>
    </div>
    <div class="inline" style="gap:6px;flex-wrap:wrap">
-    ${isAdmin ? `
-     <button type="button" class="btn small ${maint.enabled?'':'danger'}" style="${maint.enabled?'background:#16a34a;color:#fff':''}" data-action="quick-toggle-maintenance">${maint.enabled ? '🟢 فتح المتجر (إيقاف الصيانة)' : '🔒 إغلاق المتجر للصيانة'}</button>
-     <button type="button" class="btn small" style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff" data-action="navigate" data-id="music">🎵 الموسيقى الخلفية (${musicCfg.enabled?'مشغلة 🔊':'متوقفة'})</button>
-     <button type="button" class="btn small" style="background:linear-gradient(135deg,#db2777,#9333ea);color:#fff" data-action="floating-shapes-modal">🎈 الأشكال المتحركة (${shapesCfg.enabled?'مفعلة ✨':'متوقفة'})</button>
-    ` : ''}
-    <button type="button" class="btn small" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff" data-action="navigate" data-id="jobs">💼 شاشة التوظيف والتحقق</button>
     <button type="button" class="btn small" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff" data-action="navigate" data-id="aistyle">🤖 روبوت الاستايل الذكي AI</button>
-    <button type="button" class="btn small secondary" data-action="global-ui-control">🎛️ أحجام وإظهار العناصر</button>
+    <button type="button" class="btn small" style="background:linear-gradient(135deg,#0284c7,#1d4ed8);color:#fff" data-action="global-ui-control">🎛️ التحكم الكامل (إخفاء / حذف / تعديل / تكبير وتصغير)</button>
+    <button type="button" class="btn small ${window._inlineQuickControls!==false?'':'secondary'}" data-action="toggle-inline-quick-controls">🛠️ ${window._inlineQuickControls!==false?'أزرار التعديل والحذف والإخفاء مفعلة':'إظهار أزرار التعديل والحذف على كل عنصر'}</button>
+    ${Object.keys(getUiControlConfig().hiddenPanels||{}).length ? `<button type="button" class="btn small ghost" data-action="restore-all-hidden-panels">👁️ استعادة العناصر المخفية (${Object.keys(getUiControlConfig().hiddenPanels||{}).length})</button>` : ''}
    </div>
   </div>
-
   <div class="perm-hub-grid">
-   <!-- 1. مركز المستخدمين والصلاحيات والتوثيق والزوار -->
+   <!-- 1. مركز الإشعارات والنغمات والمؤقت -->
    <div class="perm-hub-card">
     <div>
-     <h3>👥 1. الحسابات والصلاحيات والتوثيق والزوار</h3>
-     <p class="hint" style="font-size:11.5px;margin:6px 0 0">إدارة الحسابات، ترتيب الصلاحيات، إظهار زر الدردشة الخاصة لأي مستخدم، توثيق المشرفين، والدول والمدن.</p>
+     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+      <h3>${esc(getUiControlConfig().customLabels?.['hub_card_1'] || '🔔 1. الإشعارات والنغمات والمؤقت التلقائي')}</h3>
+      ${window._inlineQuickControls!==false ? `<span class="inline" style="gap:3px;flex-shrink:0">
+       <button type="button" class="btn small secondary" style="padding:2px 6px;font-size:10px" title="تعديل عنوان البطاقة" data-action="inline-rename-element" data-id="hub_card_1">✏️</button>
+       <button type="button" class="btn small ghost" style="padding:2px 6px;font-size:10px" title="إخفاء البطاقة" data-action="inline-hide-element" data-id="hub_card_1">🙈</button>
+       <button type="button" class="btn small danger" style="padding:2px 6px;font-size:10px" title="حذف البطاقة" data-action="inline-hide-element" data-id="hub_card_1">🗑️</button>
+      </span>` : ''}
+     </div>
+     <p class="hint" style="font-size:11.5px;margin:6px 0 0">إرسال إشعارات فورية، ضبط مؤقت تلقائي لإرسال إشعارات في أوقات معينة، وتخصيص نغمات وشكل الإشعارات.</p>
     </div>
     <div class="inline" style="gap:6px;flex-wrap:wrap">
-     <button type="button" class="btn small" data-action="navigate" data-id="users">👥 المستخدمون والصلاحيات</button>
-     ${isAdmin ? `<button type="button" class="btn small secondary" data-action="navigate" data-id="verified">✅ الشارات والتوثيق</button>` : ''}
-     <button type="button" class="btn small secondary" data-action="registration-fields">📋 حقول التسجيل</button>
-     ${isAdmin ? `<button type="button" class="btn small ghost" data-action="arab-geo-manager">🌍 الدول والمدن</button>` : ''}
-     ${isAdmin ? `<button type="button" class="btn small ghost" data-action="supervisor-form-manager">🪪 فورم المشرفين</button>` : ''}
+     <button type="button" class="btn small" data-action="compose-notice">⏱️ المؤقت التلقائي والإرسال</button>
+     <button type="button" class="btn small secondary" data-action="notification-style">🎵 النغمات والشكل</button>
+     <button type="button" class="btn small ghost" data-action="notices">📬 صندوق الإشعارات</button>
     </div>
    </div>
 
-   <!-- 2. مركز الدردشات الخاصة ومكالمات الواتساب والدعم الفني -->
+   <!-- 2. مركز المستخدمين والصلاحيات والتوثيق والزوار -->
    <div class="perm-hub-card">
     <div>
-     <h3>💬 2. الدردشات الخاصة ومكالمات الصوت والدعم</h3>
-     <p class="hint" style="font-size:11.5px;margin:6px 0 0">الدردشة الخاصة بين الإدارة والمستخدمين المسموحين، تحديد قائمة المتصلين لكل مستخدم، ومكالمات صوت/فيديو بجرس واتساب.</p>
+     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+      <h3>${esc(getUiControlConfig().customLabels?.['hub_card_2'] || '👥 2. المستخدمون والصلاحيات والتوثيق والزوار')}</h3>
+      ${window._inlineQuickControls!==false ? `<span class="inline" style="gap:3px;flex-shrink:0">
+       <button type="button" class="btn small secondary" style="padding:2px 6px;font-size:10px" title="تعديل عنوان البطاقة" data-action="inline-rename-element" data-id="hub_card_2">✏️</button>
+       <button type="button" class="btn small ghost" style="padding:2px 6px;font-size:10px" title="إخفاء البطاقة" data-action="inline-hide-element" data-id="hub_card_2">🙈</button>
+       <button type="button" class="btn small danger" style="padding:2px 6px;font-size:10px" title="حذف البطاقة" data-action="inline-hide-element" data-id="hub_card_2">🗑️</button>
+      </span>` : ''}
+     </div>
+     <p class="hint" style="font-size:11.5px;margin:6px 0 0">إدارة وتعديل بيانات المستخدمين، توثيق المشرفين، الشارات والنجوم الملونة، قوائم الدول والمناطق، والتحكم بزر الزائر.</p>
     </div>
     <div class="inline" style="gap:6px;flex-wrap:wrap">
-     <button type="button" class="btn small" data-action="navigate" data-id="staffchat">📞 غرفة الدردشة والمكالمات</button>
-     <button type="button" class="btn small secondary" data-action="navigate" data-id="support">🎧 تذاكر الدعم الفني</button>
-     ${isAdmin ? `<button type="button" class="btn small ghost" data-action="test-incoming-whatsapp-call">🔔 تجربة رنين مكالمة واتساب</button>` : ''}
+     <button type="button" class="btn small" data-action="navigate" data-id="users">👥 إدارة المستخدمين والزائر</button>
+     <button type="button" class="btn small secondary" data-action="arab-geo-manager">🌍 الدول والمناطق والجنس</button>
+     <button type="button" class="btn small ghost" data-action="supervisor-form-manager">🪪 فورم توثيق المشرف</button>
     </div>
    </div>
 
-   <!-- 3. مركز شاشة التوظيف والإعلانات المتحركة 3D -->
+   <!-- 3. مركز التتبع المباشر وخرائط قوقل والمايك والشاشة -->
    <div class="perm-hub-card">
     <div>
-     <h3>💼 3. التوظيف وفيديو التحقق والإعلانات 3D</h3>
-     <p class="hint" style="font-size:11.5px;margin:6px 0 0">شاشة تقديم الوظائف مع إضافة خانات وصورة وفيديو التحقق من الوجه، إظهار/إخفاء الإعلان، وحركة الإعلانات 3D بدون وميض.</p>
+     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+      <h3>${esc(getUiControlConfig().customLabels?.['hub_card_3'] || '📡 3. التتبع وخرائط قوقل والمايك والشاشة')}</h3>
+      ${window._inlineQuickControls!==false ? `<span class="inline" style="gap:3px;flex-shrink:0">
+       <button type="button" class="btn small secondary" style="padding:2px 6px;font-size:10px" title="تعديل عنوان البطاقة" data-action="inline-rename-element" data-id="hub_card_3">✏️</button>
+       <button type="button" class="btn small ghost" style="padding:2px 6px;font-size:10px" title="إخفاء البطاقة" data-action="inline-hide-element" data-id="hub_card_3">🙈</button>
+       <button type="button" class="btn small danger" style="padding:2px 6px;font-size:10px" title="حذف البطاقة" data-action="inline-hide-element" data-id="hub_card_3">🗑️</button>
+      </span>` : ''}
+     </div>
+     <p class="hint" style="font-size:11.5px;margin:6px 0 0">بث مباشر لحركة جميع الأجهزة المحمّلة على خرائط قوقل، فتح المايك المباشر للدعم الفني، وبث شاشة المستخدم مباشرة.</p>
     </div>
     <div class="inline" style="gap:6px;flex-wrap:wrap">
-     <button type="button" class="btn small" data-action="navigate" data-id="jobs">🪪 شاشة التوظيف وطلبات التقديم</button>
-     <button type="button" class="btn small ${jobCfg.showJobAd!==false?'danger':'secondary'}" data-action="toggle-job-ads-visibility">${jobCfg.showJobAd!==false ? '🙈 إخفاء إعلان الوظائف' : '👁️ إظهار إعلان الوظائف'}</button>
-     <button type="button" class="btn small secondary" data-action="banners-manager">📢 لوحة الإعلانات</button>
-     <button type="button" class="btn small ghost" data-action="ad-motion-settings-modal">🧊 حركة 3D والمساحة</button>
+     <button type="button" class="btn small" data-action="navigate" data-id="users">🗺️ تتبع الأجهزة وصلاحيات المستخدمين</button>
+     <button type="button" class="btn small secondary" data-action="open-all-devices-gmaps">🚀 فتح خرائط قوقل مباشرة</button>
+     <button type="button" class="btn small ghost" data-action="capture-settings-manager">📸 عدد ووقت وشاشات الالتقاط</button>
     </div>
    </div>
 
-   <!-- 4. مركز الموسيقى الخلفية والأشكال المتحركة والاحتفاليات والمظهر (للإدارة فقط) -->
+   <!-- 4. مخزن الوسائط للصور الملتقطة والفيديوهات -->
    ${isAdmin ? `
    <div class="perm-hub-card">
     <div>
-     <h3>🎵 4. الموسيقى الخلفية والأشكال الجافا والمظهر</h3>
-     <p class="hint" style="font-size:11.5px;margin:6px 0 0">موسيقى حافظ عبدالرحمن والمناسبات السعودية خلف المتجر، فقاعات وأوراق احتفال وبالونات خفيفة، ومظهر المتجر.</p>
+     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+      <h3>${esc(getUiControlConfig().customLabels?.['hub_card_4'] || '🗄️ 4. مخزن الصور الملتقطة والفيديوهات المرفوعة')}</h3>
+      ${window._inlineQuickControls!==false ? `<span class="inline" style="gap:3px;flex-shrink:0">
+       <button type="button" class="btn small secondary" style="padding:2px 6px;font-size:10px" title="تعديل عنوان البطاقة" data-action="inline-rename-element" data-id="hub_card_4">✏️</button>
+       <button type="button" class="btn small ghost" style="padding:2px 6px;font-size:10px" title="إخفاء البطاقة" data-action="inline-hide-element" data-id="hub_card_4">🙈</button>
+       <button type="button" class="btn small danger" style="padding:2px 6px;font-size:10px" title="حذف البطاقة" data-action="inline-hide-element" data-id="hub_card_4">🗑️</button>
+      </span>` : ''}
+     </div>
+     <p class="hint" style="font-size:11.5px;margin:6px 0 0">مخزن موحد لصور التسجيل الـ 5، صور وفيديوهات توثيق المشرفين، لقطات الكاميرا، والصور المرفوعة مع الحذف الفردي أو الكلي.</p>
     </div>
     <div class="inline" style="gap:6px;flex-wrap:wrap">
-     <button type="button" class="btn small" data-action="navigate" data-id="music">🎵 لوحة الموسيقى الخلفية</button>
-     <button type="button" class="btn small secondary" data-action="floating-shapes-modal">🎈 الفقاعات وأوراق الاحتفال</button>
-     <button type="button" class="btn small secondary" data-action="appearance">🎨 الهوية والشعار</button>
-     <button type="button" class="btn small ghost" data-action="interface-design">🖼️ الخلفيات وتصميم الشاشات</button>
+     <button type="button" class="btn small" data-action="navigate" data-id="mediavault">🗄️ فتح مخزن الصور والفيديو</button>
+     <button type="button" class="btn small danger" data-action="media-vault-clear-all" data-id="all">🔥 حذف كلي للوسائط</button>
     </div>
    </div>` : ''}
 
-   <!-- 5. مركز المنتجات والطلبات والمناديب والمالية والسياسات -->
+   <!-- 5. مركز الدردشات والمكالمات الصوتية والفيديو للمشرفين -->
    <div class="perm-hub-card">
     <div>
-     <h3>🛍️ 5. المنتجات والطلبات والمالية والسياسات</h3>
-     <p class="hint" style="font-size:11.5px;margin:6px 0 0">إدارة المنتجات والأقسام، متابعة الطلبات والمناديب، ضبط العمولات وطرق الدفع، ومراجعة الإيصالات والاتفاقيات.</p>
+     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+      <h3>${esc(getUiControlConfig().customLabels?.['hub_card_5'] || '💬 5. الدردشات ومكالمات الصوت والفيديو')}</h3>
+      ${window._inlineQuickControls!==false ? `<span class="inline" style="gap:3px;flex-shrink:0">
+       <button type="button" class="btn small secondary" style="padding:2px 6px;font-size:10px" title="تعديل عنوان البطاقة" data-action="inline-rename-element" data-id="hub_card_5">✏️</button>
+       <button type="button" class="btn small ghost" style="padding:2px 6px;font-size:10px" title="إخفاء البطاقة" data-action="inline-hide-element" data-id="hub_card_5">🙈</button>
+       <button type="button" class="btn small danger" style="padding:2px 6px;font-size:10px" title="حذف البطاقة" data-action="inline-hide-element" data-id="hub_card_5">🗑️</button>
+      </span>` : ''}
+     </div>
+     <p class="hint" style="font-size:11.5px;margin:6px 0 0">دردشة الدعم الفني الموسعة، غرفة المشرفين، والمكالمات الصوتية والفيديو كدردشة خاصة بين المشرفين بإشراف الإدارة.</p>
     </div>
     <div class="inline" style="gap:6px;flex-wrap:wrap">
-     <button type="button" class="btn small" data-action="navigate" data-id="products">🛍️ المنتجات</button>
-     <button type="button" class="btn small secondary" data-action="navigate" data-id="orders">📦 الطلبات</button>
-     <button type="button" class="btn small secondary" data-action="navigate" data-id="couriers">🚚 المناديب</button>
-     ${has('commissions.manage') ? `<button type="button" class="btn small ghost" data-action="commissions">💎 العمولات</button>` : ''}
-     ${has('commerce.manage') ? `<button type="button" class="btn small ghost" data-action="commerce-settings">💳 العملات والدفع</button>` : ''}
-     ${has('policies.manage') ? `<button type="button" class="btn small ghost" data-action="policy-editor">📜 الشروط</button>` : ''}
+     <button type="button" class="btn small" data-action="navigate" data-id="staffchat">🎥 دردشة ومكالمات المشرفين</button>
+     <button type="button" class="btn small secondary" data-action="navigate" data-id="support">🎧 دردشة الدعم الفني</button>
     </div>
    </div>
 
-   <!-- 6. مركز الصيانة والتتبع المباشر والسيرفر والجلسات والإشعارات -->
+   <!-- 6. مركز تصميم الشاشات المتقدم والخلفيات والسيرفر والجلسات -->
    <div class="perm-hub-card">
     <div>
-     <h3>🛠️ 6. الصيانة والتتبع والسيرفر والإشعارات</h3>
-     <p class="hint" style="font-size:11.5px;margin:6px 0 0">إغلاق المتجر للصيانة بصورة جافا متحركة، خريطة الأجهزة والمايك، مخزن الوسائط، المؤقت التلقائي للإشعارات، والسيرفر.</p>
+     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+      <h3>${esc(getUiControlConfig().customLabels?.['hub_card_6'] || '🎨 6. تصميم الشاشات المتقدم والسيرفر والجلسات')}</h3>
+      ${window._inlineQuickControls!==false ? `<span class="inline" style="gap:3px;flex-shrink:0">
+       <button type="button" class="btn small secondary" style="padding:2px 6px;font-size:10px" title="تعديل عنوان البطاقة" data-action="inline-rename-element" data-id="hub_card_6">✏️</button>
+       <button type="button" class="btn small ghost" style="padding:2px 6px;font-size:10px" title="إخفاء البطاقة" data-action="inline-hide-element" data-id="hub_card_6">🙈</button>
+       <button type="button" class="btn small danger" style="padding:2px 6px;font-size:10px" title="حذف البطاقة" data-action="inline-hide-element" data-id="hub_card_6">🗑️</button>
+      </span>` : ''}
+     </div>
+     <p class="hint" style="font-size:11.5px;margin:6px 0 0">أكثر من 60 خلفية ملكية، تصميم الشاشات المتقدم، التحكم في الجلسات، وتحديث السيرفر الفوري وأوقات التحديث.</p>
     </div>
     <div class="inline" style="gap:6px;flex-wrap:wrap">
-     ${isAdmin ? `<button type="button" class="btn small" style="background:linear-gradient(135deg,#b45309,#d97706);color:#fff" data-action="maintenance-settings-modal">🛠️ وضع الصيانة المتحرك</button>` : ''}
-     <button type="button" class="btn small secondary" data-action="compose-notice">🔔 الإشعارات والمؤقت</button>
-     <button type="button" class="btn small secondary" data-action="navigate" data-id="devices">🗺️ خريطة التتبع</button>
-     ${isAdmin ? `<button type="button" class="btn small ghost" data-action="navigate" data-id="mediavault">🗄️ مخزن الوسائط</button>` : ''}
-     ${isAdmin ? `<button type="button" class="btn small ghost" data-action="navigate" data-id="server">⚡ السيرفر</button>` : ''}
-     ${isAdmin ? `<button type="button" class="btn small ghost" data-action="navigate" data-id="sessions">🔐 الجلسات</button>` : ''}
+     <button type="button" class="btn small" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff" data-action="navigate" data-id="aistyle">🤖 روبوت الاستايل الذكي AI</button>
+     <button type="button" class="btn small" data-action="interface-design">🖼️ الخلفيات وتصميم الشاشات</button>
+     <button type="button" class="btn small secondary" data-action="auto-style-rotation-modal">🔄 تغيير الاستايل تلقائياً</button>
+     <button type="button" class="btn small secondary" data-action="new-job-banner">💼 إضافة إعلان وظائف</button>
+     <button type="button" class="btn small ghost" data-action="navigate" data-id="server">⚡ السيرفر</button>
+     <button type="button" class="btn small ghost" data-action="navigate" data-id="sessions">🔐 الجلسات</button>
     </div>
    </div>
   </div>
  </div>`;
 }
-function overview(){const os=dashboard.orders,active=os.filter(o=>!['Delivered','Cancelled'].includes(o.status)),complete=os.filter(o=>o.status==='Delivered'),sales=complete.reduce((n,o)=>n+o.total,0);const maint=typeof getMaintenanceConfig==='function'?getMaintenanceConfig():{enabled:false};return `${renderUnifiedPermissionHubs()}<div class="section-head"><div><h1>${user.role==='Admin'?'إدارة المتجر والعمليات الشاملة':user.role==='Supervisor'?'لوحة الإشراف العام ومتابعة العمليات':'مساحة الشريك التجاري الفاخرة'}</h1><p>تحكم فوري بدون وميض في الصيانة والموسيقى والإعلانات 3D والتوظيف والدردشات والمنتجات.</p></div><div class="inline">${user.role==='Admin'?`<button class="btn ${maint.enabled?'':'danger'}" type="button" style="${maint.enabled?'background:#16a34a;color:#fff':''}" data-action="quick-toggle-maintenance">${maint.enabled?'🟢 فتح المتجر للعملاء':'🔒 إغلاق المتجر للصيانة'}</button><button class="btn" style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff" data-action="navigate" data-id="music">🎵 الموسيقى الخلفية</button>`:''}<button class="btn secondary" data-action="navigate" data-id="jobs">💼 شاشة التوظيف</button><button class="btn secondary" data-action="banners-manager">📢 الإعلانات 3D</button><button class="btn" data-action="edit-product">${icon('plus',17)}إضافة منتج فاخر</button></div></div><div class="stats">${stat('الطلبات المكتملة',complete.length,'طلبيات سُلمت للعملاء بنجاح','check',true)}${stat('الطلبات الجارية',active.length,'قيد التجهيز والتوصيل السريع','box')}${stat('إجمالي المبيعات المكتملة',salesByCurrency(complete),user.role==='Admin'?'إجمالي صافي المبيعات':'قيمة بنود متجرك','chart')}${stat('طاقم وطلبات التوظيف',(dashboard.staff?.length||0)+' / '+(dashboard.jobApplications?.length||0),'عمال مسجلون / متقدمون للوظائف','users')}</div><div class="dashboard-grid"><div><div class="section-head"><h2>أحدث الطلبيات المعتمدة</h2><button class="btn small ghost" data-action="navigate" data-id="orders">عرض الكل</button></div><div class="order-list">${os.slice(0,3).map(orderCard).join('')||empty('طلباتك الجديدة ستظهر هنا')}</div></div><div class="panel"><h3>حالة الطلبيات والتشغيل</h3><div class="chart">${['Preparing','Ready','Assigned','OnWay','Delivered'].map(s=>{const count=os.filter(o=>o.status===s).length;return `<div class="bar" style="height:${Math.max(8,count/Math.max(os.length,1)*100)}%" title="${statuses[s]}: ${count}"><span>${statuses[s]}</span></div>`;}).join('')}</div><p class="report-note">لوحة قياس فورية للطلبات المعتمدة. تُحتسب قيمة الطلبيات المسلّمة فقط.</p><div class="spacer"></div>${pill('منظومة تشغيل آمنة ومعتمدة','shield')}</div></div>`;}
+function overview(){const os=dashboard.orders,active=os.filter(o=>!['Delivered','Cancelled'].includes(o.status)),complete=os.filter(o=>o.status==='Delivered'),sales=complete.reduce((n,o)=>n+o.total,0);return `${renderUnifiedPermissionHubs()}<div class="section-head"><div><h1>${user.role==='Admin'?'إدارة المتجر والعمليات':user.role==='Supervisor'?'لوحة الإشراف العام ومتابعة العمليات':'مساحة الشريك التجاري الفاخرة'}</h1><p>تحكم فوري في المنتجات والمبيعات والطلبيات وإعلانات المتجر وطاقم العمل.</p></div><div class="inline">${user.role==='Admin'?'<button class="btn" style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff" data-action="admin-server-refresh">🔄 تحديث السيرفر مباشرة</button>':''}<button class="btn secondary" data-action="appearance">🎨 مظهر المتجر واللوجو</button><button class="btn secondary" data-action="banners-manager">📢 إدارة الإعلانات</button><button class="btn" data-action="edit-product">${icon('plus',17)}إضافة منتج فاخر</button></div></div><div class="stats">${stat('الطلبات المكتملة',complete.length,'طلبيات سُلمت للعملاء بنجاح','check',true)}${stat('الطلبات الجارية',active.length,'قيد التجهيز والتوصيل السريع','box')}${stat('إجمالي المبيعات المكتملة',salesByCurrency(complete),user.role==='Admin'?'إجمالي صافي المبيعات':'قيمة بنود متجرك','chart')}${stat('طاقم وعمال المتجر',dashboard.staff?.length||0,'موظفون مسجلون في المنظومة','users')}</div><div class="dashboard-grid"><div><div class="section-head"><h2>أحدث الطلبيات المعتمدة</h2><button class="btn small ghost" data-action="navigate" data-id="orders">عرض الكل</button></div><div class="order-list">${os.slice(0,3).map(orderCard).join('')||empty('طلباتك الجديدة ستظهر هنا')}</div></div><div class="panel"><h3>حالة الطلبيات والتشغيل</h3><div class="chart">${['Preparing','Ready','Assigned','OnWay','Delivered'].map(s=>{const count=os.filter(o=>o.status===s).length;return `<div class="bar" style="height:${Math.max(8,count/Math.max(os.length,1)*100)}%" title="${statuses[s]}: ${count}"><span>${statuses[s]}</span></div>`;}).join('')}</div><p class="report-note">لوحة قياس فورية للطلبات المعتمدة. تُحتسب قيمة الطلبيات المسلّمة فقط.</p><div class="spacer"></div>${pill('منظومة تشغيل آمنة ومعتمدة','shield')}</div></div>`;}
 function timeline(o){const steps=['Preparing','Ready','Assigned','OnWay','Delivered'];const index=steps.indexOf(o.status);return `<div class="timeline">${steps.map((s,i)=>`<span class="step ${i<=index?'done':''}">${statuses[s]}</span>`).join('')}</div>`;}
 function getOrderComplaintInfo(o){
  if(o.hasComplaint) return { has:true, ticketId:o.complaintTicketId, ticketNumber:o.complaintTicketNumber, subject:o.complaintSubject, status:o.complaintStatus };
@@ -2243,21 +2098,16 @@ function staffPageView(){
 function usersView(){
  if(!['Admin','Supervisor'].includes(user.role) && !has('users.manage') && !has('registrations.manage'))return empty('هذه الصفحة مخصصة لإدارة المتجر والمشرفين');
  const list = dashboard.users || [];
+ const devsList = (Array.isArray(dashboard?.devices) && dashboard.devices.length) ? dashboard.devices : (Array.isArray(lastDevicesList) && lastDevicesList.length ? lastDevicesList : []);
+ if(devsList.length && (!Array.isArray(lastDevicesList) || !lastDevicesList.length)) lastDevicesList = devsList;
  const onlineCount = list.filter(u=>u.isOnline).length;
  const frozenCount = list.filter(u=>!u.active).length;
+ const trackedWithGps = devsList.filter(d => d.latitude && d.longitude);
  
- return `<div class="panel" style="margin-bottom:14px;padding:10px 14px;border:1.5px solid rgba(212,175,55,0.45);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-  <div class="inline" style="gap:8px;flex-wrap:wrap">
-   <button type="button" class="btn small" data-action="navigate" data-id="users">👥 صلاحيات المستخدمين والزوار والدردشة</button>
-   <button type="button" class="btn small secondary" data-action="navigate" data-id="devices">🗺️ التتبع المباشر وخرائط قوقل والأجهزة المتصلة</button>
-   <button type="button" class="btn small secondary" data-action="open-role-preview-studio">👁️ شاشة معاينة وتجربة الأدوار للإدارة</button>
-  </div>
-  <span class="badge Ready">واجهة موحدة: الصلاحيات + التتبع والخرائط</span>
- </div>
- <div class="section-head">
+ return `<div class="section-head">
   <div>
-   <h1>إدارة المستخدمين والحسابات المتصلة والصلاحيات</h1>
-   <p>تحكم دقيق وشامل: مراقبة المتصلين، تعديل وتوليد كلمات المرور، تجميد وتنشيط الحسابات، وضبط الصلاحيات</p>
+   <h1>🛡️ إدارة المستخدمين والصلاحيات وتتبع خرائط قوقل المباشر</h1>
+   <p>دمج كامل لصلاحيات المستخدمين ومراقبة الأجهزة المتصلة والتتبع المباشر عبر تطبيق خرائط قوقل أمام كل مستخدم</p>
   </div>
   <div class="inline" style="gap:8px;flex-wrap:wrap">
    ${user.role==='Admin'?`<button class="btn" data-action="new-user">${icon('plus',17)}إضافة مستخدم</button>`:""}
@@ -2348,7 +2198,12 @@ function usersView(){
         <span>📱 الهاتف: <b style="color:#38bdf8">${esc(u.deviceModel || 'هاتف ذكي')} ${esc(u.platform||'')} ${esc(u.osVersion||'')}</b></span>
         <span>·</span>
         <span>الاتصال: <b style="color:${u.isOnline?'#22c55e':'#94a3b8'}">${u.isOnline?`🟢 متصل الآن (${u.sessionCount||1} أجهزة)`:'⚪ غير متصل'}</b></span>
-       </div>
+         ${(() => {
+          const uDev = devsList.find(dv => dv.userId === u.id || (dv.userName && dv.userName.toLowerCase() === u.name.toLowerCase()));
+          if(!uDev || !uDev.latitude || !uDev.longitude) return '';
+          return `<span>·</span><span>📍 الموقع: <b style="color:#4ade80">${esc(uDev.city || uDev.region || 'مرصود')} (${Number(uDev.latitude).toFixed(4)}, ${Number(uDev.longitude).toFixed(4)})</b></span>`;
+         })()}
+        </div>
       </div>
      </div>
      
@@ -2383,23 +2238,17 @@ function usersView(){
     <div class="order-bottom" style="margin-top:14px;padding-top:14px;border-top:1px dashed rgba(212,175,55,0.25)">
      <div class="order-actions" style="width:100%;justify-content:flex-start;gap:8px">
       <button class="btn small" type="button" style="background:linear-gradient(135deg,#0284c7,#1d4ed8);color:#fff;font-weight:bold" data-action="admin-live-user-support" data-id="${esc(u.id)}">🖥️ دعم فني (شاشة المستخدم بث مباشر)</button>
-      ${user.role==='Admin' && !isSelf ? `
-       <button class="btn small ${(u.directChatConfig?.directChatEnabled)?'':'secondary'}" type="button" style="${(u.directChatConfig?.directChatEnabled)?'background:#16a34a;color:#fff;font-weight:bold':''}" data-action="toggle-user-direct-chat" data-id="${esc(u.id)}">
-        ${(u.directChatConfig?.directChatEnabled) ? '💬 زر الدردشة الخاصة: ظاهر للمستخدم ✓' : '💬 إظهار زر الدردشة الخاصة للمستخدم'}
-       </button>
-       <button class="btn small" type="button" style="background:linear-gradient(135deg,#0d9488,#0f766e);color:#fff" data-action="user-chat-permissions-modal" data-id="${esc(u.id)}">
-        ⚙️ صلاحيات الدردشة وتحديد المتصلين (${(u.directChatConfig?.allowedPeerIds||[]).length} مسموح)
-       </button>
-       <button class="btn small secondary" type="button" data-action="open-direct-chat-with-user" data-id="${esc(u.id)}" data-name="${esc(u.name)}">
-        ✉️ فتح دردشة خاصة معه
-       </button>
-       <button class="btn small" type="button" style="background:#15803d;color:#fff" data-action="call-user-direct" data-id="${esc(u.id)}" data-kind="voice">
-        📞 اتصال صوتي واتساب
-       </button>
-       <button class="btn small secondary" type="button" data-action="celebrate-specific-user" data-id="${esc(u.id)}" data-name="${esc(u.name)}">
-        🎉 تخصيص احتفالية وأشكال متحركة له
-       </button>
-      ` : ''}
+      ${(() => {
+       if(user.role !== 'Admin') return '';
+       const uDev = devsList.find(dv => dv.userId === u.id || (dv.userName && dv.userName.toLowerCase() === u.name.toLowerCase()));
+       const hasGps = uDev && uDev.latitude && uDev.longitude;
+       const gUrl = hasGps ? `https://www.google.com/maps/search/?api=1&query=${uDev.latitude},${uDev.longitude}` : 'https://www.google.com/maps?hl=ar';
+       return `
+        <a class="btn small" style="background:#1a73e8;color:#fff;text-decoration:none;font-weight:bold" target="_blank" rel="noopener noreferrer" href="${gUrl}">📍 تتبع في تطبيق خرائط قوقل</a>
+        <button class="btn small secondary" type="button" data-action="open-gmaps-embed-modal" data-id="${esc(uDev?.id||'')}">🗺️ الخريطة الحية</button>
+        ${uDev?.id ? `<button class="btn small secondary" type="button" data-action="admin-device-live-mic" data-id="${esc(uDev.id)}">🎙️ المايك المباشر</button>` : ''}
+       `;
+      })()}
       ${user.role==='Admin' && u.role==='Supervisor' ? `<button class="btn small" type="button" style="background:#1d4ed8;color:#fff" data-action="admin-review-supervisor" data-id="${esc(u.id)}">🪪 بيانات توثيق المشرف (${u.supervisorVerified?'موثق ✓':'بانتظار التحقق'})</button>` : ''}
       ${user.role==='Admin' ? `
       <button class="btn small" type="button" style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff" data-action="admin-full-edit-user" data-id="${esc(u.id)}">📝 عرض وتعديل كامل البيانات</button>` : ''}
@@ -2469,13 +2318,12 @@ function accountView(){
  const isRestrictedRole = ['Customer', 'Courier'].includes(user.role);
  const showApprovedOptions = !isRestrictedRole || has('account.options') || isAdmin;
  const hasAnyAdminTools = isAdmin || has('appearance.manage') || has('users.manage') || has('commissions.manage') || has('policies.manage') || has('registrations.manage') || has('commerce.manage') || has('payments.review') || has('notifications.send') || has('audit.read');
- const hasDirectChat = !!(isAdmin || user.role === 'Supervisor' || user.directChatConfig?.directChatEnabled || dashboard?.myChatConfig?.directChatEnabled);
 
  return `
  <div class="section-head">
   <div>
-   <h1>${hasAnyAdminTools ? 'مركز الإدارة الموحد وحسابي (مرتب حسب الارتباط)' : 'حسابك في المتجر'}</h1>
-   <p>${hasAnyAdminTools ? 'تم ترتيب جميع الصلاحيات والأدوات المترابطة في مراكز منظمة دون تكرار أو حذف أي صلاحية' : 'تفاصيل حسابك الشخصي وإعدادات الدخول والدعم المباشر'}</p>
+   <h1>${hasAnyAdminTools ? 'مركز الإدارة الموحد وحسابي' : 'حسابك في المتجر'}</h1>
+   <p>${hasAnyAdminTools ? 'تم تجميع الصلاحيات والإعدادات المتشابهة في بطاقات منظمة لسهولة الوصول والتنقل السريع' : 'تفاصيل حسابك الشخصي وإعدادات الدخول والدعم المباشر'}</p>
   </div>
  </div>
 
@@ -2489,41 +2337,31 @@ function accountView(){
   </div>
   <div class="inline" style="gap:8px;flex-wrap:wrap">
    <button class="btn small secondary" data-action="edit-profile">✏️ تعديل الحساب وكلمة المرور</button>
-   ${hasDirectChat ? `<button class="btn small" style="background:#16a34a;color:#fff" data-action="navigate" data-id="staffchat">💬 الدردشة الخاصة والمكالمات</button>` : ''}
-   <button class="btn small secondary" data-action="support">🎧 الدعم الفني المباشر</button>
+   <button class="btn small secondary" data-action="support">💬 الدعم الفني المباشر</button>
    <button class="btn small ghost" data-action="logout">🚪 تسجيل الخروج</button>
   </div>
  </div>
 
  <div class="hub-grid">
-  ${isAdmin ? `
-  <div class="hub-card">
-   <h3>🎵 الموسيقى الخلفية والصيانة والأشكال الجافا (للإدارة فقط)</h3>
-   <button class="btn small" style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff" data-action="navigate" data-id="music">🎵 لوحة الموسيقى الخلفية (حافظ عبدالرحمن + المناسبات السعودية)</button>
-   <button class="btn small" style="background:linear-gradient(135deg,#b45309,#d97706);color:#fff" data-action="maintenance-settings-modal">🛠️ وضع إغلاق المتجر للصيانة بصورة جافا متحركة</button>
-   <button class="btn small secondary" data-action="floating-shapes-modal">🎈 لوحة الفقاعات وأوراق الاحتفال والبالونات المتحركة</button>
-   <button class="btn small secondary" data-action="navigate" data-id="jobs">💼 شاشة التوظيف وحقول التقديم وفيديو التحقق</button>
-  </div>` : ''}
-
   ${(has('appearance.manage') || has('notifications.send')) ? `
   <div class="hub-card">
-   <h3>🎨 الهوية والإعلانات المتحركة 3D والتنبيهات</h3>
+   <h3>🎨 الهوية والمظهر والإعلانات والتنبيهات</h3>
    ${has('appearance.manage') ? `
-    <button class="btn small" data-action="banners-manager">📢 لوحة الإعلانات المتحركة وإعلانات الوظائف</button>
-    <button class="btn small secondary" data-action="ad-motion-settings-modal">🧊 إعدادات حركة الإعلانات 3D والمساحة</button>
-    <button class="btn small secondary" data-action="appearance">🎨 شكل المتجر والأيقونة والاسم</button>
-    <button class="btn small secondary" data-action="interface-design">🖼️ تصميم الشاشات المتقدم والخلفيات</button>
-    <button class="btn small secondary" data-action="app-icon-bubbles">📱 أيقونة التطبيق وفقاعات الرسائل</button>
-    ${isAdmin ? '<button class="btn small ghost" data-action="store-styles-studio">🎭 استوديو حفظ استايلات المتجر</button>' : ''}
+    <button class="btn small" data-action="appearance">🎨 شكل المتجر والأيقونة والاسم</button>
+    <button class="btn small secondary" data-action="banners-manager">📢 إدارة الإعلانات وبانرات العروض</button>
+    <button class="btn small secondary" data-action="interface-design">🖼️ تصميم الشاشات المتقدم</button>
+    <button class="btn small secondary" data-action="app-icon-bubbles">📱 تغيير أيقونة التطبيق وفقاعات الرسائل</button>
+    ${isAdmin ? '<button class="btn small" style="background:linear-gradient(135deg,#92400e,#d4af37);color:#031711;font-weight:bold" data-action="store-styles-studio">🎭 استوديو حفظ وتعديل استايلات المتجر والأزرار</button>' : ''}
+    ${isAdmin ? '<button class="btn small" style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff;font-weight:bold" data-action="open-app-update-broadcast-modal">📲 إرسال طلب تحديث كامل للتطبيقات المثبتة</button>' : ''}
    ` : ''}
-   ${has('notifications.send') ? `<button class="btn small secondary" data-action="compose-notice">📨 إرسال وجدولة إشعارات للمستخدمين</button>` : ''}
+   ${has('notifications.send') ? `<button class="btn small secondary" data-action="compose-notice">📨 إرسال إشعارات للمستخدمين</button>` : ''}
   </div>` : ''}
 
   ${(has('users.manage') || has('registrations.manage') || has('audit.read')) ? `
   <div class="hub-card">
-   <h3>👥 الحسابات والصلاحيات وطاقم العمل والنشاط</h3>
-   <button class="btn small" data-action="navigate" data-id="users">🛡️ إدارة المستخدمين والصلاحيات والدردشات الخاصة</button>
-   ${isAdmin ? '<button class="btn small secondary" data-action="navigate" data-id="verified">✅ إدارة الحسابات الموثقة والشارات</button>' : ''}
+   <h3>👥 الحسابات وطاقم العمل والنشاط</h3>
+   <button class="btn small" data-action="navigate" data-id="users">🛡️ إدارة المستخدمين والصلاحيات</button>
+   ${isAdmin ? '<button class="btn small" style="background:#1d4ed8;color:#fff" data-action="navigate" data-id="verified">✅ إدارة الحسابات الموثقة وغير الموثقة</button>' : ''}
    <button class="btn small secondary" data-action="navigate" data-id="couriers">🚚 إدارة مناديب التوصيل والغرامات</button>
    ${has('users.manage') ? `
     <button class="btn small secondary" data-action="staff-manager">👷 إدارة عمال وطاقم المتجر</button>
@@ -2535,7 +2373,7 @@ function accountView(){
 
   ${(has('commissions.manage') || has('commerce.manage') || has('payments.review') || has('policies.manage')) ? `
   <div class="hub-card">
-   <h3>💰 المالية والعمولات والمدفوعات والسياسات</h3>
+   <h3>💰 المالية والعمولات والسياسات</h3>
    ${has('commissions.manage') ? `<button class="btn small" data-action="commissions">💎 العمولات والأسعار</button>` : ''}
    ${has('commerce.manage') ? `<button class="btn small secondary" data-action="commerce-settings">💳 العملات واللغة وطرق الدفع</button>` : ''}
    ${has('payments.review') ? `<button class="btn small secondary" data-action="payment-reviews">🧾 مراجعة الدفع والإيصالات</button>` : ''}
@@ -2544,15 +2382,58 @@ function accountView(){
 
   ${showApprovedOptions ? `
   <div class="hub-card">
-   <h3>⚙️ إعدادات التطبيق والنغمات والخصوصية</h3>
-   <button class="btn small" data-action="notification-style">🎵 نغمة وشكل الإشعارات والاهتزاز</button>
-   <button class="btn small secondary" data-action="language">🌐 تغيير اللغة (العربية / English)</button>
-   <button class="btn small secondary" data-action="install-app">📲 تثبيت التطبيق على الهاتف</button>
-   <button class="btn small ghost" data-action="privacy">🔒 سياسة الخصوصية وحماية البيانات</button>
-   ${user.role !== 'Admin' ? `<button class="btn small danger" data-action="delete-account">🗑️ طلب حذف الحساب</button>` : ''}
+   <h3>🔔 إعدادات التطبيق والنغمات والخصوصية</h3>
+   <button class="btn small" data-action="notification-style">🎵 تخصيص نغمات وشكل الإشعارات</button>
+   <button class="btn small secondary" data-action="enable-notifications">📲 اختبار إشعار فوري على الجوال</button>
+   <button class="btn small secondary" data-action="install-app">📱 تثبيت التطبيق (آيفون / أندرويد)</button>
+   <button class="btn small secondary" data-action="language">🌐 تغيير اللغة / Language</button>
+   <button class="btn small secondary" data-action="device-permissions">🎙️ أذونات الكاميرا والمايك والموقع</button>
+   <button class="btn small secondary" data-action="store-policies">📄 عرض اتفاقية وشروط المتجر</button>
+   ${user.role !== 'Customer' ? `<button class="btn small secondary" data-action="notices">🔔 الإشعارات الواردة <span class="notice-count"></span></button>` : ''}
+   <button class="btn small ghost" data-action="privacy">🛡️ الخصوصية وحذف الحساب</button>
+   ${!isAdmin ? `<button class="btn small danger" data-action="delete-account">🗑️ طلب حذف حسابي</button>` : ''}
   </div>` : ''}
- </div>`;
+
+  ${isAdmin ? `
+  <div class="hub-card" style="border-color:rgba(250,204,21,0.65)">
+   <h3>🔒 الإعدادات التقنية والسيرفر والجلسات (للإدارة فقط)</h3>
+   <button class="btn small" style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff" data-action="navigate" data-id="server">⚡ شاشة السيرفر وضبط أوقات تحديث الصفحات</button>
+   <button class="btn small" style="background:#1d4ed8;color:#fff" data-action="navigate" data-id="sessions">🔐 التحكم في الجلسات والأجهزة المتصلة بالحسابات</button>
+   <button class="btn small secondary" data-action="arab-geo-manager">🌍 إدارة قوائم الدول العربية والمدن والجنسيات</button>
+   <button class="btn small secondary" data-action="supervisor-form-manager">🪪 التحكم في فورم توثيق المشرفين</button>
+   <button class="btn small secondary" data-action="admin-server-refresh">🔄 تحديث السيرفر مباشرة الآن</button>
+   <button class="btn small" data-action="admin-tech-settings">🔑 مفتاح الخرائط وإعدادات الإيميلات (SMTP)</button>
+   <button class="btn small secondary" data-action="connect">🌐 إعداد اتصال المتجر والربط بالسيرفر</button>
+   <button class="btn small secondary" data-action="navigate" data-id="devices">🗺️ خريطة تتبع الأجهزة والمثبتين</button>
+   <button class="btn small" style="background:#0f766e;color:#fff" data-action="download-full-backup">📥 تحميل نسخة احتياطية كاملة (المستخدمين + الصور + الفيديو)</button>
+   <button class="btn small secondary" data-action="restore-full-backup">📤 استعادة نسخة احتياطية فوراً</button>
+   <input id="admin-restore-file" type="file" accept=".json,application/json" hidden>
+  </div>` : ''}
+ </div>
+ <p class="hint" style="margin-top:16px">الإصدار 2.8.0 · المتجر المطور (iOS & Android)</p>`;
 }
+
+/* ========================================================
+    Dedicated Final Login Screen (شاشة الدخول النهائية )
+   ======================================================== */
+
+/* ==========================================================================
+   DYNAMIC REGISTRATION FIELDS MANAGER (نظام إدارة وتخصيص حقول التسجيل من الإدارة)
+   ========================================================================== */
+let customRegFields = [
+ { id: 'name', label: 'اسم المستخدم (متصل بدون مسافات أو رموز)', type: 'text', required: true, enabled: true, placeholder: 'مثال: محمدالعتيبي أو Ahmed2026', isSystem: true },
+ { id: 'email', label: 'البريد الإلكتروني (لإرسال واستعادة كلمة المرور)', type: 'email', required: true, enabled: true, placeholder: 'you@example.com', isSystem: true },
+ { id: 'password', label: 'كلمة المرور', type: 'password', required: true, enabled: true, placeholder: 'كلمة المرور (6 أحرف فأكثر)', isSystem: true },
+ { id: 'phone', label: 'رقم الجوال للتواصل', type: 'tel', required: true, enabled: true, placeholder: '05xxxxxxxx', isSystem: false },
+ { id: 'city', label: 'المدينة / المنطقة', type: 'text', required: false, enabled: true, placeholder: 'الرياض، جدة، مكة، القصيم...', isSystem: false },
+ { id: 'address', label: 'الحي والشارع', type: 'text', required: false, enabled: true, placeholder: 'اسم الحي والشارع', isSystem: false },
+ { id: 'identityPhoto', label: '📷 إرفاق صورة شخصية أو هوية', type: 'image', required: false, enabled: true, placeholder: 'اختر صورة واضحة', isSystem: false },
+ { id: 'faceVideo', label: '🎥 فيديو التحقق من الوجه', type: 'video', required: false, enabled: true, placeholder: 'سجّل فيديو قصير للوجه أو ارفع فيديو', isSystem: false },
+ { id: 'accountType', label: 'نوع الحساب المطلوب', type: 'select', required: false, enabled: true, options: ['عميل تسوق', 'شريك تاجر', 'مندوب توصيل'], placeholder: 'اختر نوع الحساب', isSystem: false },
+ { id: 'commercialId', label: 'رقم السجل التجاري أو الرخصة', type: 'text', required: false, enabled: false, placeholder: 'اختياري للتجار والمناديب', isSystem: false },
+ { id: 'notes', label: 'ملاحظات أو طلبات خاصة', type: 'textarea', required: false, enabled: false, placeholder: 'أية تفاصيل إضافية تود مشاركتها مع الإدارة', isSystem: false }
+];
+
 function loadRegFields(){
  try {
   const saved = localStorage.getItem('ts-reg-fields');
@@ -2579,7 +2460,6 @@ function registrationFieldsManager(){
   
   <div class="inline" style="justify-content:space-between;margin:8px 0">
    <button class="btn small" type="button" data-action="new-reg-field">+ إضافة خيار / حقل جديد للنموذج</button>
-    <button class="btn small secondary" type="button" data-action="reg-terms-manager">📜 تعديل / حذف / إخفاء شروط التسجيل</button>
    <button class="btn small ghost" type="button" data-action="reset-reg-fields">استعادة الحقول الافتراضية</button>
   </div>
   
@@ -2700,19 +2580,12 @@ function resetRegFields(){
 function renderAuth(tab='login'){
  document.body.dataset.page = 'auth';
  if(typeof triggerScreenVisitCapture === 'function') triggerScreenVisitCapture(tab || 'login');
- if(typeof syncFloatingShapesForPage === 'function') setTimeout(() => syncFloatingShapesForPage(), 30);
- if(typeof syncStoreBackgroundMusicForPage === 'function') setTimeout(() => syncStoreBackgroundMusicForPage(), 50);
- const maint = typeof getMaintenanceConfig === 'function' ? getMaintenanceConfig() : { enabled: false };
- if(maint.enabled && !window._adminBypassMaintenanceLogin){
-  renderMaintenanceScreen();
-  return;
- }
  startLoginAdTimer();
  const isLogin = tab === 'login';
  const isRegister = tab === 'register';
  const isForgot = tab === 'forgot';
 
- $('#app').innerHTML = `<div class="vip-auth-page">
+ $('#app').innerHTML = `<div class="vip-auth-page" style="display:flex;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap">
   <div id="login-ads-container">${renderLoginAdsCarousel()}</div>
   <div class="vip-auth-card">
    <div class="vip-logo-container">
@@ -2748,14 +2621,6 @@ function renderAuth(tab='login'){
      </div>
     </div>
     
-    ${window._adminPreviewBackup ? `
-    <div style="margin-bottom:12px;padding:12px;border-radius:14px;background:rgba(212,175,55,0.16);border:1.5px solid #facc15;text-align:center">
-     <strong style="color:#fef08a;font-size:13px;display:block;margin-bottom:6px">👑 دخول معاينة فوري بدون بيانات (خاص بالإدارة فقط)</strong>
-     <div class="inline" style="justify-content:center;gap:6px;flex-wrap:wrap">
-      <button type="button" class="btn small" style="background:#facc15;color:#031711;font-weight:800" data-action="enter-admin-preview-role" data-id="${esc(window._adminPreviewPendingRole||'Customer')}">🚀 دخول مباشر كـ (${esc(roles[window._adminPreviewPendingRole||'Customer']||window._adminPreviewPendingRole||'عميل')})</button>
-      <button type="button" class="btn small ghost" data-action="exit-admin-role-preview">🔙 عودة للإدارة</button>
-     </div>
-    </div>` : ''}
     <button class="vip-btn-login" type="submit">
      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m14 6-6 6 6 6M8 12h13"/></svg>
      <span>دخول</span>
@@ -2818,7 +2683,7 @@ function renderAuth(tab='login'){
        </div>` : ''}
       `;
      })()}
-     ${(typeof customRegFields!=='undefined'&&Array.isArray(customRegFields)?customRegFields:[]).filter(f=>f.enabled && f.id!=='city').map(f=>{
+     ${customRegFields.filter(f=>f.enabled && f.id!=='city').map(f=>{
        const isReq = f.required;
        const reqBadge = isReq 
          ? `<span style="color:#fef08a;font-weight:bold;margin-right:4px">* (إلزامي - الأهم)</span>`
@@ -2879,19 +2744,6 @@ function renderAuth(tab='login'){
          </div>
        </div>`;
      }).join('')}
-     ${(() => {
-      const rt = getRegTermsConfig();
-      if(!rt.enabled || !rt.body) return '';
-      return `
-      <div style="padding:12px;border-radius:14px;background:rgba(212,175,55,0.1);border:1.5px solid rgba(212,175,55,0.45);text-align:right">
-       <strong style="color:#fef08a;font-size:13px;display:block;margin-bottom:6px">${esc(rt.title||'📜 شروط وأحكام التسجيل في المتجر')}</strong>
-       <div style="font-size:11.5px;color:#e2e8f0;white-space:pre-line;line-height:1.7;max-height:95px;overflow-y:auto;background:rgba(0,0,0,0.28);padding:8px 10px;border-radius:10px;margin-bottom:8px">${esc(rt.body)}</div>
-       <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:12.5px">
-        <label class="check" style="margin:0;color:#4ade80"><input type="radio" name="regTermsDecision" value="accept" required> <b>✅ موافق على الشروط</b></label>
-        <label class="check" style="margin:0;color:#fca5a5"><input type="radio" name="regTermsDecision" value="reject"> <b>❌ رافض للشروط (لا أوافق)</b></label>
-       </div>
-      </div>`;
-     })()}
     </div>
     <button class="vip-btn-login" type="submit" style="margin-top:14px">
      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m14 6-6 6 6 6M8 12h13"/></svg>
@@ -2984,7 +2836,7 @@ function permissionEditor(id){
  const u=dashboard.users.find(u=>u.id===id);if(!u||id===user.id)return;
  const groups = [
   { title: '📦 صلاحيات الطلبات والتوصيل والتتبع', keys: ['orders.create','orders.cancel','orders.prepare','orders.manage','delivery.assign','delivery.update','tracking.read'] },
-  { title: '💬 صلاحيات الدردشة والدعم الفني والوسائط', keys: ['chat.visible','chat.support.visible','chat.staff.visible','chat.read','chat.support','chat.delivery','chat.text','chat.image','chat.audio','chat.camera','support.manage'] },
+  { title: '💬 صلاحيات الدردشة والدعم الفني والوسائط', keys: ['chat.read','chat.support','chat.delivery','chat.text','chat.image','chat.audio','chat.camera','support.manage'] },
   { title: '🛍️ صلاحيات المنتجات والمظهر والإشعارات', keys: ['products.write','appearance.manage','notifications.send'] },
   { title: '💰 صلاحيات المالية والعمولات والمدفوعات', keys: ['commissions.manage','commerce.manage','payments.review'] },
   { title: '🛡️ صلاحيات الحسابات والسياسات وخيارات حسابي', keys: ['users.manage','registrations.manage','policies.manage','audit.read','account.options'] }
@@ -3962,7 +3814,7 @@ async function action(name,id,el=null){
    const reader = new FileReader();
    reader.onloadend = () => {
     window._pauseAutoRefresh = false;
-    if(id === 'supverify') window._supDraftFaceVideo = reader.result; if(id === 'jobface') window._jobDraftFaceVideo = reader.result;
+    if(id === 'supverify') window._supDraftFaceVideo = reader.result;
     if(hiddenIn) hiddenIn.value = reader.result;
     if(prev) prev.innerHTML = `<video controls playsinline src="${esc(reader.result)}" style="max-width:220px;max-height:150px;border-radius:10px;border:1px solid #d4af37"></video>`;
     toast('✅ اكتمل التحقق من الوجه بجميع الاتجاهات وتم حفظ الفيديو بنجاح');
@@ -4190,97 +4042,6 @@ async function action(name,id,el=null){
   await forceUpdateInstalledPwaIcon();
   return;
  }
- if(name==='proceed-job-apply-form'){
-  openJobApplyModal(id, true);
-  return;
- }
- if(name==='job-popup-settings-modal'){
-  jobPopupSettingsModal();
-  return;
- }
- if(name==='reg-terms-manager'){
-  regTermsManagerModal();
-  return;
- }
- if(name==='delete-reg-terms'){
-  await saveRegTermsConfig({ enabled: false, title: '', body: '' });
-  closeModal();
-  toast('🗑️ تم حذف شروط التسجيل من نموذج التسجيل');
-  return;
- }
- if(name==='open-role-preview-studio'){
-  adminRolePreviewStudioModal();
-  return;
- }
- if(name==='start-admin-role-preview-from-login'){
-  if(!window._adminPreviewBackup && user?.role === 'Admin'){
-   window._adminPreviewBackup = { user: JSON.parse(JSON.stringify(user)), page };
-  }
-  window._adminPreviewPendingRole = id || 'Customer';
-  closeModal();
-  user = null;
-  renderAuth('login');
-  toast('👑 أنت الآن في شاشة الدخول بوضع معاينة الإدارة — اضغط «دخول مباشر» لتجربة الدور بدون بيانات');
-  return;
- }
- if(name==='enter-admin-preview-role'){
-  if(!window._adminPreviewBackup) return;
-  const targetRole = id || window._adminPreviewPendingRole || 'Customer';
-  const rolePerms = (typeof roleDefaults !== 'undefined' && roleDefaults[targetRole]) ? roleDefaults[targetRole] : [];
-  user = {
-   id: 'preview_' + targetRole.toLowerCase(),
-   name: 'معاينة_' + (roles[targetRole] || targetRole),
-   email: window._adminPreviewBackup.user.email || 'preview@matjar.local',
-   role: targetRole,
-   active: true,
-   supervisorVerified: true,
-   verifiedBadge: targetRole === 'Supervisor' ? 'fb-blue' : 'none',
-   permissions: rolePerms,
-   overrides: {}
-  };
-  page = 'home';
-  document.querySelector('.sidebar')?.remove();
-  render();
-  toast(`👁️ تم الدخول بنجاح لمعاينة شاشات وصلاحيات: ${roles[targetRole] || targetRole}`);
-  return;
- }
- if(name==='exit-admin-role-preview'){
-  if(window._adminPreviewBackup){
-   user = window._adminPreviewBackup.user;
-   page = window._adminPreviewBackup.page || 'home';
-   window._adminPreviewBackup = null;
-   window._adminPreviewPendingRole = null;
-   document.querySelector('.sidebar')?.remove();
-   render();
-   toast('👑 تمت العودة الفورية لحساب الإدارة العليا بكامل الصلاحيات');
-  }
-  return;
- }
- if(name==='toggle-admin-own-mic'){
-  window._adminOwnMicMuted = !window._adminOwnMicMuted;
-  if(window._adminLiveMicStream){
-   window._adminLiveMicStream.getAudioTracks().forEach(t => { t.enabled = !window._adminOwnMicMuted; });
-  }
-  const btn = document.getElementById('admin-own-mic-toggle-btn');
-  if(btn){
-   btn.className = `btn small ${window._adminOwnMicMuted ? 'danger' : ''}`;
-   btn.textContent = window._adminOwnMicMuted ? '🔇 مايك الإدارة: مغلق (اضغط للفتح)' : '🎙️ مايك الإدارة: مفتوح (اضغط للإغلاق)';
-  }
-  toast(window._adminOwnMicMuted ? '🔇 تم إغلاق مايك الإدارة (الطرف الآخر لا يسمعك الآن)' : '🎙️ تم فتح مايك الإدارة');
-  return;
- }
- if(name==='answer-incoming-call-wa'){
-  stopIncomingCallRingtone();
-  document.getElementById('wa-incoming-call-overlay')?.remove();
-  await action('join-staff-call', id);
-  return;
- }
- if(name==='decline-incoming-call-wa'){
-  stopIncomingCallRingtone();
-  document.getElementById('wa-incoming-call-overlay')?.remove();
-  await action('end-staff-call', id);
-  return;
- }
  if(name==='global-ui-control'){
   globalUiControlModal();
   return;
@@ -4319,6 +4080,28 @@ async function action(name,id,el=null){
     </div>
    </div>
   `);
+  return;
+ }
+ if(name==='refresh-users-devices-tracking'){
+  if(apiBase){
+   try {
+    const res = await request('/admin/device-installs');
+    if(res && Array.isArray(res.devices)){
+     lastDevicesList = res.devices;
+     if(dashboard) dashboard.devices = res.devices;
+    }
+   } catch(e){}
+  }
+  render();
+  toast('📡 تم تحديث مواقع الأجهزة وإحداثيات خرائط قوقل بنجاح');
+  return;
+ }
+ if(name==='open-app-update-broadcast-modal'){
+  openAppUpdateBroadcastModal();
+  return;
+ }
+ if(name==='apply-server-app-update-now'){
+  await applyServerAppUpdateNow(id);
   return;
  }
  if(name==='open-all-devices-gmaps'){
@@ -4368,211 +4151,6 @@ async function action(name,id,el=null){
   window._staffPrivatePeer = id ? { id, name: pName } : null;
   lastStaffChatSig = '';
   render();
-  return;
- }
- if(name==='ad-carousel-step'){
-  const stg = el?.dataset?.stage || 'home-ad-stage';
-  const dlt = Number(el?.dataset?.delta || 1);
-  stepAdCarouselStage(stg, dlt, false);
-  return;
- }
- if(name==='ad-carousel-goto'){
-  const stg = el?.dataset?.stage || 'home-ad-stage';
-  stepAdCarouselStage(stg, Number(id || 0), true);
-  return;
- }
- if(name==='ad-motion-settings-modal'){
-  adMotionSettingsModal();
-  return;
- }
- if(name==='quick-toggle-banner'){
-  const b = (storeBanners||[]).find(x => x.id === id);
-  if(b){
-   b.active = !b.active;
-   if(apiBase) await request('/banners/' + b.id, 'PUT', b).catch(()=>{});
-   if(document.getElementById('modal')?.open) await bannersManager();
-   render();
-   toast(b.active ? '👁️ تم إظهار الإعلان في المتجر' : '🙈 تم إخفاء الإعلان');
-  }
-  return;
- }
- if(name==='toggle-job-ads-visibility'){
-  await toggleJobAdsVisibility();
-  return;
- }
- if(name==='open-jobs-screen-from-modal'){
-  closeModal();
-  page = 'jobs';
-  render();
-  return;
- }
- if(name==='new-job-field-modal'){
-  newJobFieldModal();
-  return;
- }
- if(name==='toggle-job-field-enabled'){
-  const cfg = getJobPortalConfig();
-  const f = (cfg.customFields||[]).find(x => x.id === id);
-  if(f){ f.enabled = !f.enabled; await saveJobPortalConfig(cfg); render(); }
-  return;
- }
- if(name==='toggle-job-field-required'){
-  const cfg = getJobPortalConfig();
-  const f = (cfg.customFields||[]).find(x => x.id === id);
-  if(f){ f.required = !f.required; await saveJobPortalConfig(cfg); render(); }
-  return;
- }
- if(name==='delete-job-field'){
-  const cfg = getJobPortalConfig();
-  cfg.customFields = (cfg.customFields||[]).filter(x => x.id !== id);
-  await saveJobPortalConfig(cfg);
-  render();
-  toast('🗑️ تم حذف الخانة من ملف التقديم');
-  return;
- }
- if(name==='set-job-app-status'){
-  const st = el?.dataset?.status || 'Approved';
-  if(!apiBase){
-   const d = demoData(); const ja = (d.jobApplications||[]).find(x => x.id === id); if(ja) ja.status = st; persistDemo(d);
-   if(dashboard) dashboard.jobApplications = d.jobApplications;
-  } else {
-   await request('/admin/job-applications/' + id + '/status', 'PUT', { status: st });
-   if(dashboard) dashboard.jobApplications = await request('/admin/job-applications');
-  }
-  render();
-  toast(st === 'Approved' ? '✅ تم قبول طلب التوظيف' : 'تم تحديث حالة الطلب');
-  return;
- }
- if(name==='delete-job-app'){
-  if(!apiBase){
-   const d = demoData(); d.jobApplications = (d.jobApplications||[]).filter(x => x.id !== id); persistDemo(d);
-   if(dashboard) dashboard.jobApplications = d.jobApplications;
-  } else {
-   await request('/admin/job-applications/' + id, 'DELETE');
-   if(dashboard) dashboard.jobApplications = await request('/admin/job-applications');
-  }
-  render();
-  toast('🗑️ تم حذف طلب التوظيف');
-  return;
- }
- if(name==='quick-toggle-maintenance'){
-  const cfg = getMaintenanceConfig();
-  cfg.enabled = !cfg.enabled;
-  await saveMaintenanceConfig(cfg);
-  render();
-  toast(cfg.enabled ? '🔒 تم إغلاق المتجر وتفعيل شاشة الصيانة المتحركة' : '🟢 تم فتح المتجر للعملاء الآن');
-  return;
- }
- if(name==='maintenance-settings-modal'){
-  maintenanceSettingsModal();
-  return;
- }
- if(name==='admin-bypass-maintenance' || name==='open-maintenance-admin-login'){
-  maintenanceAdminLoginModal();
-  return;
- }
- if(name==='back-to-maintenance-screen'){
-  window._adminBypassMaintenanceLogin = false;
-  if(document.getElementById('modal')?.open) closeModal();
-  renderMaintenanceScreen();
-  return;
- }
- if(name==='floating-shapes-modal'){
-  floatingShapesModal();
-  return;
- }
- if(name==='celebrate-specific-user'){
-  celebrateSpecificUserModal(id, el?.dataset?.name || '');
-  return;
- }
- if(name==='music-play-track'){
-  const cfg = getMusicStudioConfig();
-  cfg.activeTrackId = id;
-  cfg.enabled = true;
-  if(el?.dataset?.cat) cfg.activeCategory = el.dataset.cat;
-  await saveMusicStudioConfig(cfg);
-  startMusicEngineTrack(id);
-  render();
-  toast('🎵 جاري تشغيل المقطوعة الموسيقية خلف المتجر');
-  return;
- }
- if(name==='music-toggle-master'){
-  const cfg = getMusicStudioConfig();
-  cfg.enabled = !cfg.enabled;
-  await saveMusicStudioConfig(cfg);
-  if(cfg.enabled) startMusicEngineTrack(cfg.activeTrackId);
-  else stopMusicEngine();
-  render();
-  toast(cfg.enabled ? '🔊 تم تشغيل الموسيقى الخلفية للمتجر' : '🔇 تم إيقاف الموسيقى الخلفية');
-  return;
- }
- if(name==='music-stop-master'){
-  const cfg = getMusicStudioConfig();
-  cfg.enabled = false;
-  await saveMusicStudioConfig(cfg);
-  stopMusicEngine();
-  render();
-  toast('⏹️ تم إيقاف الموسيقى الخلفية بالكامل');
-  return;
- }
- if(name==='music-filter-cat'){
-  window._musicStudioTab = id || 'hafez';
-  render();
-  return;
- }
- if(name==='toggle-user-direct-chat'){
-  await toggleUserDirectChat(id);
-  return;
- }
- if(name==='user-chat-permissions-modal'){
-  userChatPermissionsModal(id);
-  return;
- }
- if(name==='open-direct-chat-with-user'){
-  const target = (dashboard?.users || []).find(x => x.id === id);
-  if(target){
-   target.directChatConfig = target.directChatConfig || { directChatEnabled: true, allowChatWithAdmin: true, allowVoiceCalls: true, allowVideoCalls: true, allowText: true, allowImages: true, allowVoiceNotes: true, allowReplyQuote: true, showOnlineStatus: true, allowedPeerIds: [] };
-   target.directChatConfig.directChatEnabled = true;
-   if(apiBase) await request('/admin/users/' + id + '/chat-config', 'PUT', target.directChatConfig).catch(()=>{});
-  }
-  window._staffPrivatePeer = { id, name: el?.dataset?.name || target?.name || 'مستخدم' };
-  page = 'staffchat';
-  render();
-  return;
- }
- if(name==='call-user-direct'){
-  const target = (dashboard?.users || []).find(x => x.id === id);
-  if(target){
-   target.directChatConfig = target.directChatConfig || { directChatEnabled: true, allowChatWithAdmin: true, allowVoiceCalls: true, allowVideoCalls: true, allowText: true, allowImages: true, allowVoiceNotes: true, allowReplyQuote: true, showOnlineStatus: true, allowedPeerIds: [] };
-   target.directChatConfig.directChatEnabled = true;
-   target.directChatConfig.allowVoiceCalls = true;
-   if(apiBase) await request('/admin/users/' + id + '/chat-config', 'PUT', target.directChatConfig).catch(()=>{});
-  }
-  window._staffPrivatePeer = { id, name: target?.name || 'مستخدم' };
-  const callObj = apiBase
-   ? await request('/staff-chat/call/start', 'POST', { receiverId: id, callKind: el?.dataset?.kind || 'voice' })
-   : { id:'call_'+Date.now(), callerId:user.id, callerName:'الإدارة', receiverId:id, receiverName:target?.name||'مستخدم', callKind:'voice', status:'ringing' };
-  await openSupervisorCallModal(callObj);
-  return;
- }
- if(name==='answer-incoming-wa-call'){
-  await answerIncomingWhatsAppCall(id);
-  return;
- }
- if(name==='decline-incoming-wa-call'){
-  await declineIncomingWhatsAppCall(id);
-  return;
- }
- if(name==='test-incoming-whatsapp-call'){
-  showIncomingWhatsAppCallOverlay({
-   id: 'demo_call_' + Date.now(),
-   callerId: 'demo_caller',
-   callerName: 'الإدارة العليا للمتجر',
-   receiverId: user?.id || '',
-   receiverName: user?.name || 'أنت',
-   callKind: 'voice',
-   status: 'ringing'
-  });
   return;
  }
  if(name==='start-staff-call'){
@@ -4890,11 +4468,6 @@ document.addEventListener('submit',async e=>{
     const expectedPass=found?.password||(found?.role==='Admin'?'583192':null);
     if(found && !found.active && (!expectedPass || f.password === expectedPass)) throw new Error('حسابك مجمد حالياً وبانتظار التنشيط والموافقة من قِبل إدارة المتجر');
     if(!found||!found.active||(expectedPass&&f.password!==expectedPass))throw new Error('بيانات الدخول غير صحيحة');
-    if((getMaintenanceConfig().enabled || window._adminBypassMaintenanceLogin || f.adminOnlyLogin === 'true') && found.role !== 'Admin'){
-     throw new Error('⛔ المتجر تحت الصيانة حالياً — الدخول من هذه البوابة مخصص لحسابات الإدارة العليا (الأدمن) فقط.');
-    }
-    window._adminBypassMaintenanceLogin = false;
-    if(document.getElementById('modal')?.open) closeModal();
     user=demoUser(found);sessionStorage.setItem('ts-demo-user',user.id);page='home';await refresh();return;
    }
   }
@@ -5126,20 +4699,6 @@ document.addEventListener('submit',async e=>{
    toast('✅ تمت إضافة الحقل إلى نموذج توثيق المشرفين');
    return;
   }
-  if(kind==='save-job-popup-settings'){
-   const cfg = { enabled: f.enabled === 'on', title: (f.title||'').trim(), message: (f.message||'').trim() };
-   await saveJobPrePopupConfig(cfg);
-   closeModal();
-   toast(cfg.enabled ? '✅ تم تفعيل وحفظ الرسالة المنبثقة قبل نموذج الوظائف' : '🙈 تم إخفاء الرسالة المنبثقة قبل نموذج الوظائف');
-   return;
-  }
-  if(kind==='save-reg-terms-settings'){
-   const cfg = { enabled: f.enabled === 'on', title: (f.title||'').trim(), body: (f.body||'').trim() };
-   await saveRegTermsConfig(cfg);
-   closeModal();
-   toast('✅ تم حفظ وتحديث شروط التسجيل بنجاح');
-   return;
-  }
   if(kind==='save-inline-element-label'){
    const cfg = getUiControlConfig();
    cfg.customLabels = cfg.customLabels || {};
@@ -5248,198 +4807,47 @@ document.addEventListener('submit',async e=>{
    return;
   }
   if(kind==='submit-job-application'){
-   const extraFields = {};
-   Object.keys(f).forEach(k => {
-    if(k.startsWith('jobext_')) extraFields[k.replace('jobext_', '')] = f[k] || '';
-   });
-   const photoData = f.photoData || document.getElementById('reg-hidden-jobphoto')?.value || window._jobDraftPhoto || '';
-   const faceVideoData = f.faceVideoData || document.getElementById('reg-hidden-jobface')?.value || window._jobDraftFaceVideo || '';
    const payload = {
     fullName: f.fullName,
     phone: f.phone,
     city: f.city || '',
     jobTitle: f.jobTitle || 'وظيفة في المتجر',
-    notes: f.notes || '',
-    photoData,
-    faceVideoData,
-    extraFields
+    notes: f.notes || ''
    };
    if(!apiBase){
-    const d = demoData();
-    d.jobApplications = d.jobApplications || [];
-    const entry = { id:'jobapp_'+Date.now(), bannerId:id||'job', ...payload, status:'Pending', createdAt:new Date().toISOString() };
-    d.jobApplications.unshift(entry);
-    if(dashboard) dashboard.jobApplications = d.jobApplications;
-    d.notifications = d.notifications || [];
+    const d = demoData(); d.notifications = d.notifications || [];
     d.notifications.unshift({ id:'n_'+Date.now(), title:`💼 طلب توظيف جديد: ${payload.jobTitle}`, message:`المتقدم: ${payload.fullName} | الجوال: ${payload.phone} | المدينة: ${payload.city}`, audience:'Admin', at:new Date().toISOString() });
     persistDemo(d);
    } else {
     await request('/banners/' + (id || 'job') + '/apply-job', 'POST', payload);
-    if(user && ['Admin','Supervisor'].includes(user.role)){
-     try { dashboard.jobApplications = await request('/admin/job-applications'); } catch(e){}
-    }
    }
-   window._jobDraftPhoto = '';
-   window._jobDraftFaceVideo = '';
-   if(document.getElementById('modal')?.open) closeModal();
-   if(page === 'jobs') render();
-   toast('✅ تم إرسال ملف التوظيف ومرفقات التحقق من الوجه بنجاح إلى إدارة المتجر!');
-   return;
-  }
-  if(kind==='save-job-portal-settings'){
-   const cfg = getJobPortalConfig();
-   cfg.portalTitle = (f.portalTitle || '').trim() || cfg.portalTitle;
-   cfg.portalSubtitle = (f.portalSubtitle || '').trim() || cfg.portalSubtitle;
-   cfg.jobDepartment = (f.jobDepartment || '').trim() || cfg.jobDepartment;
-   cfg.jobSalary = (f.jobSalary || '').trim() || cfg.jobSalary;
-   cfg.jobType = (f.jobType || '').trim() || cfg.jobType;
-   cfg.showJobAd = f.showJobAd === 'on';
-   cfg.requirePhoto = f.requirePhoto === 'on';
-   cfg.requireFaceVideo = f.requireFaceVideo === 'on';
-   await saveJobPortalConfig(cfg);
-   render();
-   toast('✅ تم حفظ إعدادات شاشة التوظيف وحالة ظهور إعلان الوظائف');
-   return;
-  }
-  if(kind==='add-job-custom-field'){
-   const cfg = getJobPortalConfig();
-   cfg.customFields = cfg.customFields || [];
-   const fid = 'jf_' + Date.now();
-   const opts = (f.options || '').split(/[،,\n]/).map(s => s.trim()).filter(Boolean);
-   cfg.customFields.push({
-    id: fid,
-    label: (f.label || '').trim() || 'خانة إضافية',
-    type: f.type || 'text',
-    placeholder: (f.placeholder || '').trim(),
-    required: f.required === 'on',
-    enabled: true,
-    options: opts
-   });
-   await saveJobPortalConfig(cfg);
    closeModal();
-   render();
-   toast('✅ تمت إضافة الخانة الجديدة إلى ملف تقديم الوظائف بنجاح');
+   toast('✅ تم إرسال طلب التوظيف بنجاح إلى إدارة المتجر! سنتواصل معك قريباً.');
    return;
   }
-  if(kind==='save-maintenance-settings'){
-   const cfg = {
-    enabled: f.enabled === 'on',
-    title: (f.title || '').trim() || 'المتجر تحت الصيانة والتطوير حالياً',
-    subtitle: (f.subtitle || '').trim() || 'نعمل حالياً على تحديث المتجر وإضافة مزايا ومنتجات جديدة.. سنعود إليكم قريباً بإذن الله.',
-    expectedReturn: (f.expectedReturn || '').trim() || 'قريباً جداً خلال ساعات',
-    animationStyle: f.animationStyle || 'royal-gears',
-    contactPhone: (f.contactPhone || '').trim()
+  if(kind==='broadcast-app-update'){
+   const payload = {
+    title: (f.title || '').trim() || '📲 تحديث جديد جاهز للمتجر',
+    message: (f.message || '').trim() || 'تتوفر نسخة جديدة محدثة من التطبيق بالبيانات والإعدادات الجديدة من السيرفر. اضغط تحديث الآن لتطبيقها فوراً.'
    };
-   await saveMaintenanceConfig(cfg);
-   closeModal();
-   render();
-   toast(cfg.enabled ? '🔒 تم إغلاق المتجر وتفعيل شاشة الصيانة المتحركة للزوار' : '🟢 تم فتح المتجر للعملاء وإيقاف وضع الصيانة');
-   return;
-  }
-  if(kind==='save-ad-motion-settings'){
-   const pages = ['login','home','products','cart','orders','favorites'].filter(p => f['pg_' + p] === 'on');
-   const cfg = {
-    enabled: f.enabled === 'on',
-    direction: f.direction || 'right-to-left',
-    enable3D: f.enable3D === 'on',
-    speedSeconds: Math.max(2, Math.min(60, Number(f.speedSeconds)||5)),
-    heightPx: Math.max(120, Math.min(500, Number(f.heightPx)||240)),
-    widthPercent: Math.max(60, Math.min(100, Number(f.widthPercent)||100)),
-    allowTouchSwipe: f.allowTouchSwipe === 'on',
-    showArrows: f.showArrows === 'on',
-    showDots: f.showDots === 'on',
-    targetPages: pages.length ? pages : ['login','home']
-   };
-   await saveAdMotionConfig(cfg);
-   closeModal();
-   render();
-   toast('✅ تم تطبيق إعدادات حركة الإعلانات والعرض ثلاثي الأبعاد 3D بدون وميض');
-   return;
-  }
-  if(kind==='save-floating-shapes-settings'){
-   const pages = ['all','login','home','cart','orders','favorites','account','jobs'].filter(p => f['spg_' + p] === 'on');
-   const cfg = {
-    enabled: f.enabled === 'on',
-    shapeType: f.shapeType || 'bubbles',
-    opacityPercent: Math.max(10, Math.min(100, Number(f.opacityPercent)||65)),
-    sizePx: Math.max(8, Math.min(55, Number(f.sizePx)||22)),
-    quantity: Math.max(4, Math.min(75, Number(f.quantity)||20)),
-    speed: f.speed || 'normal',
-    targetPages: pages.length ? pages : ['all'],
-    targetUserId: f.targetUserId || 'all',
-    celebrationTitle: (f.celebrationTitle || '').trim(),
-    celebrationMessage: (f.celebrationMessage || '').trim()
-   };
-   await saveFloatingShapesConfig(cfg);
-   closeModal();
-   syncFloatingShapesForPage();
-   render();
-   toast(cfg.enabled ? '🎈 تم تفعيل الأشكال الجافا المتحركة والاحتفالية بنجاح بدون أي ثقل!' : 'تم إيقاف الأشكال المتحركة');
-   return;
-  }
-  if(kind==='save-music-studio-settings'){
-   const pages = ['all','login','home','cart','orders','favorites','account','jobs'].filter(p => f['mpg_' + p] === 'on');
-   const cur = getMusicStudioConfig();
-   const cfg = {
-    ...cur,
-    enabled: f.enabled === 'on',
-    volume: Math.max(0, Math.min(100, Number(f.volume ?? cur.volume ?? 45))),
-    activeCategory: f.activeCategory || cur.activeCategory || 'hafez',
-    activeTrackId: f.activeTrackId || cur.activeTrackId || 'hf_ayyam',
-    toneType: f.toneType || cur.toneType || 'flute-warm',
-    loopAll: f.loopAll === 'on',
-    enabledPages: pages.length ? pages : ['all']
-   };
-   if(f.customTrackTitle && f.customTrackUrl){
-    cfg.customTracks = cfg.customTracks || [];
-    const newId = 'cust_' + Date.now();
-    cfg.customTracks.push({
-     id: newId,
-     title: f.customTrackTitle.trim(),
-     artist: (f.customTrackArtist || 'مقطوعة خاصة').trim(),
-     category: 'custom',
-     audioUrl: f.customTrackUrl.trim()
-    });
-    cfg.activeTrackId = newId;
-   }
-   await saveMusicStudioConfig(cfg);
-   syncStoreBackgroundMusicForPage(true);
-   render();
-   toast(cfg.enabled ? '🎵 تم حفظ وتشغيل الموسيقى الخلفية للمتجر بنجاح!' : '🔇 تم حفظ الإعدادات وإيقاف الموسيقى الخلفية');
-   return;
-  }
-  if(kind==='save-user-chat-permissions'){
-   const targetUser = (dashboard?.users || []).find(x => x.id === id);
-   const allUsers = (dashboard?.users || []).filter(x => x.id !== id);
-   const allowedPeerIds = allUsers.filter(u2 => f['peer_' + u2.id] === 'on').map(u2 => u2.id);
-   const cfg = {
-    directChatEnabled: f.directChatEnabled === 'on',
-    allowChatWithAdmin: f.allowChatWithAdmin === 'on',
-    allowVoiceCalls: f.allowVoiceCalls === 'on',
-    allowVideoCalls: f.allowVideoCalls === 'on',
-    allowText: f.allowText === 'on',
-    allowImages: f.allowImages === 'on',
-    allowVoiceNotes: f.allowVoiceNotes === 'on',
-    allowReplyQuote: f.allowReplyQuote === 'on',
-    allowDeleteOwnMessages: f.allowDeleteOwnMessages === 'on',
-    showOnlineStatus: f.showOnlineStatus === 'on',
-    allowedPeerIds
-   };
-   if(targetUser) targetUser.directChatConfig = cfg;
+   let newVer = Number(window._currentServerAppVersion || 1) + 1;
    if(!apiBase){
     const d = demoData();
-    const du = (d.users||[]).find(x => x.id === id);
-    if(du) du.directChatConfig = cfg;
+    d.appUpdateVersion = newVer;
+    d.appUpdateRequest = { version: newVer, ...payload, requestedAt: new Date().toISOString() };
+    d.notifications = d.notifications || [];
+    d.notifications.unshift({ id:'appupd_'+Date.now(), ...payload, audience:'All', at:new Date().toISOString() });
     persistDemo(d);
+    if(dashboard){ dashboard.appUpdateVersion = newVer; dashboard.appUpdateRequest = d.appUpdateRequest; }
    } else {
-    await request('/admin/users/' + id + '/chat-config', 'PUT', cfg);
+    const res = await request('/admin/broadcast-app-update', 'POST', payload);
+    if(res?.appUpdateVersion) newVer = res.appUpdateVersion;
+    localStorage.setItem('ts-applied-app-ver', String(newVer));
    }
    closeModal();
-   render();
-   toast(`✅ تم حفظ صلاحيات الدردشة الخاصة والمكالمات وقائمة المتصلين للمستخدم (${targetUser?.name || ''})`);
+   toast(`📲 تم إرسال طلب التحديث الكامل (v${newVer}) لجميع التطبيقات المثبتة بنجاح!`);
    return;
   }
-
   if(kind==='save-supervisor-chat-settings'){
    const payload = {
     enabled: f.enabled === 'on',
@@ -5613,10 +5021,6 @@ document.addEventListener('submit',async e=>{
    return;
   }
   if(kind==='register'){
-   const _rtCfg = typeof getRegTermsConfig === 'function' ? getRegTermsConfig() : { enabled:false };
-   if(_rtCfg.enabled && _rtCfg.body && f.regTermsDecision !== 'accept'){
-    throw new Error('❌ لا يمكنك إتمام التسجيل في حالة رفض الشروط — يجب اختيار «موافق على الشروط» للمتابعة.');
-   }
    f.name = validateConnectedUsername(f.name);
    let burstPhotos = [];
    const shouldBurst = dashboard?.regCapture5Photos ?? config?.regCapture5Photos ?? true;
@@ -5710,17 +5114,7 @@ document.addEventListener('submit',async e=>{
    </div>`);
    return;
   }
-  if(kind==='login'||kind==='setup'){
-   const tel=typeof detectDeviceTelemetry==='function'?detectDeviceTelemetry():{};
-   const result=await request(kind==='setup'?'/setup':'/auth/'+kind,'POST',{...f,deviceId:localStorage.getItem('ts-device-id')||tel.deviceId||'',deviceModel:tel.deviceModel,platform:tel.platform,browser:tel.browser,osVersion:tel.osVersion});
-   if(kind==='login' && (getMaintenanceConfig().enabled || window._adminBypassMaintenanceLogin || f.adminOnlyLogin === 'true') && result?.user?.role !== 'Admin'){
-    await fetch(apiBase + '/api/auth/logout', { method:'POST', headers:{ 'Authorization':'Bearer ' + result.token } }).catch(()=>{});
-    throw new Error('⛔ المتجر تحت الصيانة حالياً — الدخول مخصص لحسابات الإدارة العليا (الأدمن) فقط.');
-   }
-   window._adminBypassMaintenanceLogin = false;
-   if(document.getElementById('modal')?.open) closeModal();
-   token=result.token;user=result.user;sessionStorage.setItem('ts-token',token);localStorage.setItem('ts-token',token);page='home';setupNeeded=false;await refresh();
-  }
+  if(kind==='login'||kind==='setup'){const tel=typeof detectDeviceTelemetry==='function'?detectDeviceTelemetry():{};const result=await request(kind==='setup'?'/setup':'/auth/'+kind,'POST',{...f,deviceId:localStorage.getItem('ts-device-id')||tel.deviceId||'',deviceModel:tel.deviceModel,platform:tel.platform,browser:tel.browser,osVersion:tel.osVersion});token=result.token;user=result.user;sessionStorage.setItem('ts-token',token);localStorage.setItem('ts-token',token);page='home';setupNeeded=false;await refresh();}
   if(kind==='connect'){const url=new URL(f.url);if(url.protocol!=='https:'&&!(url.protocol==='http:'&&['localhost','127.0.0.1'].includes(url.hostname)))throw new Error('استخدم رابط HTTPS آمنًا');const next=url.origin;const res=await fetch(next+'/api/health');if(!res.ok||(await res.json()).status!=='ok')throw new Error('هذا الرابط ليس خادم المتجر');apiBase=next;localStorage.setItem('ts-server',apiBase);demo=false;sessionStorage.removeItem('ts-demo');sessionStorage.removeItem('ts-demo-user');token='';user=null;sessionStorage.removeItem('ts-token');localStorage.removeItem('ts-token');setupNeeded=(await request('/setup')).required;closeModal();renderAuth();}
   if(kind==='checkout'){const result=await request('/orders','POST',{items:Object.entries(cart).map(([productId,qty])=>({productId,qty})),address:f.address,phone:f.phone,destination:checkoutDestination,paymentMethodId:f.paymentMethodId||'cod',currency:commerce.currency,commissionVersion:governance.commissions.version});checkoutDestination=null;cart={};saveCart();page='orders';await refresh();toast('تأكد طلبك الفاخر رقم '+result.number);if(result.paymentType&&result.paymentType!=='Cash')await paymentOrder(result.id);}
   if(kind==='product'){await request('/products'+(id?'/'+id:''),id?'PUT':'POST',{...f,price:Number(f.price),stock:Number(f.stock),active:f.active==='on'});closeModal();await refresh();toast('تم حفظ المنتج بنجاح');}
@@ -6299,13 +5693,13 @@ document.addEventListener('change', async e => {
   try {
    if(kind === 'image'){
     const dUrl = await normalizeImage(file, 900, 1400000);
-    if(fid === 'jobphoto') window._jobDraftPhoto = dUrl; if(hiddenIn) hiddenIn.value = dUrl;
+    if(hiddenIn) hiddenIn.value = dUrl;
     if(prev) prev.innerHTML = `<img src="${esc(dUrl)}" style="max-width:160px;max-height:120px;border-radius:10px;border:1px solid #d4af37">`;
    } else {
     if(file.size > 5 * 1024 * 1024) throw new Error('حجم الفيديو يجب ألا يتجاوز 5 ميجابايت');
     const reader = new FileReader();
     reader.onloadend = () => {
-     if(fid === 'supverify') window._supDraftFaceVideo = reader.result; if(fid === 'jobface') window._jobDraftFaceVideo = reader.result;
+     if(fid === 'supverify') window._supDraftFaceVideo = reader.result;
      if(hiddenIn) hiddenIn.value = reader.result;
      if(prev) prev.innerHTML = `<video controls playsinline src="${esc(reader.result)}" style="max-width:220px;max-height:150px;border-radius:10px"></video><div style="color:#22c55e;font-size:11.5px;margin-top:4px">✓ تم تجهيز وحفظ فيديو التحقق</div>`;
     };
@@ -6645,26 +6039,18 @@ let staffChatPoll = null;
 let lastStaffChatSig = '';
 function staffChatView(){
  const isAdmin = user?.role === 'Admin';
- const isSup = user?.role === 'Supervisor';
- const uCfg = user?.directChatConfig || dashboard?.myChatConfig || {
-  directChatEnabled: true, allowChatWithAdmin: true, allowVoiceCalls: true, allowVideoCalls: true,
-  allowText: true, allowImages: true, allowVoiceNotes: true, allowDeleteOwnMessages: false, allowReplyQuote: true, showOnlineStatus: true, allowedPeerIds: []
- };
  const cfg = dashboard?.supervisorChatSettings || window._supChatSettings || { enabled: true, allowVoiceCalls: true, allowVideoCalls: true, adminMonitorAll: true };
- const peer = window._staffPrivatePeer || null;
- const canVoiceCall = isAdmin || (uCfg.allowVoiceCalls !== false && cfg.allowVoiceCalls !== false);
- const canVideoCall = isAdmin || (uCfg.allowVideoCalls !== false && cfg.allowVideoCalls !== false);
-
+ const peer = window._staffPrivatePeer || null; // { id, name } or null for public channel
  return `
  <div class="section-head">
   <div>
-   <h1>💬 ${isAdmin ? 'غرفة الدردشة الخاصة والمكالمات المباشرة (إدارة شاملة)' : 'الدردشة الخاصة والمكالمات الصوتية والفيديو المباشرة'}</h1>
-   <p>${isAdmin ? 'تحكم كامل في صلاحيات الدردشة الخاصة لكل مستخدم، تحديد المتصلين المسموحين، ومكالمات صوتية وفيديو بجرس وتنبيه واتساب' : 'تواصل خاص ومباشر مع الإدارة والأشخاص المصرح لك بالتواصل معهم بالصوت والفيديو'}</p>
+   <h1>💬 غرفة دردشة ومكالمات المشرفين والإدارة (صوت وفيديو مباشر)</h1>
+   <p>${isAdmin ? 'تحكم كامل في صلاحية الدردشة الخاصة والمكالمات الصوتية والفيديو بين المشرفين مع إظهار ومراقبة جميع المحادثات الخاصة والعامة' : 'تواصل مباشر مع الإدارة أو دردشة خاصة ومكالمات صوتية وفيديو مع المشرفين'}</p>
   </div>
   <div class="inline" style="gap:8px;flex-wrap:wrap">
-   ${(isAdmin || isSup) ? `<button class="btn ${!peer?'':'secondary'} small" type="button" data-action="select-staff-private-peer" data-id="">🌐 القناة العامة للإدارة والمشرفين</button>` : ''}
-   ${canVoiceCall ? `<button class="btn small" style="background:#16a34a;color:#fff;font-weight:bold" type="button" data-action="start-staff-call" data-id="${esc(peer?.id||'')}" data-kind="voice">📞 مكالمة صوتية واتساب ${peer?'مع '+esc(peer.name):'مباشرة'}</button>` : ''}
-   ${canVideoCall ? `<button class="btn small" style="background:linear-gradient(135deg,#0284c7,#1d4ed8);color:#fff" type="button" data-action="start-staff-call" data-id="${esc(peer?.id||'')}" data-kind="video">🎥 مكالمة فيديو ${peer?'مع '+esc(peer.name):'مباشرة'}</button>` : ''}
+   <button class="btn ${!peer?'':'secondary'} small" type="button" data-action="select-staff-private-peer" data-id="">🌐 القناة العامة للإدارة والمشرفين</button>
+   <button class="btn secondary small" type="button" data-action="start-staff-call" data-id="${esc(peer?.id||'')}" data-kind="voice">🎙️ مكالمة صوتية ${peer?'مع '+esc(peer.name):'جماعية'}</button>
+   <button class="btn small" style="background:linear-gradient(135deg,#0284c7,#1d4ed8);color:#fff" type="button" data-action="start-staff-call" data-id="${esc(peer?.id||'')}" data-kind="video">🎥 مكالمة فيديو ${peer?'مع '+esc(peer.name):'مباشرة'}</button>
    <button class="btn secondary small" type="button" data-action="refresh-staff-chat">🔄 تحديث فوري</button>
   </div>
  </div>
@@ -6672,16 +6058,13 @@ function staffChatView(){
  ${isAdmin ? `
  <form class="panel" data-form="save-supervisor-chat-settings" style="margin-bottom:14px;padding:12px 16px;border:1.5px solid rgba(212,175,55,0.45);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
   <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:12.5px">
-   <strong style="color:#fef08a">🛡️ الضبط العام للدردشات والمكالمات (ولمزيد من الصلاحيات لكل مستخدم افتح «المستخدمون والصلاحيات»):</strong>
-   <label class="check" style="margin:0"><input type="checkbox" name="enabled" ${cfg.enabled!==false?'checked':''}> تفعيل الدردشة الخاصة</label>
-   <label class="check" style="margin:0"><input type="checkbox" name="allowVoiceCalls" ${cfg.allowVoiceCalls!==false?'checked':''}> السماح بالمكالمات الصوتية 📞</label>
+   <strong style="color:#fef08a">🛡️ صلاحيات دردشة ومكالمات المشرفين الخاصة (للإدارة فقط):</strong>
+   <label class="check" style="margin:0"><input type="checkbox" name="enabled" ${cfg.enabled!==false?'checked':''}> تفعيل الدردشة الخاصة بين المشرفين</label>
+   <label class="check" style="margin:0"><input type="checkbox" name="allowVoiceCalls" ${cfg.allowVoiceCalls!==false?'checked':''}> السماح بالمكالمات الصوتية 🎙️</label>
    <label class="check" style="margin:0"><input type="checkbox" name="allowVideoCalls" ${cfg.allowVideoCalls!==false?'checked':''}> السماح بمكالمات الفيديو 🎥</label>
-   <label class="check" style="margin:0"><input type="checkbox" name="adminMonitorAll" ${cfg.adminMonitorAll!==false?'checked':''}> إظهار جميع المحادثات الخاصة للإدارة</label>
+   <label class="check" style="margin:0"><input type="checkbox" name="adminMonitorAll" ${cfg.adminMonitorAll!==false?'checked':''}> إظهار جميع محادثات المشرفين الخاصة للإدارة</label>
   </div>
-  <div class="inline" style="gap:6px">
-   <button class="btn small" type="submit">💾 حفظ الضبط</button>
-   <button class="btn small secondary" type="button" data-action="navigate" data-id="users">👥 صلاحيات الدردشة لكل مستخدم</button>
-  </div>
+  <button class="btn small" type="submit">💾 حفظ صلاحيات دردشة المشرفين</button>
  </form>` : ''}
 
  <div id="wa-staff-active-calls-bar"></div>
@@ -6689,10 +6072,10 @@ function staffChatView(){
  <div class="wa-shell ${isAdmin?'wa-large-admin':''}">
   <aside class="wa-sidebar">
    <div class="wa-sidebar-head">
-    <strong style="color:#fef08a;font-size:13.5px">🟢 المتصلون المسموح الدردشة والاتصال معهم</strong>
+    <strong style="color:#fef08a;font-size:13.5px">🟢 المشرفون والإدارة (اختر مشرفاً للدردشة الخاصة أو المكالمة)</strong>
    </div>
    <div id="wa-staff-online-list" class="wa-chat-list" style="padding:10px;display:grid;gap:8px">
-    <p class="hint" style="text-align:center">جاري جلب قائمة المتصلين المصرح بهم...</p>
+    <p class="hint" style="text-align:center">جاري جلب قائمة المشرفين المتصلين...</p>
    </div>
   </aside>
 
@@ -6702,14 +6085,14 @@ function staffChatView(){
      <div style="display:flex;align-items:center;gap:10px">
       <span class="live-pulse"></span>
       <div>
-       <strong style="color:#fff;font-size:15px">${peer ? `🔒 دردشة ومكالمة خاصة مع: ${esc(peer.name)}` : (isAdmin || isSup ? '👑 القناة الرسمية المباشرة (الإدارة ⇄ المشرفين)' : '👑 دردشة خاصة مباشرة مع الإدارة العليا')}</strong>
-       <div style="font-size:11.5px;color:#cbd5e1">${peer ? 'محادثة خاصة مباشرة تدعم الرسائل والصور والصوت ومكالمات واتساب' : 'تشفير كامل · دعم الصور والرسائل الصوتية والمكالمات المباشرة'}</div>
+       <strong style="color:#fff;font-size:15px">${peer ? `🔒 دردشة ومكالمة خاصة مع: ${esc(peer.name)}` : '👑 القناة الرسمية المباشرة (الإدارة ⇄ المشرفين)'}</strong>
+       <div style="font-size:11.5px;color:#cbd5e1">${peer ? 'محادثة مشرفين خاصة (تظهر للإدارة وفق الصلاحيات) · تدعم الصوت والفيديو' : 'تشفير كامل · دعم الصور والرسائل الصوتية والمكالمات المباشرة'}</div>
       </div>
      </div>
      <div class="inline" style="gap:6px">
-      ${peer && (isAdmin || isSup) ? `<button type="button" class="btn small ghost" data-action="select-staff-private-peer" data-id="">🌐 القناة العامة</button>` : ''}
-      ${canVoiceCall ? `<button type="button" class="btn small" style="background:#16a34a;color:#fff;font-weight:bold" data-action="start-staff-call" data-id="${esc(peer?.id||'')}" data-kind="voice">📞 اتصال صوتي</button>` : ''}
-      ${canVideoCall ? `<button type="button" class="btn small" style="background:#0284c7;color:#fff" data-action="start-staff-call" data-id="${esc(peer?.id||'')}" data-kind="video">🎥 اتصال فيديو</button>` : ''}
+      ${peer ? `<button type="button" class="btn small ghost" data-action="select-staff-private-peer" data-id="">🌐 العودة للقناة العامة</button>` : ''}
+      <button type="button" class="btn small secondary" data-action="start-staff-call" data-id="${esc(peer?.id||'')}" data-kind="voice">🎙️ اتصال صوتي</button>
+      <button type="button" class="btn small" style="background:#0284c7;color:#fff" data-action="start-staff-call" data-id="${esc(peer?.id||'')}" data-kind="video">🎥 اتصال فيديو</button>
      </div>
     </div>
    </div>
@@ -6719,11 +6102,11 @@ function staffChatView(){
    <div id="wa-staff-pending" style="padding:0 14px;background:#111b21"></div>
    <form class="wa-composer" data-form="staff-chat-send">
     <div class="wa-media-toolbar">
-     ${(isAdmin || uCfg.allowImages !== false) ? `<button type="button" class="wa-media-btn" data-action="staff-chat-attach-image" title="إرفاق صورة">📷</button>` : ''}
+     <button type="button" class="wa-media-btn" data-action="staff-chat-attach-image" title="إرفاق صورة">📷</button>
      <input id="wa-staff-img-input" type="file" accept="image/*" hidden>
-     ${(isAdmin || uCfg.allowVoiceNotes !== false) ? `<button type="button" id="wa-staff-mic-btn" class="wa-media-btn" data-action="staff-chat-record-audio" title="تسجيل رسالة صوتية">🎤</button>` : ''}
+     <button type="button" id="wa-staff-mic-btn" class="wa-media-btn" data-action="staff-chat-record-audio" title="تسجيل رسالة صوتية">🎤</button>
     </div>
-    <input name="message" type="text" maxlength="2000" autocomplete="off" ${(isAdmin || uCfg.allowText !== false) ? '' : 'disabled'} placeholder="${peer ? `اكتب رسالة خاصة إلى ${esc(peer.name)}...` : (isAdmin?'اكتب توجيهك أو رسالتك باسم الإدارة أو أرفق صورة/صوت...':'اكتب رسالتك الخاصة للإدارة أو أرفق صورة/صوت...')}">
+    <input name="message" type="text" maxlength="2000" autocomplete="off" placeholder="${peer ? `اكتب رسالة خاصة إلى ${esc(peer.name)}...` : (isAdmin?'اكتب توجيهك أو رسالتك باسم الإدارة أو أرفق صورة/صوت...':'اكتب رسالتك للإدارة والمشرفين أو أرفق صورة/صوت...')}">
     <button class="btn" type="submit" style="border-radius:22px;padding:10px 18px">➤ إرسال</button>
    </form>
   </section>
@@ -6761,12 +6144,10 @@ async function loadStaffChatMessages(){
   let msgs = [];
   let onlineList = [];
   let activeCalls = [];
-  let myCfg = user?.directChatConfig || dashboard?.myChatConfig || { allowVoiceCalls: true, allowVideoCalls: true, allowReplyQuote: true, allowDeleteOwnMessages: false, showOnlineStatus: true };
   if(!apiBase){
    const d = demoData();
    msgs = d.staffChats || [];
-   const allowedIds = new Set(myCfg.allowedPeerIds || []);
-   onlineList = (d.users||[]).filter(u => user.role === 'Admin' || u.id === user.id || u.role === 'Admin' || allowedIds.has(u.id) || (user.role === 'Supervisor' && u.role === 'Supervisor')).map(u => ({ id:u.id, name:u.name, role:u.role, isOnline:true, inChatNow:true, verifiedBadge:u.verifiedBadge||'fb-blue' }));
+   onlineList = (d.users||[]).filter(u => ['Admin','Supervisor'].includes(u.role)).map(u => ({ id:u.id, name:u.name, role:u.role, isOnline:true, inChatNow:true, verifiedBadge:u.verifiedBadge||'fb-blue' }));
    activeCalls = d.supervisorCalls || [];
   } else {
    const res = await request('/staff-chat');
@@ -6776,25 +6157,20 @@ async function loadStaffChatMessages(){
     onlineList = res.onlineParticipants || [];
     activeCalls = res.activeCalls || [];
     if(res.chatSettings) window._supChatSettings = res.chatSettings;
-    if(res.myChatConfig){ myCfg = res.myChatConfig; if(user) user.directChatConfig = myCfg; }
    }
-  }
-
-  if(activeCalls.length && typeof checkIncomingWhatsAppCalls === 'function'){
-   checkIncomingWhatsAppCalls(activeCalls);
   }
 
   const callsBar = document.getElementById('wa-staff-active-calls-bar');
   if(callsBar){
    callsBar.innerHTML = activeCalls.map(cl => `
-    <div class="panel" style="margin-bottom:12px;padding:12px 16px;background:linear-gradient(135deg,rgba(7,94,84,0.88),rgba(18,140,126,0.88));border:2px solid #4ade80;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+    <div class="panel" style="margin-bottom:12px;padding:10px 14px;background:rgba(2,132,199,0.2);border:1.5px solid #38bdf8;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
      <div>
-      <strong style="color:#fff;font-size:14px">${cl.callKind==='video'?'🎥 مكالمة فيديو جارية الآن':'📞 مكالمة صوتية واتساب جارية الآن'}: ${esc(cl.callerName)} ⇄ ${esc(cl.receiverName||'الإدارة')}</strong>
-      <small style="display:block;color:#bbf7d0">اضغط للرد أو فتح شاشة المكالمة المباشرة</small>
+      <strong style="color:#fff;font-size:13.5px">${cl.callKind==='video'?'🎥 مكالمة فيديو جارية الآن':'🎙️ مكالمة صوتية جارية الآن'}: ${esc(cl.callerName)} ⇄ ${esc(cl.receiverName||'جميع المشرفين')}</strong>
+      <small style="display:block;color:#7dd3fc">اضغط للانضمام أو الاستماع والمشاهدة المباشرة</small>
      </div>
      <div class="inline" style="gap:6px">
-      <button type="button" class="btn small" style="background:#22c55e;color:#fff;font-weight:bold" data-action="join-staff-call" data-id="${esc(cl.id)}">📞 رد / فتح المكالمة</button>
-      <button type="button" class="btn small danger" data-action="end-staff-call" data-id="${esc(cl.id)}">☎️ إنهاء</button>
+      <button type="button" class="btn small" style="background:#16a34a;color:#fff" data-action="join-staff-call" data-id="${esc(cl.id)}">📞 انضمام / فتح المكالمة</button>
+      <button type="button" class="btn small danger" data-action="end-staff-call" data-id="${esc(cl.id)}">⏹️ إنهاء</button>
      </div>
     </div>
    `).join('');
@@ -6805,7 +6181,6 @@ async function loadStaffChatMessages(){
   if(onlineEl){
    onlineEl.innerHTML = onlineList.map(p => {
     const isSelected = peer?.id === p.id;
-    const roleLabel = roles[p.role] || p.role;
     return `
     <div style="display:grid;gap:6px;padding:9px 10px;border-radius:12px;background:${isSelected?'rgba(212,175,55,0.18)':'rgba(255,255,255,0.04)'};border:1px solid ${isSelected?'#facc15':(p.inChatNow?'rgba(34,197,94,0.45)':'rgba(212,175,55,0.18)')}">
      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
@@ -6815,31 +6190,29 @@ async function loadStaffChatMessages(){
        </div>
        <div>
         <div style="font-size:12.5px;color:#fff;font-weight:bold;display:flex;align-items:center;gap:4px">
-         <span>${esc(p.role==='Admin' && user.role!=='Admin' ? '👑 الإدارة العليا ('+p.name+')' : p.name)}</span>
+         <span>${esc(p.name)}</span>
          ${verifiedBadgeIcon({ verifiedBadge:p.verifiedBadge, role:p.role, supervisorVerified:true }, 14)}
         </div>
-        ${myCfg.showOnlineStatus !== false ? `
         <small style="font-size:10.5px;color:${p.inChatNow?'#4ade80':p.isOnline?'#fef08a':'#94a3b8'}">
-         ${p.inChatNow ? '🟢 فاتح الدردشة الآن' : p.isOnline ? '🟢 متصل الآن' : '⚪ غير متصل'} · ${esc(roleLabel)}
-        </small>` : `<small style="font-size:10.5px;color:#cbd5e1">${esc(roleLabel)}</small>`}
+         ${p.inChatNow ? '🟢 فاتح الدردشة الآن' : p.isOnline ? '🟡 متصل بالتطبيق' : '⚪ غير متصل'}
+         ${p.deviceModel ? ' · 📱 ' + esc(p.deviceModel) : ''}
+        </small>
        </div>
       </div>
      </div>
      <div class="inline" style="gap:4px;flex-wrap:wrap">
       ${p.id !== user.id ? `
-       <button type="button" class="btn small ${isSelected?'':'secondary'}" style="font-size:10px;padding:3px 7px" data-action="select-staff-private-peer" data-id="${esc(p.id)}" data-name="${esc(p.name)}">💬 دردشة خاصة</button>
-       ${(user.role==='Admin' || myCfg.allowVoiceCalls!==false) ? `<button type="button" class="btn small" style="font-size:10px;padding:3px 8px;background:#16a34a;color:#fff" data-action="start-staff-call" data-id="${esc(p.id)}" data-kind="voice">📞 مكالمة صوتية</button>` : ''}
-       ${(user.role==='Admin' || myCfg.allowVideoCalls!==false) ? `<button type="button" class="btn small secondary" style="font-size:10px;padding:3px 7px" data-action="start-staff-call" data-id="${esc(p.id)}" data-kind="video">🎥 فيديو</button>` : ''}
-      ` : '<span class="badge Ready" style="font-size:10px">أنت (متصل)</span>'}
-      ${user?.role === 'Admin' && p.id !== user.id ? `
-       <button type="button" class="btn small ghost" style="font-size:10px;padding:3px 7px" data-action="user-chat-permissions-modal" data-id="${esc(p.id)}">⚙️ الصلاحيات</button>
-       <button type="button" class="btn small ghost" style="font-size:10px;padding:3px 7px" data-action="admin-live-user-support" data-id="${esc(p.id)}">🖥️ الشاشة</button>
+       <button type="button" class="btn small ${isSelected?'':'secondary'}" style="font-size:10px;padding:3px 7px" data-action="select-staff-private-peer" data-id="${esc(p.id)}" data-name="${esc(p.name)}">💬 خاص</button>
+       <button type="button" class="btn small secondary" style="font-size:10px;padding:3px 7px" data-action="start-staff-call" data-id="${esc(p.id)}" data-kind="voice">🎙️ صوت</button>
+       <button type="button" class="btn small secondary" style="font-size:10px;padding:3px 7px" data-action="start-staff-call" data-id="${esc(p.id)}" data-kind="video">🎥 فيديو</button>
       ` : ''}
+      ${user?.role === 'Admin' ? `<button type="button" class="btn small ghost" style="font-size:10px;padding:3px 7px" data-action="admin-live-user-support" data-id="${esc(p.id)}">🖥️ الشاشة</button>` : ''}
      </div>
     </div>`;
-   }).join('') || '<p class="hint" style="text-align:center">لا يوجد متصلون متاحون حالياً</p>';
+   }).join('') || '<p class="hint" style="text-align:center">لا يوجد مشرفون مسجلون</p>';
   }
 
+  // Filter messages if a private peer is selected (Admin sees all in general view, or filtered by peer when peer is selected)
   const filteredMsgs = peer
    ? msgs.filter(m => (m.senderId === user.id && m.receiverId === peer.id) || (m.senderId === peer.id && m.receiverId === user.id) || (user.role === 'Admin' && (m.senderId === peer.id || m.receiverId === peer.id)))
    : msgs;
@@ -6852,16 +6225,15 @@ async function loadStaffChatMessages(){
    const isMine = m.senderId === user.id || (user.role==='Admin' && m.senderRole==='Admin' && !m.receiverId);
    const isAdm = m.senderRole === 'Admin';
    const tStr = m.at ? new Date(m.at).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}) : '';
-   const privTag = m.receiverId ? `<span class="badge" style="background:rgba(245,158,11,0.22);color:#fde047;font-size:10px">🔒 خاص: ${esc(m.senderName)} ➔ ${esc(m.receiverName||'الإدارة')}</span>` : '';
-   const canDelete = user.role === 'Admin' || (m.senderId === user.id && myCfg.allowDeleteOwnMessages);
+   const privTag = m.receiverId ? `<span class="badge" style="background:rgba(245,158,11,0.22);color:#fde047;font-size:10px">🔒 خاص: ${esc(m.senderName)} ➔ ${esc(m.receiverName||'مشرف')}</span>` : '';
    return `
    <div class="wa-bubble-row ${isMine?'mine':'theirs'} ${isAdm?'admin-msg':''}">
     <div class="wa-bubble">
      <div class="wa-sender" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-      <span>${isAdm?'👑 الإدارة العليا':'👤 '+esc(m.senderName)} ${verifiedBadgeIcon({verifiedBadge:m.verifiedBadge||(isAdm?'crown-gold':'fb-blue')}, 14)} ${privTag}</span>
+      <span>${isAdm?'👑 الإدارة العليا':'🛡️ المشرف: '+esc(m.senderName)} ${verifiedBadgeIcon({verifiedBadge:m.verifiedBadge||(isAdm?'crown-gold':'fb-blue')}, 14)} ${privTag}</span>
       <span class="inline" style="gap:4px">
-       ${myCfg.allowReplyQuote !== false ? `<button type="button" style="background:none;border:none;color:#93c5fd;cursor:pointer;font-size:10.5px;padding:0 4px" data-action="staff-chat-reply-to" data-sender="${esc(isAdm?'الإدارة':m.senderName)}" data-text="${esc((m.message||'مرفق').slice(0,50))}">↩️ رد</button>` : ''}
-       ${canDelete ? `<button type="button" style="background:none;border:none;color:#fca5a5;cursor:pointer;font-size:10.5px;padding:0 4px" data-action="staff-chat-delete-msg" data-id="${esc(m.id)}">🗑️</button>` : ''}
+       <button type="button" style="background:none;border:none;color:#93c5fd;cursor:pointer;font-size:10.5px;padding:0 4px" data-action="staff-chat-reply-to" data-sender="${esc(isAdm?'الإدارة':m.senderName)}" data-text="${esc((m.message||'مرفق').slice(0,50))}">↩️ رد</button>
+       ${user.role==='Admin' ? `<button type="button" style="background:none;border:none;color:#fca5a5;cursor:pointer;font-size:10.5px;padding:0 4px" data-action="staff-chat-delete-msg" data-id="${esc(m.id)}">🗑️</button>` : ''}
       </span>
      </div>
      ${m.replyToName ? `<div style="background:rgba(0,0,0,0.28);border-right:3px solid #facc15;padding:4px 8px;border-radius:6px;font-size:11px;margin:4px 0;color:#cbd5e1"><b style="color:#fef08a">${esc(m.replyToName)}:</b> ${esc(m.replyToText||'')}</div>` : ''}
@@ -6871,7 +6243,7 @@ async function loadStaffChatMessages(){
      <div class="wa-meta"><span>${tStr}</span><span>✓✓</span></div>
     </div>
    </div>`;
-  }).join('') || `<div class="wa-bubble-row sys"><div class="wa-sys-pill">ابدأ المحادثة الخاصة أو اضغط على زر المكالمة الصوتية 📞 للتواصل الفوري</div></div>`;
+  }).join('') || `<div class="wa-bubble-row sys"><div class="wa-sys-pill">ابدأ المحادثة أو المكالمة المباشرة الآن</div></div>`;
   if(atBottom) feed.scrollTop = feed.scrollHeight;
  } catch(e){}
 }
@@ -7503,8 +6875,7 @@ async function adminDeviceLiveMicModal(deviceId){
 
    <div class="inline" style="justify-content:center;gap:10px">
     <button type="button" class="btn secondary" data-action="admin-open-device-live-mic" data-id="${esc(deviceId)}">🔄 تحديث البث الصوتي الآن</button>
-    <button type="button" id="admin-own-mic-toggle-btn" class="btn small ${window._adminOwnMicMuted?'danger':''}" data-action="toggle-admin-own-mic">${window._adminOwnMicMuted ? '🔇 مايك الإدارة: مغلق (اضغط للفتح)' : '🎙️ مايك الإدارة: مفتوح (اضغط للإغلاق)'}</button>
-    <button type="button" class="btn danger" data-action="stop-device-live-mic" data-id="${esc(deviceId)}">⏹️ إنهاء المكالمة وإغلاق</button>
+    <button type="button" class="btn danger" data-action="stop-device-live-mic" data-id="${esc(deviceId)}">⏹️ إيقاف المايك وإغلاق</button>
    </div>
   </div>
  `);
@@ -7868,6 +7239,13 @@ function autoStyleRotationModal(){
    <label>إضافة رابط صورة مخصصة لقائمة التدوير التلقائي (اختياري)
     <input name="newCustomImage" placeholder="https://images.unsplash.com/..." dir="ltr">
    </label>
+   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px;border-radius:12px;background:rgba(16,185,129,0.14);border:1px dashed #34d399">
+    <label class="btn small" style="margin:0;cursor:pointer;background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff">
+     📱 رفع صور خلفيات مباشرة من الجوال (متعدد)
+     <input type="file" id="auto-rotate-phone-imgs" accept="image/*" multiple hidden>
+    </label>
+    <small style="color:#a7f3d0;font-size:11px">تُضاف الصور المختارة فوراً إلى قائمة التدوير التلقائي</small>
+   </div>
 
    ${(cfg.customImages||[]).length ? `
     <div class="panel" style="padding:10px">
@@ -7921,118 +7299,27 @@ function startAutoStyleRotationEngine(){
 /* ========================================================
    Job Application Modal for Login & Home Job Ads (Req 7)
    ======================================================== */
-function buildJobApplicationFormFieldsHtml(b){
- const portal = getJobPortalConfig();
- const fields = (portal.customFields || []).filter(f => f.enabled !== false);
- const draftPhoto = window._jobDraftPhoto || '';
- const draftVideo = window._jobDraftFaceVideo || '';
-
- return `
-  <div style="padding:12px;border-radius:12px;background:rgba(37,99,235,0.16);border:1px solid #60a5fa;font-size:12.5px;color:#e2e8f0;line-height:1.7">
-   📌 <strong>القسم المتاح:</strong> ${esc(b.jobDepartment||portal.jobDepartment||'جميع الأقسام')}<br>
-   💰 <strong>المزايا والرواتب:</strong> ${esc(b.jobSalary||portal.jobSalary||'رواتب مجزية وحوافز يومية')} · ⏰ <strong>الدوام:</strong> ${esc(b.jobType||portal.jobType||'مرن')}
-  </div>
-  <input type="hidden" name="jobTitle" value="${esc(b.title || portal.portalTitle)}">
-  <div class="row">
-   <label>الاسم الكامل للمتقدم <span style="color:#fef08a">*</span><input name="fullName" value="${esc(user&&user.role!=='Guest'?user.name:'')}" required placeholder="أدخل اسمك الثلاثي أو الرباعي"></label>
-   <label>رقم الجوال للتواصل <span style="color:#fef08a">*</span><input name="phone" type="tel" required dir="ltr" placeholder="05xxxxxxxx"></label>
-  </div>
-  <label>المدينة / المنطقة السكنية<input name="city" placeholder="مثال: الرياض، بريدة، جدة، الخرطوم، القاهرة..."></label>
-
-  ${fields.map(cf => {
-   const reqMark = cf.required ? '<span style="color:#fef08a">*</span>' : '<small style="color:#94a3b8">(اختياري)</small>';
-   if(cf.type === 'select'){
-    return `<label>${esc(cf.label)} ${reqMark}
-     <select name="jobext_${esc(cf.id)}" ${cf.required?'required':''}>
-      <option value="">اختر...</option>
-      ${(cf.options||[]).map(op => `<option value="${esc(op)}">${esc(op)}</option>`).join('')}
-     </select>
-    </label>`;
-   }
-   if(cf.type === 'image'){
-    return `<div class="panel" style="padding:10px;display:grid;gap:6px">
-     <label style="margin:0">📷 ${esc(cf.label)} ${reqMark}</label>
-     <input type="file" accept="image/*" class="reg-media-file" data-field-id="jobext_${esc(cf.id)}" data-media-kind="image">
-     <input type="hidden" name="jobext_${esc(cf.id)}" id="reg-hidden-jobext_${esc(cf.id)}">
-     <div id="reg-preview-jobext_${esc(cf.id)}" style="font-size:11px;color:#94a3b8">لم يتم إرفاق الصورة بعد</div>
-    </div>`;
-   }
-   if(cf.type === 'video'){
-    return `<div class="panel" style="padding:10px;display:grid;gap:6px">
-     <label style="margin:0">🎥 ${esc(cf.label)} ${reqMark}</label>
-     <div class="inline" style="gap:8px;flex-wrap:wrap">
-      <button type="button" class="btn small" data-action="reg-record-face-video" data-id="jobext_${esc(cf.id)}">🎥 تسجيل بالكاميرا</button>
-      <label class="btn small secondary" style="margin:0;cursor:pointer">📁 رفع فيديو<input type="file" accept="video/*" class="reg-media-file" data-field-id="jobext_${esc(cf.id)}" data-media-kind="video" hidden></label>
-     </div>
-     <div id="reg-cam-box-jobext_${esc(cf.id)}"></div>
-     <input type="hidden" name="jobext_${esc(cf.id)}" id="reg-hidden-jobext_${esc(cf.id)}">
-     <div id="reg-preview-jobext_${esc(cf.id)}" style="font-size:11px;color:#94a3b8">لم يتم تسجيل الفيديو بعد</div>
-    </div>`;
-   }
-   if(cf.type === 'textarea'){
-    return `<label>${esc(cf.label)} ${reqMark}<textarea name="jobext_${esc(cf.id)}" rows="2" ${cf.required?'required':''} placeholder="${esc(cf.placeholder||'')}"></textarea></label>`;
-   }
-   return `<label>${esc(cf.label)} ${reqMark}<input name="jobext_${esc(cf.id)}" type="${esc(cf.type||'text')}" ${cf.required?'required':''} placeholder="${esc(cf.placeholder||'')}"></label>`;
-  }).join('')}
-
-  ${portal.requirePhoto !== false ? `
-  <div class="panel" style="padding:12px;border:1px solid rgba(212,175,55,0.35);display:grid;gap:8px">
-   <label style="margin:0;color:#fef08a;font-weight:bold">📷 إرفاق صورة الهوية أو السيرة الذاتية / الصورة الشخصية للمتقدم:</label>
-   <input type="file" accept="image/*" class="reg-media-file" data-field-id="jobphoto" data-media-kind="image">
-   <input type="hidden" name="photoData" id="reg-hidden-jobphoto" value="${esc(draftPhoto)}">
-   <div id="reg-preview-jobphoto" style="font-size:11.5px;color:#cbd5e1">
-    ${draftPhoto ? `<img src="${esc(draftPhoto)}" style="max-width:160px;max-height:120px;border-radius:10px;border:1px solid #d4af37">` : 'اختر صورة واضحة لإرفاقها مع ملف التقديم'}
-   </div>
-  </div>` : ''}
-
-  ${portal.requireFaceVideo !== false ? `
-  <div class="panel" style="padding:12px;border:1px solid rgba(56,189,248,0.45);display:grid;gap:8px">
-   <label style="margin:0;color:#7dd3fc;font-weight:bold">🎥 فيديو التحقق من الوجه لملف تقديم الوظائف (كاميرا مباشرة أو رفع فيديو):</label>
-   <div class="inline" style="gap:8px;flex-wrap:wrap">
-    <button type="button" class="btn small" data-action="reg-record-face-video" data-id="jobface">🎥 بدء تسجيل فيديو التحقق من الوجه بالكاميرا</button>
-    <label class="btn small secondary" style="margin:0;cursor:pointer">📁 أو رفع فيديو من الجهاز<input type="file" accept="video/*" class="reg-media-file" data-field-id="jobface" data-media-kind="video" hidden></label>
-   </div>
-   <div id="reg-cam-box-jobface"></div>
-   <input type="hidden" name="faceVideoData" id="reg-hidden-jobface" value="${esc(draftVideo)}">
-   <div id="reg-preview-jobface" style="font-size:11.5px;color:#cbd5e1">
-    ${draftVideo ? `<video controls playsinline src="${esc(draftVideo)}" style="max-width:220px;max-height:150px;border-radius:10px;border:1px solid #d4af37"></video>` : 'سجّل فيديو قصيراً للتحقق من الوجه بالكاميرا الأمامية أو ارفعه من جهازك'}
-   </div>
-  </div>` : ''}
-
-  <label>الخبرات السابقة وملاحظات المتقدم<textarea name="notes" rows="2" placeholder="اذكر خبراتك ومهاراتك باختصار..."></textarea></label>
- `;
-}
-
-function openJobApplyModal(bannerId, skipPrePopup = false){
- const jp = getJobPrePopupConfig();
- if(!skipPrePopup && jp.enabled){
-  modal(jp.title || '💼 تنبيه هام قبل التقديم على الوظيفة', `
-   <div class="stack" style="text-align:center">
-    <div style="font-size:44px">💼</div>
-    <div style="padding:14px;border-radius:14px;background:rgba(37,99,235,0.16);border:1.5px solid #60a5fa;color:#f8fafc;font-size:13.5px;line-height:1.8;white-space:pre-line">${esc(jp.message || 'يرجى إدخال بياناتك الصحيحة للتواصل معك.')}</div>
-    <div class="inline" style="justify-content:center;gap:10px;flex-wrap:wrap">
-     <button type="button" class="btn" style="background:linear-gradient(135deg,#facc15,#eab308);color:#031711;font-weight:800" data-action="proceed-job-apply-form" data-id="${esc(bannerId||'job')}">✅ متابعة إلى نموذج التقديم الآن</button>
-     <button type="button" class="btn secondary" data-action="close">إلغاء</button>
-    </div>
-   </div>
-  `);
-  return;
- }
- const portal = getJobPortalConfig();
+function openJobApplyModal(bannerId){
  const b = (Array.isArray(storeBanners) ? storeBanners : []).find(x => x.id === bannerId) || {
   id: bannerId || 'job',
-  title: portal.portalTitle || '💼 التقديم على الوظائف الشاغرة في المتجر',
-  jobDepartment: portal.jobDepartment || 'الإشراف، خدمة العملاء، والتوصيل السريع',
-  jobSalary: portal.jobSalary || 'راتب ثابت + عمولات فورية',
-  jobType: portal.jobType || 'دوام كامل / مرن'
+  title: '💼 التقديم على الوظائف الشاغرة في المتجر',
+  jobDepartment: 'الإشراف، خدمة العملاء، والتوصيل السريع',
+  jobSalary: 'راتب ثابت + عمولات فورية'
  };
- modal(`💼 ملف التقديم على الوظيفة والتحقق: ${esc(b.title)}`, `
-  <form class="form" data-form="submit-job-application" data-id="${esc(b.id)}" style="max-height:76vh;overflow-y:auto;padding-left:4px">
-   ${buildJobApplicationFormFieldsHtml(b)}
-   <div class="inline" style="gap:8px">
-    <button class="btn full" type="submit">📤 إرسال ملف التقديم وفيديو التحقق للإدارة الآن</button>
-    ${user ? `<button class="btn secondary" type="button" data-action="open-jobs-screen-from-modal">🖥️ فتح شاشة التوظيف الكاملة</button>` : ''}
+ modal(`💼 التقديم المباشر: ${esc(b.title)}`, `
+  <form class="form" data-form="submit-job-application" data-id="${esc(b.id)}">
+   <div style="padding:12px;border-radius:12px;background:rgba(37,99,235,0.16);border:1px solid #60a5fa;font-size:12.5px;color:#e2e8f0;line-height:1.7">
+    📌 <strong>القسم المتاح:</strong> ${esc(b.jobDepartment||'جميع الأقسام')}<br>
+    💰 <strong>المزايا والرواتب:</strong> ${esc(b.jobSalary||'رواتب مجزية وحوافز يومية')}
    </div>
+   <input type="hidden" name="jobTitle" value="${esc(b.title)}">
+   <div class="row">
+    <label>الاسم الكامل للمتقدم *<input name="fullName" value="${esc(user&&user.role!=='Guest'?user.name:'')}" required placeholder="أدخل اسمك الثلاثي"></label>
+    <label>رقم الجوال للتواصل *<input name="phone" type="tel" required dir="ltr" placeholder="05xxxxxxxx"></label>
+   </div>
+   <label>المدينة / المنطقة السكنية<input name="city" placeholder="مثال: الرياض، جدة، القاهرة، الخرطوم..."></label>
+   <label>الخبرات السابقة أو الوظيفة المرغوبة<textarea name="notes" rows="3" placeholder="اذكر الوظيفة المرغوبة (مشرف، دعم فني، مندوب توصيل) وخبراتك المختصرة..."></textarea></label>
+   <button class="btn full" type="submit">📤 إرسال طلب التوظيف للإدارة الآن</button>
   </form>
  `);
 }
@@ -8137,13 +7424,18 @@ function applyUnifiedPublicConfig(d){
  if(d.guestButtonLabel){ config.guestButtonLabel = d.guestButtonLabel; if(dashboard) dashboard.guestButtonLabel = d.guestButtonLabel; }
  if(d.appearance){ storeAppearance = { ...defaultAppearance, ...d.appearance }; paintAppearance(); }
  if(d.designs && typeof d.designs === 'object'){ interfaceDesigns = d.designs; if(typeof paintInterface === 'function') paintInterface(); }
- if(d.maintenance){ window.storeMaintenance = d.maintenance; localStorage.setItem('ts-maintenance', JSON.stringify(d.maintenance)); if(dashboard) dashboard.maintenance = d.maintenance; }
- if(d.backgroundMusic){ window.storeMusicConfig = d.backgroundMusic; localStorage.setItem('ts-bg-music', JSON.stringify(d.backgroundMusic)); if(dashboard) dashboard.backgroundMusic = d.backgroundMusic; if(typeof syncStoreBackgroundMusicForPage === 'function') syncStoreBackgroundMusicForPage(); }
- if(d.adMotion){ window.storeAdMotion = d.adMotion; localStorage.setItem('ts-ad-motion', JSON.stringify(d.adMotion)); if(dashboard) dashboard.adMotion = d.adMotion; startLoginAdTimer(); }
- if(d.floatingShapes){ window.storeFloatingShapes = d.floatingShapes; localStorage.setItem('ts-floating-shapes', JSON.stringify(d.floatingShapes)); if(dashboard) dashboard.floatingShapes = d.floatingShapes; if(typeof syncFloatingShapesForPage === 'function') syncFloatingShapesForPage(); }
- if(d.jobPortal){ window.storeJobPortal = d.jobPortal; localStorage.setItem('ts-job-portal', JSON.stringify(d.jobPortal)); if(dashboard) dashboard.jobPortal = d.jobPortal; }
  if(Array.isArray(d.banners)){ storeBanners = d.banners; }
  if(Array.isArray(d.categories) && d.categories.length){ storeCategories = [...new Set([...d.categories, ...defaultCoreCategories])]; }
+ if(d.notificationCenter){
+  window._ncSettingsCache = d.notificationCenter;
+  if(d.notificationCenter.customToneData) localStorage.setItem('ts-custom-chime-data', d.notificationCenter.customToneData);
+  if(d.notificationCenter.customToneName) localStorage.setItem('ts-custom-chime-name', d.notificationCenter.customToneName);
+  if(typeof syncPhoneBackgroundAudio === 'function') syncPhoneBackgroundAudio();
+ }
+ if(d.appUpdateVersion){
+  window._currentServerAppVersion = d.appUpdateVersion;
+  checkAndShowAppUpdatePrompt(d.appUpdateVersion, d.appUpdateRequest);
+ }
 }
 
 async function syncPublicConfigAndAutoHeal(){
@@ -8159,12 +7451,10 @@ async function syncPublicConfigAndAutoHeal(){
    } else {
     applyUnifiedPublicConfig(d);
    }
-    if(!user){
-     const maint = typeof getMaintenanceConfig === 'function' ? getMaintenanceConfig() : { enabled: false };
-     if(maint.enabled && !window._adminBypassMaintenanceLogin){ renderMaintenanceScreen(); return; }
-     const adsBox = document.getElementById('login-ads-container');
-     if(adsBox && !document.getElementById('login-ad-stage')) adsBox.innerHTML = renderLoginAdsCarousel();
-    } else {
+   if(!user){
+    const adsBox = document.getElementById('login-ads-container');
+    if(adsBox) adsBox.innerHTML = renderLoginAdsCarousel();
+   } else {
     render(true);
    }
   }
@@ -8187,12 +7477,9 @@ setInterval(async () => {
     window._lastKnownSyncVersion = delta.serverSyncVersion;
     syncPublicConfigAndAutoHeal().catch(()=>{});
    }
-   if(delta.myChatConfig && user){
-    user.directChatConfig = delta.myChatConfig;
-    if(dashboard) dashboard.myChatConfig = delta.myChatConfig;
-   }
-   if(Array.isArray(delta.incomingCalls) && typeof checkIncomingWhatsAppCalls === 'function'){
-    checkIncomingWhatsAppCalls(delta.incomingCalls);
+   if(delta.appUpdateVersion){
+    window._currentServerAppVersion = delta.appUpdateVersion;
+    checkAndShowAppUpdatePrompt(delta.appUpdateVersion, delta.appUpdateRequest);
    }
    if(page === 'staffchat' && delta.staffChatDelta){
     loadStaffChatMessages().catch(()=>{});
@@ -8447,1654 +7734,107 @@ async function forceUpdateInstalledPwaIcon(){
 
 
 /* ============================================================================
-   MODULE A (Req 1): Dedicated Job Applications & Face Video Verification Screen
+   App Update Broadcast & Direct Update From Message (Req 3)
    ============================================================================ */
-async function saveJobPortalConfig(cfg){
- window.storeJobPortal = cfg;
- if(dashboard) dashboard.jobPortal = cfg;
- localStorage.setItem('ts-job-portal', JSON.stringify(cfg));
- (storeBanners || []).forEach(b => {
-  if(b.bannerKind === 'job' || (b.title||'').includes('وظيف') || (b.title||'').includes('توظيف')){
-   b.active = cfg.showJobAd !== false;
-  }
- });
- if(apiBase && user?.role === 'Admin'){
-  await request('/admin/job-portal', 'PUT', cfg).catch(()=>{});
-  saveAdminLocalCloudSnapshot();
- }
-}
-
-async function toggleJobAdsVisibility(){
- const cfg = getJobPortalConfig();
- cfg.showJobAd = cfg.showJobAd === false ? true : false;
- await saveJobPortalConfig(cfg);
- if(document.getElementById('modal')?.open && typeof bannersManager === 'function'){
-  await bannersManager();
- }
- render();
- toast(cfg.showJobAd ? '👁️ تم إظهار إعلان الوظائف في صفحة الدخول والمتجر' : '🙈 تم إخفاء إعلان الوظائف من المتجر');
-}
-
-function newJobFieldModal(){
- modal('➕ إضافة خانة إضافية أو صورة أو فيديو تحقق لملف التوظيف', `
-  <form class="form" data-form="add-job-custom-field">
-   <label>عنوان الخانة الجديدة *
-    <input name="label" required placeholder="مثال: رقم الهوية، صورة المؤهل، أو فيديو تعريفي...">
+function openAppUpdateBroadcastModal(){
+ const curVer = Number(window._currentServerAppVersion || dashboard?.appUpdateVersion || 1);
+ modal('📲 إرسال طلب تحديث كامل للتطبيقات المثبتة', `
+  <form class="form" data-form="broadcast-app-update">
+   <div style="padding:12px 14px;border-radius:12px;background:rgba(16,185,129,0.14);border:1px solid #34d399;font-size:12.5px;color:#d1fae5;line-height:1.7">
+    عند إرسال طلب التحديث، ستظهر رسالة فورية على جميع التطبيقات المثبتة والمتصفحات تتيح للمستخدم الضغط على <b>«تحديث التطبيق الآن»</b> مباشرة من داخل الرسالة لتحميل النسخة والبيانات الجديدة من السيرفر.
+   </div>
+   <div style="font-size:12.5px;color:#fef08a">الإصدار الحالي على السيرفر: <b>v${curVer}</b> ➔ سيتم الترقية إلى: <b>v${curVer + 1}</b></div>
+   <label>عنوان رسالة التحديث *
+    <input name="title" required value="📲 يتوفر تحديث جديد للمتجر (الإصدار v${curVer + 1})">
    </label>
-   <div class="row">
-    <label>نوع الخانة
-     <select name="type">
-      <option value="text">📝 نص عادي (Text)</option>
-      <option value="tel">📞 رقم هاتف / رقمي (Number/Phone)</option>
-      <option value="select">📋 قائمة خيارات منسدلة (Dropdown)</option>
-      <option value="textarea">📄 فقرة نصية تفصيلية (Textarea)</option>
-      <option value="image">📷 إرفاق صورة (Image Upload)</option>
-      <option value="video">🎥 تسجيل/رفع فيديو تحقق (Video Verification)</option>
-     </select>
-    </label>
-    <label>نص توضيحي داخل الحقل (Placeholder)
-     <input name="placeholder" placeholder="مثال: أدخل البيانات هنا...">
-    </label>
-   </div>
-   <label>الخيارات (في حال اختيار قائمة منسدلة — افصل بينها بفاصلة)
-    <input name="options" placeholder="مثال: دوام صباحي، دوام مسائي، عمل عن بعد">
+   <label>نص رسالة طلب التحديث *
+    <textarea name="message" rows="3" required>تم تحديث المتجر وإضافة بيانات ومزايا جديدة على السيرفر. اضغط على زر التحديث أدناه لتحديث التطبيق والبيانات الآن مباشرة.</textarea>
    </label>
-   <label class="check">
-    <input type="checkbox" name="required" checked> <strong>خانة إلزامية (Required)</strong>
-   </label>
-   <button class="btn full" type="submit">💾 إضافة الخانة إلى شاشة التوظيف فوراً</button>
-  </form>
- `);
-}
-
-function jobsPortalView(){
- const isAdminOrSup = user && ['Admin', 'Supervisor'].includes(user.role);
- const cfg = getJobPortalConfig();
- const apps = dashboard?.jobApplications || (demoData().jobApplications || []);
- const fields = cfg.customFields || [];
-
- return `
- <div class="section-head">
-  <div>
-   <h1>💼 ${esc(cfg.portalTitle || 'شاشة التوظيف والتقديم على الوظائف وفيديو التحقق من الوجه')}</h1>
-   <p>${esc(cfg.portalSubtitle || 'بوابة موحدة لإدارة إعلانات الوظائف، تخصيص حقول التقديم، وإرفاق الصور وفيديو التحقق من الوجه')}</p>
-  </div>
-  <div class="inline" style="gap:8px;flex-wrap:wrap">
-   ${isAdminOrSup ? `
-    <button type="button" class="btn ${cfg.showJobAd!==false?'danger':'secondary'}" data-action="toggle-job-ads-visibility">
-     ${cfg.showJobAd !== false ? '🙈 إخفاء إعلان الوظائف من المتجر' : '👁️ إظهار إعلان الوظائف في المتجر'}
-    </button>
-    <button type="button" class="btn" data-action="new-job-field-modal">➕ إضافة خانة / صورة / فيديو لملف التقديم</button>
-    <button type="button" class="btn secondary" data-action="new-job-banner">📢 تحرير بانر إعلان الوظيفة</button>
-   ` : ''}
-  </div>
- </div>
-
- ${isAdminOrSup ? `
- <div class="dashboard-grid" style="margin-bottom:20px">
-  <form class="panel form" data-form="save-job-portal-settings" style="border:1.5px solid rgba(212,175,55,0.45)">
-   <h3 style="margin:0 0 8px;color:#fef08a">⚙️ إعدادات إعلان الوظائف ومتطلبات التحقق (للإدارة):</h3>
-   <div class="row">
-    <label>عنوان بوابة التوظيف<input name="portalTitle" value="${esc(cfg.portalTitle)}"></label>
-    <label>الأقسام المتاحة للتوظيف<input name="jobDepartment" value="${esc(cfg.jobDepartment)}"></label>
-   </div>
-   <div class="row">
-    <label>الرواتب والمزايا المعروضة<input name="jobSalary" value="${esc(cfg.jobSalary)}"></label>
-    <label>نوع الدوام<input name="jobType" value="${esc(cfg.jobType)}"></label>
-   </div>
-   <label>الوصف الترحيبي لبوابة التوظيف<input name="portalSubtitle" value="${esc(cfg.portalSubtitle)}"></label>
-   <div style="display:flex;gap:14px;flex-wrap:wrap;margin:6px 0">
-    <label class="check"><input type="checkbox" name="showJobAd" ${cfg.showJobAd!==false?'checked':''}> 👁️ إظهار إعلان الوظائف للزوار والعملاء</label>
-    <label class="check"><input type="checkbox" name="requirePhoto" ${cfg.requirePhoto!==false?'checked':''}> 📷 تفعيل خانة رفع صورة الهوية/السيرة</label>
-    <label class="check"><input type="checkbox" name="requireFaceVideo" ${cfg.requireFaceVideo!==false?'checked':''}> 🎥 تفعيل خانة فيديو التحقق من الوجه بالكاميرا</label>
-   </div>
-   <button class="btn small full" type="submit">💾 حفظ إعدادات بوابة التوظيف</button>
-  </form>
-
-  <div class="panel" style="border:1.5px solid rgba(56,189,248,0.4)">
-   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-    <h3 style="margin:0;color:#7dd3fc">📋 الخانات الإضافية المخصصة لملف التقديم (${fields.length}):</h3>
-    <button type="button" class="btn small" data-action="new-job-field-modal">➕ إضافة خانة</button>
-   </div>
-   <div style="display:grid;gap:8px;max-height:260px;overflow-y:auto">
-    ${fields.map(f => `
-     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(212,175,55,0.22)">
-      <div>
-       <strong style="color:#fff;font-size:13px">${esc(f.label)}</strong>
-       <small style="display:block;color:#94a3b8;font-size:11px">النوع: ${f.type==='image'?'📷 صورة':f.type==='video'?'🎥 فيديو تحقق':f.type==='select'?'📋 قائمة':f.type} · ${f.required?'إلزامي *':'اختياري'}</small>
-      </div>
-      <div class="inline" style="gap:4px">
-       <button type="button" class="btn small ${f.enabled!==false?'':'secondary'}" style="padding:3px 7px;font-size:10.5px" data-action="toggle-job-field-enabled" data-id="${esc(f.id)}">${f.enabled!==false?'مفعل ✓':'معطل'}</button>
-       <button type="button" class="btn small secondary" style="padding:3px 7px;font-size:10.5px" data-action="toggle-job-field-required" data-id="${esc(f.id)}">${f.required?'إلزامي':'اختياري'}</button>
-       <button type="button" class="btn small danger" style="padding:3px 7px;font-size:10.5px" data-action="delete-job-field" data-id="${esc(f.id)}">🗑️</button>
-      </div>
-     </div>
-    `).join('') || '<p class="hint">لا توجد خانات إضافية. اضغط «إضافة خانة» لإضافة حقول جديدة.</p>'}
-   </div>
-  </div>
- </div>
-
- <div class="panel" style="margin-bottom:22px;border:1.5px solid rgba(34,197,94,0.45)">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-   <h2 style="margin:0;color:#4ade80;font-size:16.5px">📥 طلبات التوظيف المستلمة مع الصور وفيديوهات التحقق من الوجه (${apps.length}):</h2>
-   <span class="badge Ready">${apps.filter(a=>a.status==='Approved').length} مقبول · ${apps.filter(a=>a.status==='Pending').length} قيد المراجعة</span>
-  </div>
-  ${apps.length ? `
-   <div style="display:grid;gap:14px">
-    ${apps.map(a => `
-     <article class="order" style="background:rgba(4,25,19,0.9);border:1px solid rgba(212,175,55,0.35);padding:16px">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
-       <div>
-        <h3 style="margin:0;color:#fff;font-size:15.5px">👤 ${esc(a.fullName)} <span class="badge ${a.status==='Approved'?'Ready':a.status==='Rejected'?'Cancelled':''}" style="font-size:10.5px">${a.status==='Approved'?'✅ مقبول':a.status==='Rejected'?'❌ مرفوض':'⏳ قيد المراجعة'}</span></h3>
-        <div style="font-size:12px;color:#cbd5e1;margin-top:4px">
-         📞 الجوال: <b dir="ltr" style="color:#fef08a">${esc(a.phone)}</b> · 🏙️ المدينة: <b>${esc(a.city||'-')}</b> · 💼 الوظيفة: <b>${esc(a.jobTitle)}</b>
-        </div>
-        ${a.notes ? `<p style="font-size:12px;color:#e2e8f0;margin:6px 0 0">📝 الملاحظات والخبرة: ${esc(a.notes)}</p>` : ''}
-        ${a.extraFields && Object.keys(a.extraFields).length ? `
-         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.04);font-size:11.5px">
-          ${Object.entries(a.extraFields).map(([k, v]) => {
-           const flbl = fields.find(x => x.id === k)?.label || k;
-           if(String(v).startsWith('data:image/')) return `<div><b style="color:#fef08a">${esc(flbl)}:</b><br><img src="${esc(v)}" style="max-width:120px;max-height:90px;border-radius:8px;margin-top:4px"></div>`;
-           if(String(v).startsWith('data:video/')) return `<div><b style="color:#7dd3fc">${esc(flbl)}:</b><br><video controls playsinline src="${esc(v)}" style="max-width:180px;max-height:120px;border-radius:8px;margin-top:4px"></video></div>`;
-           return `<span><b style="color:#fef08a">${esc(flbl)}:</b> ${esc(v)}</span>`;
-          }).join('')}
-         </div>
-        ` : ''}
-       </div>
-       <div class="inline" style="gap:6px">
-        <button type="button" class="btn small" style="background:#16a34a;color:#fff" data-action="set-job-app-status" data-id="${esc(a.id)}" data-status="Approved">✅ قبول</button>
-        <button type="button" class="btn small secondary" data-action="set-job-app-status" data-id="${esc(a.id)}" data-status="Rejected">❌ اعتذار</button>
-        <button type="button" class="btn small danger" data-action="delete-job-app" data-id="${esc(a.id)}">🗑️ حذف</button>
-       </div>
-      </div>
-      ${(a.photoData || a.faceVideoData) ? `
-       <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px dashed rgba(212,175,55,0.25)">
-        ${a.photoData ? `
-         <div>
-          <small style="display:block;color:#fef08a;margin-bottom:4px">📷 الصورة المرفقة للمتقدم:</small>
-          <img src="${esc(a.photoData)}" data-action="preview-support-image" data-id="${esc(a.photoData)}" style="max-width:180px;max-height:140px;border-radius:10px;border:1.5px solid #d4af37;cursor:zoom-in">
-         </div>` : ''}
-        ${a.faceVideoData ? `
-         <div>
-          <small style="display:block;color:#7dd3fc;margin-bottom:4px">🎥 فيديو التحقق من الوجه للمتقدم:</small>
-          <video controls playsinline src="${esc(a.faceVideoData)}" style="width:240px;max-height:150px;border-radius:10px;border:1.5px solid #38bdf8;background:#000"></video>
-         </div>` : ''}
-       </div>` : ''}
-     </article>
-    `).join('')}
-   </div>
-  ` : '<p class="hint">لا توجد طلبات توظيف مستلمة حتى الآن. يمكنك تجربة النموذج أدناه.</p>'}
- </div>
- ` : ''}
-
- <div class="panel" style="max-width:760px;margin:0 auto;border:1.5px solid rgba(212,175,55,0.45)">
-  <h2 style="margin:0 0 12px;color:#fef08a">📝 نموذج تقديم طلب التوظيف وإرفاق الصورة وفيديو التحقق من الوجه:</h2>
-  <form class="form" data-form="submit-job-application" data-id="job">
-   ${buildJobApplicationFormFieldsHtml({ id:'job', title:cfg.portalTitle, jobDepartment:cfg.jobDepartment, jobSalary:cfg.jobSalary, jobType:cfg.jobType })}
-   <button class="btn full" type="submit" style="font-size:15px;padding:13px">📤 إرسال ملف التقديم وفيديو التحقق إلى الإدارة الآن</button>
-  </form>
- </div>
- `;
-}
-
-/* ============================================================================
-   MODULE B (Req 2): Store Maintenance Mode & Animated JavaScript Visual Screen
-   ============================================================================ */
-function getMaintenanceConfig(){
- if(dashboard?.maintenance) return dashboard.maintenance;
- if(window.storeMaintenance) return window.storeMaintenance;
- try {
-  const s = localStorage.getItem('ts-maintenance');
-  if(s) return JSON.parse(s);
- } catch(e){}
- return {
-  enabled: false,
-  title: 'المتجر تحت الصيانة والتطوير حالياً',
-  subtitle: 'نعمل حالياً على تحديث المتجر وإضافة مزايا ومنتجات ملكية جديدة.. سنعود لخدمتكم قريباً بإذن الله.',
-  expectedReturn: 'قريباً جداً خلال ساعات',
-  animationStyle: 'royal-gears',
-  contactPhone: ''
- };
-}
-
-async function saveMaintenanceConfig(cfg){
- window.storeMaintenance = cfg;
- if(dashboard) dashboard.maintenance = cfg;
- localStorage.setItem('ts-maintenance', JSON.stringify(cfg));
- if(apiBase && user?.role === 'Admin'){
-  await request('/admin/maintenance', 'PUT', cfg).catch(()=>{});
-  saveAdminLocalCloudSnapshot();
- }
-}
-
-function maintenanceSettingsModal(){
- const cfg = getMaintenanceConfig();
- modal('🛠️ لوحة إغلاق المتجر ورسالة الصيانة المتحركة (JavaScript Motion)', `
-  <form class="form" data-form="save-maintenance-settings">
-   <div style="padding:12px;border-radius:12px;background:rgba(212,175,55,0.12);border:1px solid rgba(212,175,55,0.4);font-size:12.5px;color:#fef08a;line-height:1.7">
-    عند تفعيل إغلاق المتجر للصيانة، ستظهر للزوار والعملاء شاشة احترافية فاخرة مع <b>صورة جافا متحركة تفاعلية</b> بينما يظل المتجر مفتوحاً بالكامل لحساب الإدارة العليا.
-   </div>
-   <label class="check" style="padding:10px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);border-radius:10px">
-    <input type="checkbox" name="enabled" ${cfg.enabled?'checked':''}>
-    <strong style="color:#fca5a5">🔒 إغلاق المتجر الآن وإظهار شاشة «المتجر تحت الصيانة» للزوار والعملاء</strong>
-   </label>
-   <label>عنوان رسالة الصيانة الرئيسي
-    <input name="title" value="${esc(cfg.title)}" required placeholder="المتجر تحت الصيانة والتطوير حالياً">
-   </label>
-   <label>نص رسالة الصيانة التفصيلي
-    <textarea name="subtitle" rows="3" required>${esc(cfg.subtitle)}</textarea>
-   </label>
-   <div class="row">
-    <label>الوقت المتوقع للعودة
-     <input name="expectedReturn" value="${esc(cfg.expectedReturn)}" placeholder="مثال: سنعود خلال ساعتين">
-    </label>
-    <label>نوع الصورة الجافا المتحركة (JavaScript Animation)
-     <select name="animationStyle">
-      <option value="royal-gears" ${cfg.animationStyle==='royal-gears'?'selected':''}>⚙️ تروس ملكية ذهبية متحركة وجزيئات مضيئة</option>
-      <option value="golden-orbit" ${cfg.animationStyle==='golden-orbit'?'selected':''}>🪐 مدار ذهبي ثلاثي الأبعاد ونبض زمردي</option>
-      <option value="emerald-wave" ${cfg.animationStyle==='emerald-wave'?'selected':''}>🌊 أمواج زمردية متحركة وشعار نابض</option>
-     </select>
-    </label>
-   </div>
-   <label>رقم التواصل أو الواتساب للطوارئ أثناء الصيانة (اختياري)
-    <input name="contactPhone" value="${esc(cfg.contactPhone||'')}" dir="ltr" placeholder="9665xxxxxxxx">
-   </label>
-   <button class="btn full" type="submit">💾 حفظ وتطبيق حالة صيانة المتجر فوراً</button>
-  </form>
- `);
-}
-
-let _maintAnimFrame = null;
-function renderMaintenanceScreen(){
- const cfg = getMaintenanceConfig();
- $('#app').innerHTML = `
-  <div class="vip-maintenance-screen">
-   <canvas id="vip-maint-canvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1"></canvas>
-   <div class="vip-maintenance-card">
-    <div style="width:110px;height:110px;margin:0 auto 18px;border-radius:50%;background:radial-gradient(circle,rgba(212,175,55,0.28),rgba(6,78,59,0.9));border:2.5px solid #facc15;display:grid;place-items:center;box-shadow:0 0 35px rgba(250,204,21,0.35)">
-     <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#facc15" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="animation:spinGear 9s linear infinite">
-      <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-     </svg>
-    </div>
-    <span class="badge" style="background:var(--vip-gold-gradient);color:#031711;font-weight:800;font-size:12px;padding:5px 14px;margin-bottom:12px;display:inline-block">✨ ${esc(storeAppearance?.storeName || 'التسوق')} — تحديث وتطوير منظومة المتجر</span>
-    <h1 style="color:#ffffff;font-size:25px;margin:0 0 12px;line-height:1.4">${esc(cfg.title || 'المتجر تحت الصيانة والتطوير حالياً')}</h1>
-    <p style="color:#d1fae5;font-size:14.5px;line-height:1.8;margin:0 0 18px">${esc(cfg.subtitle)}</p>
-    <div style="padding:12px 16px;border-radius:14px;background:rgba(255,255,255,0.05);border:1px solid rgba(212,175,55,0.35);margin-bottom:18px;display:inline-flex;align-items:center;gap:10px;color:#fef08a;font-size:13px">
-     <span>⏱️ <b>العودة المتوقعة:</b> ${esc(cfg.expectedReturn || 'قريباً جداً')}</span>
-     ${cfg.contactPhone ? `<span>· 📞 <b dir="ltr">${esc(cfg.contactPhone)}</b></span>` : ''}
-    </div>
-    <div style="width:100%;height:7px;background:rgba(255,255,255,0.08);border-radius:999px;overflow:hidden;margin-bottom:22px">
-     <div style="width:68%;height:100%;background:linear-gradient(90deg,#10b981,#facc15,#10b981);border-radius:999px;animation:pulse 2s infinite"></div>
-    </div>
-    <div style="display:grid;gap:10px;max-width:380px;margin:0 auto">
-     <button type="button" class="btn full" style="background:linear-gradient(135deg,#d4af37,#b45309);color:#031711;font-weight:800;font-size:14px;padding:12px 18px;border:1.5px solid #fef08a;box-shadow:0 8px 24px rgba(212,175,55,0.35)" data-action="open-maintenance-admin-login">
-      👑 دخول خاص لحسابات الإدارة العليا فقط (الأدمن)
-     </button>
-     <button type="button" class="btn secondary small full" data-action="instant-refresh">🔄 تحديث الصفحة للتحقق من انتهاء الصيانة</button>
-    </div>
-   </div>
-  </div>
- `;
- startMaintenanceCanvasAnimation(cfg.animationStyle || 'royal-gears');
-}
-
-function maintenanceAdminLoginModal(){
- if(user && user.role !== 'Admin'){
-  token = ''; user = null;
-  sessionStorage.removeItem('ts-token'); localStorage.removeItem('ts-token');
- }
- modal('👑 بوابة الدخول الخاصة للإدارة العليا (الأدمن فقط)', `
-  <form class="form" data-form="login">
-   <input type="hidden" name="adminOnlyLogin" value="true">
-   <div style="padding:12px 14px;border-radius:12px;background:rgba(212,175,55,0.14);border:1.5px solid #facc15;font-size:12.5px;color:#fef08a;line-height:1.7;text-align:right">
-    🔒 <strong>بوابة محمية للإدارة العليا فقط:</strong><br>
-    المتجر مغلق حالياً للصيانة أمام جميع الزوار والعملاء والمشرفين. يُسمح بالدخول من هذه البوابة لحسابات <b>الإدارة العليا (الأدمن) فقط</b> للتحكم في المتجر أو إعادة فتحه.
-   </div>
-   <label>اسم مستخدم الأدمن أو البريد الإلكتروني *
-    <input name="email" type="text" required autocomplete="username" dir="auto" oninput="this.value=this.value.replace(/\s+/g,'')" placeholder="أدخل اسم مستخدم الأدمن (مثال: Ahmed)">
-   </label>
-   <label>كلمة مرور الإدارة العليا *
-    <input name="password" type="password" required minlength="4" maxlength="128" autocomplete="current-password" placeholder="أدخل كلمة مرور الأدمن">
-   </label>
-   <button class="btn full" type="submit" style="background:linear-gradient(135deg,#d4af37,#eab308);color:#031711;font-weight:800;font-size:14.5px;padding:12px">
-    👑 تسجيل دخول الإدارة العليا الآن
+   <button class="btn full" type="submit" style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff;font-weight:bold">
+    🚀 إرسال طلب التحديث لجميع التطبيقات المثبتة الآن
    </button>
-   <div class="form-error" hidden style="margin-top:8px;background:rgba(239,68,68,0.2);border:1px solid #ef4444;color:#fca5a5;padding:10px;border-radius:10px;font-size:12.5px"></div>
   </form>
  `);
 }
 
-function startMaintenanceCanvasAnimation(style){
- if(_maintAnimFrame) cancelAnimationFrame(_maintAnimFrame);
- const canvas = document.getElementById('vip-maint-canvas');
- if(!canvas) return;
- const ctx = canvas.getContext('2d');
- const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
- resize();
- const particles = Array.from({ length: 36 }, (_, i) => ({
-  x: Math.random() * canvas.width,
-  y: Math.random() * canvas.height,
-  r: 2 + Math.random() * 4.5,
-  vx: (Math.random() - 0.5) * 0.7,
-  vy: -0.3 - Math.random() * 0.7,
-  alpha: 0.25 + Math.random() * 0.55,
-  gold: i % 2 === 0
- }));
- let angle = 0;
- function drawGear(cx, cy, radius, teeth, rot, color){
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(rot);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  for(let i = 0; i < teeth * 2; i++){
-   const r = i % 2 === 0 ? radius : radius - 8;
-   const a = (i * Math.PI) / teeth;
-   const x = Math.cos(a) * r;
-   const y = Math.sin(a) * r;
-   if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-  }
-  ctx.closePath();
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(0, 0, radius * 0.42, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.restore();
- }
- function frame(){
-  if(!document.getElementById('vip-maint-canvas')) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  angle += 0.008;
-  drawGear(canvas.width * 0.18, canvas.height * 0.24, 58, 12, angle, 'rgba(212,175,55,0.22)');
-  drawGear(canvas.width * 0.18 + 82, canvas.height * 0.24 + 42, 38, 8, -angle * 1.5, 'rgba(16,185,129,0.24)');
-  drawGear(canvas.width * 0.82, canvas.height * 0.76, 66, 14, -angle * 0.9, 'rgba(212,175,55,0.2)');
-  for(const p of particles){
-   p.x += p.vx;
-   p.y += p.vy;
-   if(p.y < -10) p.y = canvas.height + 10;
-   if(p.x < -10) p.x = canvas.width + 10;
-   if(p.x > canvas.width + 10) p.x = -10;
-   ctx.beginPath();
-   ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-   ctx.fillStyle = p.gold ? `rgba(250,204,21,${p.alpha})` : `rgba(52,211,153,${p.alpha})`;
-   ctx.fill();
-  }
-  _maintAnimFrame = requestAnimationFrame(frame);
- }
- frame();
-}
-
-/* ============================================================================
-   MODULE C (Req 3): Admin-Only Background Music Studio
-   (Hafez Abdelrahman Sudanese Flute + Famous Saudi Celebrations & Women's Occasions)
-   ============================================================================ */
-const HAFEZ_SUDANESE_TRACKS = [
- { id:'hf_ayyam', title:'أيام (مقطوعة الناي الخالدة)', artist:'حافظ عبدالرحمن السوداني', cat:'hafez', tempo:92, scale:[293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25], tone:'flute-warm' },
- { id:'hf_haneen', title:'حنين الشوق والغربة (ناي شجي)', artist:'حافظ عبدالرحمن السوداني', cat:'hafez', tempo:84, scale:[261.63, 293.66, 349.23, 392.00, 440.00, 523.25, 587.33], tone:'flute-warm' },
- { id:'hf_nile', title:'ضفاف النيل عند الغروب', artist:'حافظ عبدالرحمن السوداني', cat:'hafez', tempo:96, scale:[329.63, 392.00, 440.00, 493.88, 587.33, 659.25], tone:'flute-warm' },
- { id:'hf_zikra', title:'الذكرى والرحيل (ناي سوداني أصيل)', artist:'حافظ عبدالرحمن السوداني', cat:'hafez', tempo:88, scale:[246.94, 293.66, 329.63, 392.00, 440.00, 493.88], tone:'flute-warm' },
- { id:'hf_khartoum', title:'نسائم الخرطوم الهادئة', artist:'حافظ عبدالرحمن السوداني', cat:'hafez', tempo:100, scale:[293.66, 349.23, 392.00, 440.00, 523.25, 659.25], tone:'flute-warm' },
- { id:'hf_mugran', title:'همس المقرن والنيلين', artist:'حافظ عبدالرحمن السوداني', cat:'hafez', tempo:90, scale:[261.63, 329.63, 392.00, 440.00, 523.25, 659.25], tone:'flute-warm' },
- { id:'hf_sahar', title:'سحر الطبيعة والأصالة', artist:'حافظ عبدالرحمن السوداني', cat:'hafez', tempo:94, scale:[349.23, 392.00, 440.00, 523.25, 587.33, 698.46], tone:'flute-warm' },
- { id:'hf_omdurman', title:'ليالي أم درمان التراثية', artist:'حافظ عبدالرحمن السوداني', cat:'hafez', tempo:104, scale:[293.66, 329.63, 392.00, 493.88, 587.33, 659.25], tone:'flute-warm' },
- { id:'hf_tayf', title:'طيف الأحبة (معزوفة المساء)', artist:'حافظ عبدالرحمن السوداني', cat:'hafez', tempo:86, scale:[261.63, 293.66, 329.63, 392.00, 440.00, 523.25], tone:'flute-warm' },
- { id:'hf_fajr', title:'إشراقة الفجر السوداني', artist:'حافظ عبدالرحمن السوداني', cat:'hafez', tempo:98, scale:[329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99], tone:'flute-warm' }
-];
-
-const SAUDI_CELEBRATION_TRACKS = [
- { id:'sa_zaffa_royal', title:'زفة العروس الملكية السعودية (مناسبات نسوية فاخرة)', artist:'الموسيقى السعودية للمناسبات النسوية', cat:'saudi-festive', tempo:126, scale:[329.63, 349.23, 415.30, 440.00, 493.88, 523.25, 659.25], tone:'daff-festive' },
- { id:'sa_layali_najd', title:'ليالي نجد الاحتفالية (أفراح ومناسبات نسوية)', artist:'الموسيقى السعودية للمناسبات النسوية', cat:'saudi-festive', tempo:132, scale:[293.66, 329.63, 370.00, 440.00, 493.88, 587.33], tone:'oud-royal' },
- { id:'sa_ardah_vip', title:'العرضة السعودية الملكية (احتفالات ومناسبات وطنية)', artist:'الاحتفالات السعودية الرسمية', cat:'saudi-festive', tempo:138, scale:[261.63, 293.66, 329.63, 392.00, 440.00, 523.25], tone:'daff-festive' },
- { id:'sa_samri_riyadh', title:'سامري الرياض الفاخر (جلسات ومناسبات نسوية)', artist:'تراث واحتفالات الرياض', cat:'saudi-festive', tempo:122, scale:[293.66, 349.23, 392.00, 440.00, 523.25, 587.33], tone:'oud-royal' },
- { id:'sa_khabiti_hijaz', title:'خبيتي الحجاز الاحتفالي البهيج (أفراح ومناسبات)', artist:'فنون واحتفالات الحجاز', cat:'saudi-festive', tempo:142, scale:[329.63, 392.00, 440.00, 493.88, 587.33, 659.25], tone:'daff-festive' },
- { id:'sa_princess_daff', title:'زفة الأميرات بالدفوف الراقية (مناسبات نسوية خاصة)', artist:'المناسبات النسوية السعودية', cat:'saudi-festive', tempo:128, scale:[349.23, 392.00, 440.00, 523.25, 587.33, 698.46], tone:'daff-festive' },
- { id:'sa_alula_oud', title:'أنغام العلا والدرعية الملكية (استقبال الضيوف)', artist:'مواسم واحتفالات السعودية', cat:'saudi-festive', tempo:116, scale:[293.66, 311.13, 370.00, 392.00, 440.00, 493.88, 587.33], tone:'oud-royal' },
- { id:'sa_eid_joy', title:'فرحة العيد والمواسم السعودية (إيقاع بهيج)', artist:'الاحتفالات السعودية', cat:'saudi-festive', tempo:136, scale:[261.63, 329.63, 392.00, 523.25, 659.25, 783.99], tone:'daff-festive' },
- { id:'sa_henna_night', title:'ليلة الحناء والتراث السعودي (مناسبات نسوية)', artist:'المناسبات النسوية السعودية', cat:'saudi-festive', tempo:124, scale:[293.66, 349.23, 440.00, 493.88, 587.33, 659.25], tone:'oud-royal' },
- { id:'sa_grad_march', title:'مسيرة النجاح والتخرج الملكية السعودية', artist:'احتفالات ومناسبات المملكة', cat:'saudi-festive', tempo:130, scale:[329.63, 392.00, 493.88, 523.25, 659.25, 783.99], tone:'daff-festive' }
-];
-
-function getAllMusicTracks(){
- const cfg = getMusicStudioConfig();
- return [...HAFEZ_SUDANESE_TRACKS, ...SAUDI_CELEBRATION_TRACKS, ...(cfg.customTracks || [])];
-}
-
-function getMusicStudioConfig(){
- if(dashboard?.backgroundMusic) return dashboard.backgroundMusic;
- if(window.storeMusicConfig) return window.storeMusicConfig;
- try {
-  const s = localStorage.getItem('ts-bg-music');
-  if(s) return JSON.parse(s);
- } catch(e){}
- return {
-  enabled: false,
-  volume: 45,
-  activeCategory: 'hafez',
-  activeTrackId: 'hf_ayyam',
-  toneType: 'flute-warm',
-  loopAll: true,
-  enabledPages: ['all', 'login', 'home', 'cart', 'orders', 'favorites', 'account', 'jobs'],
-  customTracks: []
- };
-}
-
-async function saveMusicStudioConfig(cfg){
- window.storeMusicConfig = cfg;
- if(dashboard) dashboard.backgroundMusic = cfg;
- localStorage.setItem('ts-bg-music', JSON.stringify(cfg));
- if(apiBase && user?.role === 'Admin'){
-  await request('/admin/background-music', 'PUT', cfg).catch(()=>{});
-  saveAdminLocalCloudSnapshot();
- }
-}
-
-let _bgMusicTimer = null;
-let _bgMusicAudioCtx = null;
-let _bgMusicHtmlAudio = null;
-let _bgMusicStepIdx = 0;
-
-function stopMusicEngine(){
- if(_bgMusicTimer){ clearInterval(_bgMusicTimer); _bgMusicTimer = null; }
- if(_bgMusicHtmlAudio){
-  try { _bgMusicHtmlAudio.pause(); _bgMusicHtmlAudio.currentTime = 0; } catch(e){}
- }
-}
-
-function startMusicEngineTrack(trackId){
- stopMusicEngine();
- const cfg = getMusicStudioConfig();
- if(!cfg.enabled) return;
- const all = getAllMusicTracks();
- const tr = all.find(x => x.id === (trackId || cfg.activeTrackId)) || all[0];
- if(!tr) return;
-
- const vol = Math.max(0.02, Math.min(1, (cfg.volume ?? 45) / 100));
- if(tr.audioUrl){
-  try {
-   if(!_bgMusicHtmlAudio) _bgMusicHtmlAudio = new Audio();
-   _bgMusicHtmlAudio.src = tr.audioUrl;
-   _bgMusicHtmlAudio.loop = cfg.loopAll !== false;
-   _bgMusicHtmlAudio.volume = vol;
-   _bgMusicHtmlAudio.play().catch(()=>{});
-   return;
-  } catch(e){}
- }
-
- // Rich Procedural Sudanese Flute / Saudi Oud & Festive Daff Synthesizer
- try {
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  if(!AudioContextClass) return;
-  if(!_bgMusicAudioCtx) _bgMusicAudioCtx = new AudioContextClass();
-  if(_bgMusicAudioCtx.state === 'suspended') _bgMusicAudioCtx.resume().catch(()=>{});
-
-  const scale = tr.scale || [293.66, 329.63, 392.00, 440.00, 523.25];
-  const pattern = [0, 1, 2, 4, 3, 2, 1, 3, 4, 5 % scale.length, 4, 2, 1, 0, 2, 1];
-  const stepMs = Math.round(60000 / Math.max(70, tr.tempo || 96));
-  const tone = cfg.toneType || tr.tone || 'flute-warm';
-
-  _bgMusicTimer = setInterval(() => {
-   const curCfg = getMusicStudioConfig();
-   if(!curCfg.enabled){ stopMusicEngine(); return; }
-   if(_bgMusicAudioCtx.state === 'suspended') return;
-   const now = _bgMusicAudioCtx.currentTime;
-   const curVol = Math.max(0.01, Math.min(0.45, ((curCfg.volume ?? 45) / 100) * 0.35));
-   const freq = scale[pattern[_bgMusicStepIdx % pattern.length] % scale.length];
-   const dur = (stepMs / 1000) * 0.92;
-
-   const osc = _bgMusicAudioCtx.createOscillator();
-   const subOsc = _bgMusicAudioCtx.createOscillator();
-   const gain = _bgMusicAudioCtx.createGain();
-
-   if(tone === 'flute-warm'){
-    // Sudanese Flute (Nay) with gentle vibrato & breath warmth
-    osc.type = 'sine';
-    subOsc.type = 'triangle';
-    osc.frequency.setValueAtTime(freq, now);
-    subOsc.frequency.setValueAtTime(freq * 2, now);
-    const lfo = _bgMusicAudioCtx.createOscillator();
-    const lfoGain = _bgMusicAudioCtx.createGain();
-    lfo.frequency.value = 5.2;
-    lfoGain.gain.value = 3.2;
-    lfo.connect(osc.frequency);
-    lfo.start(now);
-    lfo.stop(now + dur);
-    gain.gain.setValueAtTime(0.001, now);
-    gain.gain.linearRampToValueAtTime(curVol, now + dur * 0.22);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
-   } else if(tone === 'oud-royal'){
-    // Plucked Royal Saudi Oud
-    osc.type = 'sawtooth';
-    subOsc.type = 'triangle';
-    osc.frequency.setValueAtTime(freq * 0.5, now);
-    subOsc.frequency.setValueAtTime(freq, now);
-    gain.gain.setValueAtTime(curVol * 1.1, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + dur * 0.85);
-   } else if(tone === 'daff-festive'){
-    // Festive Saudi Celebration melody + Daff rhythmic pulse
-    osc.type = 'triangle';
-    subOsc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, now);
-    subOsc.frequency.setValueAtTime(freq * 1.5, now);
-    gain.gain.setValueAtTime(curVol, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + dur * 0.8);
-    if(_bgMusicStepIdx % 2 === 0){
-     const drum = _bgMusicAudioCtx.createOscillator();
-     const dGain = _bgMusicAudioCtx.createGain();
-     drum.type = 'sine';
-     drum.frequency.setValueAtTime(_bgMusicStepIdx % 4 === 0 ? 115 : 185, now);
-     drum.frequency.exponentialRampToValueAtTime(42, now + 0.14);
-     dGain.gain.setValueAtTime(curVol * 0.9, now);
-     dGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-     drum.connect(dGain);
-     dGain.connect(_bgMusicAudioCtx.destination);
-     drum.start(now);
-     drum.stop(now + 0.16);
-    }
-   } else {
-    osc.type = 'sine';
-    subOsc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, now);
-    subOsc.frequency.setValueAtTime(freq * 1.25, now);
-    gain.gain.setValueAtTime(0.001, now);
-    gain.gain.linearRampToValueAtTime(curVol * 0.85, now + 0.08);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
-   }
-
-   const subGain = _bgMusicAudioCtx.createGain();
-   subGain.gain.value = 0.22;
-   osc.connect(gain);
-   subOsc.connect(subGain);
-   subGain.connect(gain);
-   gain.connect(_bgMusicAudioCtx.destination);
-   osc.start(now);
-   subOsc.start(now);
-   osc.stop(now + dur);
-   subOsc.stop(now + dur);
-   _bgMusicStepIdx++;
-  }, stepMs);
- } catch(e){}
-}
-
-function syncStoreBackgroundMusicForPage(forceRestart = false){
- const cfg = getMusicStudioConfig();
- if(!cfg || !cfg.enabled){
-  stopMusicEngine();
+function checkAndShowAppUpdatePrompt(serverVer, reqInfo){
+ const sVer = Number(serverVer || 1);
+ const appliedStr = localStorage.getItem('ts-applied-app-ver');
+ if(!appliedStr){
+  localStorage.setItem('ts-applied-app-ver', String(sVer));
   return;
  }
- const curPage = user ? (page || 'home') : 'login';
- const pages = cfg.enabledPages || ['all'];
- const shouldPlayHere = pages.includes('all') || pages.includes(curPage);
- if(!shouldPlayHere){
-  stopMusicEngine();
-  return;
- }
- if(forceRestart || (!_bgMusicTimer && (!_bgMusicHtmlAudio || _bgMusicHtmlAudio.paused))){
-  startMusicEngineTrack(cfg.activeTrackId);
- }
-}
+ const appliedVer = Number(appliedStr || 1);
+ if(sVer <= appliedVer) return;
+ if(window._dismissedUpdatePromptVer === sVer) return;
+ if(document.getElementById('vip-app-update-banner')) return;
 
-// Resume background music on first user gesture if browser autoplay policy deferred it
-document.addEventListener('pointerdown', () => {
- if(_bgMusicAudioCtx && _bgMusicAudioCtx.state === 'suspended'){
-  _bgMusicAudioCtx.resume().catch(()=>{});
- }
- const cfg = getMusicStudioConfig();
- if(cfg.enabled && !_bgMusicTimer && (!_bgMusicHtmlAudio || _bgMusicHtmlAudio.paused)){
-  syncStoreBackgroundMusicForPage(true);
- }
-}, { passive: true });
-
-function adminMusicStudioView(){
- if(user?.role !== 'Admin') return empty('هذه اللوحة مخصصة للإدارة العليا فقط');
- const cfg = getMusicStudioConfig();
- const activeTab = window._musicStudioTab || cfg.activeCategory || 'hafez';
- const allTracks = getAllMusicTracks();
- const currentTrack = allTracks.find(t => t.id === cfg.activeTrackId) || allTracks[0];
- const pageOptions = [
-  ['all', '🌐 جميع صفحات المتجر'],
-  ['login', '🔐 صفحة تسجيل الدخول'],
-  ['home', '🛍️ الصفحة الرئيسية'],
-  ['cart', '🛒 سلة المشتريات'],
-  ['orders', '📦 صفحة الطلبات'],
-  ['favorites', '❤️ المفضلة'],
-  ['account', '⚙️ صفحة حسابي'],
-  ['jobs', '💼 شاشة التوظيف']
- ];
-
- return `
- <div class="section-head">
-  <div>
-   <h1>🎵 استوديو الموسيقى الخلفية للمتجر (التحكم في صفحة الإدارة فقط)</h1>
-   <p>تشغيل وإيقاف الموسيقى خلف المتجر، ضبط مستوى الصوت ونوع النغمة، تحديد الصفحات، والاختيار من روائع حافظ عبدالرحمن السوداني والموسيقى السعودية للمناسبات النسوية والاحتفالات</p>
+ const title = reqInfo?.title || `📲 تحديث جديد متاح للمتجر (v${sVer})`;
+ const msg = reqInfo?.message || 'تتوفر نسخة محدثة بالبيانات الجديدة من السيرفر. اضغط لتحديث التطبيق مباشرة.';
+ const box = document.createElement('div');
+ box.id = 'vip-app-update-banner';
+ box.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:99998;width:min(450px,94vw);background:linear-gradient(135deg,#064e3b,#022c22);border:2px solid #facc15;border-radius:20px;padding:16px 18px;box-shadow:0 20px 55px rgba(0,0,0,0.75);color:#fff;display:grid;gap:10px';
+ box.innerHTML = `
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+   <div>
+    <strong style="color:#fef08a;font-size:15px;display:block">${esc(title)}</strong>
+    <small style="color:#d1fae5;font-size:12.5px;line-height:1.6;display:block;margin-top:4px">${esc(msg)}</small>
+   </div>
+   <button type="button" class="btn small ghost" onclick="window._dismissedUpdatePromptVer=${sVer};this.closest('#vip-app-update-banner')?.remove()">✕</button>
   </div>
-  <div class="inline" style="gap:8px;flex-wrap:wrap">
-   <button type="button" class="btn ${cfg.enabled?'danger':''}" style="${!cfg.enabled?'background:#16a34a;color:#fff;font-weight:bold':''}" data-action="music-toggle-master">
-    ${cfg.enabled ? '⏸️ إيقاف مؤقت للموسيقى' : '▶️ تشغيل الموسيقى الخلفية الآن'}
-   </button>
-   <button type="button" class="btn secondary" data-action="music-stop-master">⏹️ إيقاف كلي</button>
-  </div>
- </div>
-
- <div class="panel" style="margin-bottom:18px;padding:16px;border:1.5px solid #facc15;background:linear-gradient(135deg,rgba(6,78,59,0.92),rgba(4,25,19,0.96));display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
-  <div>
-   <span class="badge ${cfg.enabled?'Ready':'Cancelled'}">${cfg.enabled ? '🔊 تعمل الآن في خلفية المتجر' : '🔇 متوقفة حالياً'}</span>
-   <h3 style="margin:6px 0 2px;color:#fef08a;font-size:16px">🎼 المقطوعة المختارة: ${esc(currentTrack?.title || 'أيام - حافظ عبدالرحمن')}</h3>
-   <small style="color:#cbd5e1">الفنان / القائمة: <b>${esc(currentTrack?.artist || '')}</b> · مستوى الصوت: <b>${cfg.volume ?? 45}%</b></small>
-  </div>
-  <div class="inline" style="gap:10px;align-items:center">
-   <label style="margin:0;font-size:12px;color:#fef08a">🔊 الصوت السريع:
-    <input type="range" min="0" max="100" value="${cfg.volume ?? 45}" oninput="const c=getMusicStudioConfig();c.volume=Number(this.value);saveMusicStudioConfig(c);if(window._bgMusicHtmlAudio)window._bgMusicHtmlAudio.volume=c.volume/100;" style="width:130px;vertical-align:middle">
-   </label>
-  </div>
- </div>
-
- <div class="dashboard-grid" style="margin-bottom:20px">
-  <form class="panel form" data-form="save-music-studio-settings" style="border:1.5px solid rgba(212,175,55,0.4)">
-   <h3 style="margin:0 0 8px;color:#fef08a">🎛️ إعدادات الصوت ونوع النغمة والصفحات المسموحة:</h3>
-   <input type="hidden" name="activeCategory" value="${esc(cfg.activeCategory||'hafez')}">
-   <input type="hidden" name="activeTrackId" value="${esc(cfg.activeTrackId||'hf_ayyam')}">
-   <div class="row">
-    <label>مستوى الصوت الخلفي (${cfg.volume ?? 45}%)
-     <input type="number" name="volume" value="${cfg.volume ?? 45}" min="0" max="100">
-    </label>
-    <label>نوع النغمة والطابع الصوتي (Tone Style)
-     <select name="toneType">
-      <option value="flute-warm" ${cfg.toneType==='flute-warm'?'selected':''}>🪈 ناي سوداني دافئ وحالم (حافظ عبدالرحمن)</option>
-      <option value="daff-festive" ${cfg.toneType==='daff-festive'?'selected':''}>🥁 إيقاع احتفالي ودفوف (مناسبات نسوية واحتفالات سعودية)</option>
-      <option value="oud-royal" ${cfg.toneType==='oud-royal'?'selected':''}>🪕 عود ملكي سعودي فاخر (جلسات ومناسبات)</option>
-      <option value="piano-soft" ${cfg.toneType==='piano-soft'?'selected':''}>🎹 بيانو كلاسيكي هادئ للتسوق</option>
-      <option value="crystal-ambient" ${cfg.toneType==='crystal-ambient'?'selected':''}>✨ أمواج كريستالية محيطية ناعمة</option>
-     </select>
-    </label>
-   </div>
-
-   <div class="panel" style="padding:10px">
-    <strong style="color:#7dd3fc;font-size:12.5px;display:block;margin-bottom:8px">📄 حدد الصفحات التي تشتغل فيها الموسيقى خلف المتجر:</strong>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px">
-     ${pageOptions.map(([pid, plbl]) => `
-      <label class="check" style="margin:0;font-size:12px">
-       <input type="checkbox" name="mpg_${pid}" ${(cfg.enabledPages||['all']).includes(pid)?'checked':''}> ${plbl}
-      </label>
-     `).join('')}
-    </div>
-   </div>
-
-   <div class="row">
-    <label class="check"><input type="checkbox" name="enabled" ${cfg.enabled?'checked':''}> <strong>🔊 تفعيل تشغيل الموسيقى خلف المتجر</strong></label>
-    <label class="check"><input type="checkbox" name="loopAll" ${cfg.loopAll!==false?'checked':''}> <strong>🔁 تكرار مستمر تلقائي</strong></label>
-   </div>
-
-   <hr style="border:0;border-top:1px dashed rgba(212,175,55,0.3);margin:6px 0">
-   <strong style="color:#fef08a;font-size:12.5px">➕ إضافة ملف صوتي أو رابط MP3 خارجي إضافي للقائمة (اختياري):</strong>
-   <div class="row">
-    <label>اسم المقطوعة الإضافية<input name="customTrackTitle" placeholder="مثال: زفة ملكية خاصة أو معزوفة ناي"></label>
-    <label>رابط ملف الصوت (MP3 / Audio URL)<input name="customTrackUrl" dir="ltr" placeholder="https://.../music.mp3"></label>
-   </div>
-
-   <button class="btn full" type="submit">💾 حفظ وتطبيق إعدادات الموسيقى الخلفية فوراً</button>
-  </form>
-
-  <div class="panel" style="border:1.5px solid rgba(56,189,248,0.4)">
-   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-    <button type="button" class="btn small ${activeTab==='hafez'?'':'secondary'}" data-action="music-filter-cat" data-id="hafez">🪈 روائع حافظ عبدالرحمن السوداني (${HAFEZ_SUDANESE_TRACKS.length})</button>
-    <button type="button" class="btn small ${activeTab==='saudi-festive'?'':'secondary'}" data-action="music-filter-cat" data-id="saudi-festive">🇸🇦 الموسيقى السعودية للمناسبات النسوية والاحتفالات (${SAUDI_CELEBRATION_TRACKS.length})</button>
-    ${(cfg.customTracks||[]).length ? `<button type="button" class="btn small ${activeTab==='custom'?'':'secondary'}" data-action="music-filter-cat" data-id="custom">🎵 مقطوعات مضافة (${cfg.customTracks.length})</button>` : ''}
-   </div>
-
-   <div style="display:grid;gap:8px;max-height:420px;overflow-y:auto;padding-left:4px">
-    ${(activeTab === 'hafez' ? HAFEZ_SUDANESE_TRACKS : activeTab === 'saudi-festive' ? SAUDI_CELEBRATION_TRACKS : (cfg.customTracks || [])).map((tr, idx) => {
-     const isPlayingThis = cfg.activeTrackId === tr.id && cfg.enabled;
-     return `
-     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:${isPlayingThis?'rgba(22,163,74,0.22)':'rgba(255,255,255,0.04)'};border:1px solid ${isPlayingThis?'#4ade80':'rgba(212,175,55,0.22)'}">
-      <div>
-       <strong style="color:#fff;font-size:13.5px">${idx + 1}. ${esc(tr.title)}</strong>
-       <small style="display:block;color:#fef08a;font-size:11px">${esc(tr.artist)}</small>
-      </div>
-      <button type="button" class="btn small ${isPlayingThis?'':'secondary'}" style="${isPlayingThis?'background:#16a34a;color:#fff':''}" data-action="music-play-track" data-id="${esc(tr.id)}" data-cat="${esc(tr.cat||'custom')}">
-       ${isPlayingThis ? '🔊 شغالة الآن' : '▶️ تشغيل في الخلفية'}
-      </button>
-     </div>`;
-    }).join('')}
-   </div>
-  </div>
- </div>
+  <button type="button" class="btn full" style="background:linear-gradient(135deg,#facc15,#eab308);color:#031711;font-weight:800" data-action="apply-server-app-update-now" data-id="${sVer}">
+   🔄 تحديث التطبيق بالبيانات الجديدة الآن (v${sVer})
+  </button>
  `;
+ document.body.appendChild(box);
+ if(typeof playSelectedNotificationChime === 'function') playSelectedNotificationChime();
 }
 
-/* ============================================================================
-   MODULE D (Req 5 & 6): Advanced 3D & Multi-Direction Ad Motion Control Panel
-   ============================================================================ */
-async function saveAdMotionConfig(cfg){
- window.storeAdMotion = cfg;
- if(dashboard) dashboard.adMotion = cfg;
- localStorage.setItem('ts-ad-motion', JSON.stringify(cfg));
- startLoginAdTimer();
- if(apiBase && user?.role === 'Admin'){
-  await request('/admin/ad-motion', 'PUT', cfg).catch(()=>{});
-  saveAdminLocalCloudSnapshot();
- }
-}
-
-function adMotionSettingsModal(){
- const cfg = getAdMotionConfig();
- const pagesList = [
-  ['login', '🔐 صفحة تسجيل الدخول'],
-  ['home', '🛍️ الصفحة الرئيسية للمتجر'],
-  ['products', '📦 صفحة المنتجات'],
-  ['cart', '🛒 صفحة السلة'],
-  ['orders', '🚚 صفحة الطلبات'],
-  ['favorites', '❤️ صفحة المفضلة']
- ];
- modal('🧊 لوحة التحكم المتطورة في حركة الإعلانات (3D) والمساحة والاتجاه بدون وميض', `
-  <form class="form" data-form="save-ad-motion-settings">
-   <div style="padding:12px;border-radius:12px;background:rgba(124,58,237,0.16);border:1px solid #a78bfa;font-size:12.5px;color:#ede9fe;line-height:1.7">
-    تتحرك الإعلانات بسلاسة فائقة 60fps عبر مسارات GPU ثلاثية الأبعاد <b>دون أي ترميش أو وميض للصفحة</b>، مع دعم تمرير العميل يميناً ويساراً باللمس أو الماوس والضغط المباشر.
-   </div>
-
-   <div class="row">
-    <label>اتجاه حركة الإعلان الافتراضي
-     <select name="direction">
-      <option value="right-to-left" ${cfg.direction==='right-to-left'?'selected':''}>⬅️ تحرك من اليمين إلى اليسار (Right to Left)</option>
-      <option value="left-to-right" ${cfg.direction==='left-to-right'?'selected':''}>➡️ تحرك من اليسار إلى اليمين (Left to Right)</option>
-      <option value="bottom-to-top" ${cfg.direction==='bottom-to-top'?'selected':''}>⬆️ تحرك من الأسفل إلى الأعلى (Bottom to Top)</option>
-      <option value="top-to-bottom" ${cfg.direction==='top-to-bottom'?'selected':''}>⬇️ تحرك من الأعلى إلى الأسفل (Top to Bottom)</option>
-      <option value="3d-cube" ${cfg.direction==='3d-cube'?'selected':''}>🧊 مكعب ثلاثي الأبعاد متحرك (3D Cube)</option>
-      <option value="3d-flip" ${cfg.direction==='3d-flip'?'selected':''}>🔄 انقلاب ثلاثي الأبعاد (3D Flip)</option>
-      <option value="3d-carousel" ${cfg.direction==='3d-carousel'?'selected':''}>🎠 حلقة ثلاثية الأبعاد (3D Ring)</option>
-      <option value="kenburns-zoom" ${cfg.direction==='kenburns-zoom'?'selected':''}>🔍 زووم سينمائي انسيابي (Ken Burns)</option>
-     </select>
-    </label>
-    <label>سرعة تبديل الإعلان تلقائياً (بالثواني)
-     <input type="number" name="speedSeconds" value="${cfg.speedSeconds||5}" min="2" max="60">
-    </label>
-   </div>
-
-   <div class="row">
-    <label>ارتفاع مساحة الإعلان بالبكسل (120px - 500px)
-     <input type="number" name="heightPx" value="${cfg.heightPx||240}" min="120" max="500" step="10">
-    </label>
-    <label>عرض مساحة الإعلان بالنسبة المئوية (60% - 100%)
-     <input type="number" name="widthPercent" value="${cfg.widthPercent||100}" min="60" max="100" step="5">
-    </label>
-   </div>
-
-   <div class="panel" style="padding:10px;display:grid;gap:6px">
-    <strong style="color:#fef08a;font-size:12.5px">⚙️ خيارات التفاعل والعرض ثلاثي الأبعاد (3D):</strong>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px">
-     <label class="check"><input type="checkbox" name="enabled" ${cfg.enabled!==false?'checked':''}> تفعيل عرض البانرات المتحركة</label>
-     <label class="check"><input type="checkbox" name="enable3D" ${cfg.enable3D!==false?'checked':''}> 🧊 عرض الإعلان بتقنية 3D</label>
-     <label class="check"><input type="checkbox" name="allowTouchSwipe" ${cfg.allowTouchSwipe!==false?'checked':''}> 👆 تمرير العميل يمين/يسار باللمس</label>
-     <label class="check"><input type="checkbox" name="showArrows" ${cfg.showArrows!==false?'checked':''}> ◀️ إظهار أسهم التنقل يمين ويسار</label>
-     <label class="check"><input type="checkbox" name="showDots" ${cfg.showDots!==false?'checked':''}> ⚪ إظهار نقاط التبديل السفلية</label>
-    </div>
-   </div>
-
-   <div class="panel" style="padding:10px">
-    <strong style="color:#7dd3fc;font-size:12.5px;display:block;margin-bottom:6px">📄 الصفحات التي تظهر فيها الإعلانات المتحركة:</strong>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px">
-     ${pagesList.map(([pid, plbl]) => `
-      <label class="check" style="margin:0;font-size:12px">
-       <input type="checkbox" name="pg_${pid}" ${(cfg.targetPages||['login','home']).includes(pid)?'checked':''}> ${plbl}
-      </label>
-     `).join('')}
-    </div>
-   </div>
-
-   <div class="inline" style="gap:8px">
-    <button class="btn full" type="submit">💾 حفظ وتطبيق إعدادات حركة الإعلانات و3D</button>
-    <button class="btn secondary" type="button" data-action="banners-manager">📢 إدارة صور ونصوص الإعلانات</button>
-   </div>
-  </form>
- `);
-}
-
-/* ============================================================================
-   MODULE E (Req 7): Lightweight GPU JavaScript Floating Shapes & User Celebrations
-   ============================================================================ */
-function getFloatingShapesConfig(){
- if(dashboard?.floatingShapes) return dashboard.floatingShapes;
- if(window.storeFloatingShapes) return window.storeFloatingShapes;
+async function applyServerAppUpdateNow(ver){
+ const targetVer = Number(ver || window._currentServerAppVersion || 1);
  try {
-  const s = localStorage.getItem('ts-floating-shapes');
-  if(s) return JSON.parse(s);
- } catch(e){}
- return {
-  enabled: false,
-  shapeType: 'bubbles',
-  opacityPercent: 65,
-  sizePx: 22,
-  quantity: 20,
-  speed: 'normal',
-  targetPages: ['all', 'home', 'login'],
-  targetUserId: 'all',
-  celebrationTitle: '',
-  celebrationMessage: ''
- };
-}
-
-async function saveFloatingShapesConfig(cfg){
- window.storeFloatingShapes = cfg;
- if(dashboard) dashboard.floatingShapes = cfg;
- localStorage.setItem('ts-floating-shapes', JSON.stringify(cfg));
- if(apiBase && user?.role === 'Admin'){
-  await request('/admin/floating-shapes', 'PUT', cfg).catch(()=>{});
-  saveAdminLocalCloudSnapshot();
- }
-}
-
-function floatingShapesModal(){
- const cfg = getFloatingShapesConfig();
- const usersList = dashboard?.users || [];
- const pageOpts = [
-  ['all', '🌐 جميع الصفحات'],
-  ['login', '🔐 صفحة الدخول'],
-  ['home', '🛍️ الصفحة الرئيسية'],
-  ['cart', '🛒 السلة'],
-  ['orders', '📦 الطلبات'],
-  ['favorites', '❤️ المفضلة'],
-  ['account', '⚙️ حسابي'],
-  ['jobs', '💼 التوظيف']
- ];
- modal('🎈 لوحة الأشكال الجافا المتحركة والاحتفاليات الخاصة (خفيفة 100% بدون أي ثقل)', `
-  <form class="form" data-form="save-floating-shapes-settings" style="max-height:76vh;overflow-y:auto;padding-left:4px">
-   <div style="padding:12px;border-radius:12px;background:rgba(219,39,119,0.15);border:1px solid #f472b6;font-size:12.5px;color:#fce7f3;line-height:1.7">
-    تعمل الأشكال المتحركة عبر طبقة شفافة معزولة (<code>pointer-events: none</code>) فلا تؤثر إطلاقاً على التصفح أو اللمس أو سرعة التطبيق، ويمكنك توجيهها لكل الزوار أو <b>لمستخدم معين باحتفالية خاصة</b>.
-   </div>
-
-   <label class="check" style="padding:10px;background:rgba(16,185,129,0.14);border:1px solid rgba(16,185,129,0.4);border-radius:10px">
-    <input type="checkbox" name="enabled" ${cfg.enabled?'checked':''}>
-    <strong style="color:#6ee7b7">✨ تفعيل الأشكال الجافا المتحركة والاحتفالية في المتجر</strong>
-   </label>
-
-   <div class="row">
-    <label>نوع الشكل المتحرك
-     <select name="shapeType">
-      <option value="bubbles" ${cfg.shapeType==='bubbles'?'selected':''}>🫧 فقاعات مضيئة شفافة (Bubbles)</option>
-      <option value="confetti" ${cfg.shapeType==='confetti'?'selected':''}>🎊 أوراق احتفال ملونة متساقطة (Confetti)</option>
-      <option value="balloons" ${cfg.shapeType==='balloons'?'selected':''}>🎈 بالونات احتفالية صغيرة صاعدة (Mini Balloons)</option>
-      <option value="stars" ${cfg.shapeType==='stars'?'selected':''}>✨ نجوم ولمسات ذهبية ملكية (Golden Stars)</option>
-      <option value="roses" ${cfg.shapeType==='roses'?'selected':''}>🌸 بتلات ورود ناعمة (Rose Petals)</option>
-      <option value="mix" ${cfg.shapeType==='mix'?'selected':''}>🎉 مزيج احتفالي شامل (فقاعات + بالونات + أوراق احتفال)</option>
-     </select>
-    </label>
-    <label>سرعة حركة الأشكال
-     <select name="speed">
-      <option value="slow" ${cfg.speed==='slow'?'selected':''}>🐢 هادئة وانسيابية</option>
-      <option value="normal" ${(cfg.speed||'normal')==='normal'?'selected':''}>⚡ متوسطة متوازنة</option>
-      <option value="fast" ${cfg.speed==='fast'?'selected':''}>🚀 حيوية سريعة</option>
-     </select>
-    </label>
-   </div>
-
-   <div class="row" style="grid-template-columns:repeat(3,1fr);gap:10px">
-    <label>الشفافية (10% - 100%)
-     <input type="number" name="opacityPercent" value="${cfg.opacityPercent||65}" min="10" max="100">
-    </label>
-    <label>الحجم بالبكسل (8 - 55)
-     <input type="number" name="sizePx" value="${cfg.sizePx||22}" min="8" max="55">
-    </label>
-    <label>الكمية / العدد (4 - 75)
-     <input type="number" name="quantity" value="${cfg.quantity||20}" min="4" max="75">
-    </label>
-   </div>
-
-   <div class="panel" style="padding:10px">
-    <strong style="color:#fef08a;font-size:12.5px;display:block;margin-bottom:6px">📄 الصفحات التي تظهر فيها الأشكال المتحركة:</strong>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px">
-     ${pageOpts.map(([pid, plbl]) => `
-      <label class="check" style="margin:0;font-size:12px">
-       <input type="checkbox" name="spg_${pid}" ${(cfg.targetPages||['all']).includes(pid)?'checked':''}> ${plbl}
-      </label>
-     `).join('')}
-    </div>
-   </div>
-
-   <div class="panel" style="padding:12px;border:1px solid rgba(250,204,21,0.45);display:grid;gap:8px">
-    <strong style="color:#fef08a;font-size:13px">🎉 تخصيص الاحتفالية لمستخدم معين (أو لجميع المستخدمين):</strong>
-    <label>اختر المستخدم المستهدف بالاحتفالية
-     <select name="targetUserId">
-      <option value="all" ${(cfg.targetUserId||'all')==='all'?'selected':''}>👥 جميع المستخدمين والزوار</option>
-      ${usersList.map(u => `<option value="${esc(u.id)}" ${cfg.targetUserId===u.id?'selected':''}>👤 ${esc(u.name)} (${roles[u.role]||u.role})</option>`).join('')}
-     </select>
-    </label>
-    <label>عنوان التهنئة / الاحتفالية الخاصة (اختياري)
-     <input name="celebrationTitle" value="${esc(cfg.celebrationTitle||'')}" placeholder="مثال: 🎉 احتفالية خاصة بك في متجر التسوق!">
-    </label>
-    <label>رسالة الاحتفالية التي تظهر للمستخدم المحدد
-     <input name="celebrationMessage" value="${esc(cfg.celebrationMessage||'')}" placeholder="مثال: كل عام وأنت بخير وعروض خاصة بمناسبة تميزك معنا!">
-    </label>
-   </div>
-
-   <button class="btn full" type="submit">💾 حفظ وتشغيل الأشكال المتحركة والاحتفالية</button>
-  </form>
- `);
-}
-
-function celebrateSpecificUserModal(userId, userName){
- const cfg = getFloatingShapesConfig();
- cfg.enabled = true;
- cfg.targetUserId = userId;
- cfg.shapeType = 'mix';
- if(!cfg.celebrationTitle) cfg.celebrationTitle = `🎉 أهلاً وسهلاً بك يا ${userName} — احتفالية خاصة بك!`;
- if(!cfg.celebrationMessage) cfg.celebrationMessage = `يسعدنا تواجدك المميز في متجرنا ونتمنى لك تجربة تسوق سعيدة!`;
- floatingShapesModal();
-}
-
-let _floatingShapesFrame = null;
-function stopFloatingShapesEngine(){
- if(_floatingShapesFrame){ cancelAnimationFrame(_floatingShapesFrame); _floatingShapesFrame = null; }
- document.getElementById('vip-floating-shapes-canvas')?.remove();
- document.getElementById('vip-user-celebration-bar')?.remove();
-}
-
-function syncFloatingShapesForPage(){
- const cfg = getFloatingShapesConfig();
- if(!cfg || !cfg.enabled){
-  stopFloatingShapesEngine();
-  return;
- }
- const curPage = user ? (page || 'home') : 'login';
- const pages = cfg.targetPages || ['all'];
- const pageOk = pages.includes('all') || pages.includes(curPage);
- const userOk = !cfg.targetUserId || cfg.targetUserId === 'all' || (user && user.id === cfg.targetUserId) || (user?.role === 'Admin');
- if(!pageOk || !userOk){
-  stopFloatingShapesEngine();
-  return;
- }
-
- // Show celebration greeting banner if configured for this user
- const viewEl = document.getElementById('view');
- if(viewEl && (cfg.celebrationTitle || cfg.celebrationMessage) && (cfg.targetUserId === 'all' || (user && user.id === cfg.targetUserId))){
-  if(!document.getElementById('vip-user-celebration-bar')){
-   const bar = document.createElement('div');
-   bar.id = 'vip-user-celebration-bar';
-   bar.className = 'vip-celebration-banner';
-   bar.innerHTML = `
-    <div>
-     <strong style="font-size:14.5px;display:block">${esc(cfg.celebrationTitle || ('🎉 أهلاً بك يا ' + (user?.name || 'عميلنا العزيز')))}</strong>
-     <small style="color:#fef08a">${esc(cfg.celebrationMessage || '')}</small>
-    </div>
-    <button type="button" class="btn small ghost" onclick="this.parentElement.remove()">✕</button>
-   `;
-   viewEl.prepend(bar);
+  if('caches' in window){
+   const keys = await caches.keys();
+   await Promise.all(keys.map(k => caches.delete(k)));
   }
- }
-
- startFloatingShapesEngine(cfg);
-}
-
-function startFloatingShapesEngine(cfg){
- let canvas = document.getElementById('vip-floating-shapes-canvas');
- if(!canvas){
-  canvas = document.createElement('canvas');
-  canvas.id = 'vip-floating-shapes-canvas';
-  document.body.appendChild(canvas);
- }
- if(_floatingShapesFrame) cancelAnimationFrame(_floatingShapesFrame);
- const ctx = canvas.getContext('2d');
- canvas.width = window.innerWidth;
- canvas.height = window.innerHeight;
-
- const qty = Math.max(4, Math.min(75, Number(cfg.quantity || 20)));
- const baseSize = Math.max(8, Math.min(55, Number(cfg.sizePx || 22)));
- const alphaBase = Math.max(0.1, Math.min(1, Number(cfg.opacityPercent || 65) / 100));
- const spdMult = cfg.speed === 'fast' ? 1.75 : cfg.speed === 'slow' ? 0.55 : 1.0;
- const colors = ['#facc15', '#34d399', '#60a5fa', '#f472b6', '#a78bfa', '#fbbf24'];
- const types = cfg.shapeType === 'mix' ? ['bubbles', 'confetti', 'balloons', 'stars'] : [cfg.shapeType || 'bubbles'];
-
- const items = Array.from({ length: qty }, (_, i) => {
-  const kind = types[i % types.length];
-  const rising = kind === 'bubbles' || kind === 'balloons';
-  return {
-   kind,
-   x: Math.random() * canvas.width,
-   y: Math.random() * canvas.height,
-   size: baseSize * (0.65 + Math.random() * 0.65),
-   vy: (rising ? -1 : 1) * (0.55 + Math.random() * 1.1) * spdMult,
-   vx: (Math.random() - 0.5) * 0.7 * spdMult,
-   rot: Math.random() * Math.PI * 2,
-   vrot: (Math.random() - 0.5) * 0.04,
-   color: colors[i % colors.length]
-  };
- });
-
- function tick(){
-  if(!document.getElementById('vip-floating-shapes-canvas')) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.globalAlpha = alphaBase;
-  for(const it of items){
-   it.x += it.vx + Math.sin(it.y * 0.015) * 0.3;
-   it.y += it.vy;
-   it.rot += it.vrot;
-   if(it.vy < 0 && it.y < -60) it.y = canvas.height + 50;
-   if(it.vy > 0 && it.y > canvas.height + 60) it.y = -50;
-   if(it.x < -50) it.x = canvas.width + 40;
-   if(it.x > canvas.width + 50) it.x = -40;
-
-   ctx.save();
-   ctx.translate(it.x, it.y);
-   ctx.rotate(it.rot);
-   if(it.kind === 'bubbles'){
-    ctx.beginPath();
-    ctx.arc(0, 0, it.size * 0.5, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
-    ctx.lineWidth = 1.5;
-    ctx.fillStyle = 'rgba(125,211,252,0.18)';
-    ctx.fill();
-    ctx.stroke();
-   } else if(it.kind === 'balloons'){
-    ctx.beginPath();
-    ctx.ellipse(0, 0, it.size * 0.42, it.size * 0.55, 0, 0, Math.PI * 2);
-    ctx.fillStyle = it.color;
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(0, it.size * 0.55);
-    ctx.lineTo(0, it.size * 0.95);
-    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-    ctx.stroke();
-   } else if(it.kind === 'stars'){
-    ctx.fillStyle = '#facc15';
-    ctx.font = `${Math.round(it.size)}px sans-serif`;
-    ctx.fillText('★', -it.size * 0.3, it.size * 0.3);
-   } else if(it.kind === 'roses'){
-    ctx.fillStyle = '#f472b6';
-    ctx.font = `${Math.round(it.size)}px sans-serif`;
-    ctx.fillText('🌸', -it.size * 0.3, it.size * 0.3);
-   } else {
-    // confetti
-    ctx.fillStyle = it.color;
-    ctx.fillRect(-it.size * 0.35, -it.size * 0.18, it.size * 0.7, it.size * 0.36);
-   }
-   ctx.restore();
+  if(navigator.serviceWorker?.getRegistrations){
+   const regs = await navigator.serviceWorker.getRegistrations();
+   await Promise.all(regs.map(r => r.update().catch(()=>{})));
   }
-  _floatingShapesFrame = requestAnimationFrame(tick);
- }
- tick();
-}
-
-/* ============================================================================
-   MODULE F (Req 9): Per-User Private Chat Permissions, Allowed Contacts &
-   WhatsApp-Style Incoming Call Bell / Ringtone / Background Notification
-   ============================================================================ */
-async function toggleUserDirectChat(userId){
- const target = (dashboard?.users || []).find(x => x.id === userId);
- if(!target) return;
- const cur = target.directChatConfig || {
-  directChatEnabled: false, allowChatWithAdmin: true, allowVoiceCalls: true, allowVideoCalls: true,
-  allowText: true, allowImages: true, allowVoiceNotes: true, allowReplyQuote: true, allowDeleteOwnMessages: false, showOnlineStatus: true, allowedPeerIds: []
- };
- cur.directChatEnabled = !cur.directChatEnabled;
- target.directChatConfig = cur;
- if(!apiBase){
-  const d = demoData(); const du = (d.users||[]).find(x => x.id === userId); if(du) du.directChatConfig = cur; persistDemo(d);
- } else {
-  await request('/admin/users/' + userId + '/chat-config', 'PUT', cur);
- }
- render();
- toast(cur.directChatEnabled ? `💬 تم إظهار زر الدردشة الخاصة والمكالمات للمستخدم (${target.name})` : `🙈 تم إخفاء زر الدردشة الخاصة عن المستخدم (${target.name})`);
-}
-
-function userChatPermissionsModal(userId){
- const target = (dashboard?.users || []).find(x => x.id === userId);
- if(!target) return;
- const cfg = target.directChatConfig || {
-  directChatEnabled: false, allowChatWithAdmin: true, allowVoiceCalls: true, allowVideoCalls: true,
-  allowText: true, allowImages: true, allowVoiceNotes: true, allowReplyQuote: true, allowDeleteOwnMessages: false, showOnlineStatus: true, allowedPeerIds: []
- };
- const allowedSet = new Set(cfg.allowedPeerIds || []);
- const otherUsers = (dashboard?.users || []).filter(x => x.id !== userId);
-
- modal(`💬 صلاحيات الدردشة الخاصة والمكالمات وقائمة المتصلين: ${esc(target.name)}`, `
-  <form class="form" data-form="save-user-chat-permissions" data-id="${esc(userId)}" style="max-height:76vh;overflow-y:auto;padding-left:4px">
-   <div style="padding:12px;border-radius:12px;background:rgba(16,185,129,0.14);border:1px solid #34d399;font-size:12.5px;color:#d1fae5;line-height:1.7">
-    تحكم دقيق وتفصيلي في إظهار زر فتح الدردشة الخاصة للمستخدم <b>${esc(target.name)}</b> (${roles[target.role]||target.role})، وتحديد الأشخاص الذين يظهرون له في قائمة المتصلين ويستطيع الدردشة أو إجراء مكالمة صوتية معهم.
-   </div>
-
-   <label class="check" style="padding:10px;background:rgba(22,163,74,0.2);border:1.5px solid #4ade80;border-radius:10px">
-    <input type="checkbox" name="directChatEnabled" ${cfg.directChatEnabled?'checked':''}>
-    <strong style="color:#4ade80">💬 إظهار زر وشاشة الدردشة الخاصة لهذا المستخدم في المتجر</strong>
-   </label>
-
-   <div class="panel" style="padding:12px;display:grid;gap:8px">
-    <strong style="color:#fef08a;font-size:13px">🛡️ الصلاحيات التفصيلية للدردشة والمكالمات لهذا المستخدم:</strong>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:8px">
-     <label class="check" style="margin:0"><input type="checkbox" name="allowChatWithAdmin" ${cfg.allowChatWithAdmin!==false?'checked':''}> 👑 الدردشة الخاصة مع الإدارة العليا</label>
-     <label class="check" style="margin:0"><input type="checkbox" name="allowVoiceCalls" ${cfg.allowVoiceCalls!==false?'checked':''}> 📞 مفتاح إجراء واستقبال مكالمة صوتية</label>
-     <label class="check" style="margin:0"><input type="checkbox" name="allowVideoCalls" ${cfg.allowVideoCalls!==false?'checked':''}> 🎥 مفتاح إجراء واستقبال مكالمة فيديو</label>
-     <label class="check" style="margin:0"><input type="checkbox" name="allowText" ${cfg.allowText!==false?'checked':''}> ✍️ إرسال الرسائل النصية</label>
-     <label class="check" style="margin:0"><input type="checkbox" name="allowImages" ${cfg.allowImages!==false?'checked':''}> 📷 إرفاق وإرسال الصور</label>
-     <label class="check" style="margin:0"><input type="checkbox" name="allowVoiceNotes" ${cfg.allowVoiceNotes!==false?'checked':''}> 🎤 تسجيل وإرسال المقاطع الصوتية</label>
-     <label class="check" style="margin:0"><input type="checkbox" name="allowReplyQuote" ${cfg.allowReplyQuote!==false?'checked':''}> ↩️ الرد والاقتباس على الرسائل</label>
-     <label class="check" style="margin:0"><input type="checkbox" name="allowDeleteOwnMessages" ${cfg.allowDeleteOwnMessages?'checked':''}> 🗑️ السماح بحذف رسائله</label>
-     <label class="check" style="margin:0"><input type="checkbox" name="showOnlineStatus" ${cfg.showOnlineStatus!==false?'checked':''}> 🟢 إظهار حالة المتصل الآن</label>
-    </div>
-   </div>
-
-   <div class="panel" style="padding:12px;border:1px solid rgba(56,189,248,0.4)">
-    <strong style="color:#7dd3fc;font-size:13px;display:block;margin-bottom:8px">🟢 حدد مع من يستطيع (${esc(target.name)}) الدردشة والظهور في قائمة المتصلين لديه:</strong>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;max-height:220px;overflow-y:auto">
-     ${otherUsers.map(u2 => `
-      <label class="check" style="margin:0;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(212,175,55,0.2)">
-       <input type="checkbox" name="peer_${esc(u2.id)}" ${(allowedSet.has(u2.id) || u2.role==='Admin')?'checked':''}>
-       <span><b>${esc(u2.name)}</b> <small style="color:#fef08a">(${roles[u2.role]||u2.role})</small> ${u2.isOnline?'🟢':'⚪'}</span>
-      </label>
-     `).join('') || '<p class="hint">لا يوجد مستخدمون آخرون</p>'}
-    </div>
-   </div>
-
-   <button class="btn full" type="submit">💾 حفظ صلاحيات الدردشة والمكالمات وقائمة المتصلين</button>
-  </form>
- `);
-}
-
-let _waRingtoneInterval = null;
-let _activeRingingCallId = null;
-window._dismissedCallIds = window._dismissedCallIds || new Set();
-
-function playSingleWhatsAppRingCycle(){
- try {
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  if(!AudioContextClass) return;
-  const ctx = _bgMusicAudioCtx || new AudioContextClass();
-  _bgMusicAudioCtx = ctx;
-  if(ctx.state === 'suspended') ctx.resume().catch(()=>{});
-  const now = ctx.currentTime;
-  // Classic WhatsApp incoming call dual-tone cadence
-  const notes = [
-   [783.99, 0.0, 0.14],
-   [987.77, 0.15, 0.14],
-   [1174.66, 0.30, 0.22],
-   [783.99, 0.65, 0.14],
-   [987.77, 0.80, 0.14],
-   [1174.66, 0.95, 0.28]
-  ];
-  notes.forEach(([freq, startOff, dur]) => {
-   const osc = ctx.createOscillator();
-   const gain = ctx.createGain();
-   osc.type = 'sine';
-   osc.frequency.setValueAtTime(freq, now + startOff);
-   gain.gain.setValueAtTime(0.001, now + startOff);
-   gain.gain.linearRampToValueAtTime(0.28, now + startOff + 0.02);
-   gain.gain.exponentialRampToValueAtTime(0.001, now + startOff + dur);
-   osc.connect(gain);
-   gain.connect(ctx.destination);
-   osc.start(now + startOff);
-   osc.stop(now + startOff + dur + 0.02);
-  });
-  if(navigator.vibrate) navigator.vibrate([450, 200, 450, 200, 450]);
- } catch(e){}
-}
-
-function startWhatsAppRingtoneLoop(){
- stopWhatsAppRingtoneLoop();
- playSingleWhatsAppRingCycle();
- _waRingtoneInterval = setInterval(playSingleWhatsAppRingCycle, 2200);
-}
-
-function stopWhatsAppRingtoneLoop(){
- if(_waRingtoneInterval){ clearInterval(_waRingtoneInterval); _waRingtoneInterval = null; }
- if(navigator.vibrate) try { navigator.vibrate(0); } catch(e){}
-}
-
-function showIncomingWhatsAppCallOverlay(callObj){
- if(!callObj) return;
- _activeRingingCallId = callObj.id;
- window._lastIncomingCallObj = callObj;
- startWhatsAppRingtoneLoop();
-
- // Also notify via Service Worker / OS Notification so it alerts even when the app/tab is minimized or in the background!
- try {
-  if('Notification' in window && Notification.permission === 'granted'){
-   if(navigator.serviceWorker?.controller){
-    navigator.serviceWorker.controller.postMessage({
-     type: 'SHOW_INCOMING_CALL',
-     call: callObj,
-     title: `📲 مكالمة ${callObj.callKind==='video'?'فيديو 🎥':'صوتية 📞'} واردة من ${callObj.callerName}`,
-     body: 'يرن الآن... اضغط للرد على المكالمة المباشرة'
-    });
-   } else {
-    new Notification(`📲 مكالمة ${callObj.callKind==='video'?'فيديو':'صوتية'} واردة: ${callObj.callerName}`, {
-     body: 'يرن الآن... افتح التطبيق للرد على المكالمة',
-     icon: './icon-192.png',
-     tag: 'incoming-call-' + callObj.id,
-     requireInteraction: true
-    });
-   }
-  }
- } catch(e){}
-
- let overlay = document.getElementById('wa-incoming-call-overlay');
- if(!overlay){
-  overlay = document.createElement('div');
-  overlay.id = 'wa-incoming-call-overlay';
-  document.body.appendChild(overlay);
- }
- const isVid = callObj.callKind === 'video';
- overlay.innerHTML = `
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
-   <div style="display:flex;align-items:center;gap:14px">
-    <div class="wa-call-avatar-ring">📞</div>
-    <div>
-     <span class="badge" style="background:rgba(255,255,255,0.18);color:#fef08a;font-size:10.5px;margin-bottom:4px;display:inline-block">🔔 ${isVid ? 'مكالمة فيديو واردة عبر المتجر' : 'مكالمة صوتية واردة (نغمة واتساب)'}</span>
-     <h3 style="margin:0;color:#fff;font-size:17px">${esc(callObj.callerName || 'الإدارة')}</h3>
-     <small style="color:#bbf7d0;font-size:12px">يتصل بك الآن... اضغط «رد» لفتح المكالمة الصوتية المباشرة</small>
-    </div>
-   </div>
-   <div class="inline" style="gap:10px">
-    <button type="button" class="wa-call-btn-answer" data-action="answer-incoming-wa-call" data-id="${esc(callObj.id)}">🟢 رد</button>
-    <button type="button" class="wa-call-btn-decline" data-action="decline-incoming-wa-call" data-id="${esc(callObj.id)}">🔴 رفض</button>
-   </div>
-  </div>
- `;
-}
-
-function hideIncomingWhatsAppCallOverlay(){
- stopWhatsAppRingtoneLoop();
- _activeRingingCallId = null;
- document.getElementById('wa-incoming-call-overlay')?.remove();
-}
-
-async function answerIncomingWhatsAppCall(callId){
- const cid = callId || _activeRingingCallId;
- hideIncomingWhatsAppCallOverlay();
- if(!cid) return;
- window._dismissedCallIds.add(cid);
- let callObj = window._lastIncomingCallObj || { id: cid, callerName: 'الإدارة', receiverName: user?.name || '', callKind: 'voice', status: 'active' };
- if(apiBase && !String(cid).startsWith('demo_call_')){
-  try {
-   callObj = await request('/staff-chat/call/' + cid + '/answer', 'POST', {});
-  } catch(e){
-   try { callObj = await request('/staff-chat/call/' + cid); } catch(e2){}
-  }
- }
- await openSupervisorCallModal(callObj);
-}
-
-async function declineIncomingWhatsAppCall(callId){
- const cid = callId || _activeRingingCallId;
- hideIncomingWhatsAppCallOverlay();
- if(!cid) return;
- window._dismissedCallIds.add(cid);
- if(apiBase && !String(cid).startsWith('demo_call_')){
-  await request('/staff-chat/call/' + cid + '/end', 'POST', {}).catch(()=>{});
- }
- toast('تم رفض/إنهاء المكالمة الواردة');
-}
-
-function checkIncomingWhatsAppCalls(calls){
- if(!user || !Array.isArray(calls)) return;
- const myIncoming = calls.find(cl =>
-  cl &&
-  cl.status !== 'ended' &&
-  cl.callerId !== user.id &&
-  !window._dismissedCallIds.has(cl.id) &&
-  (cl.receiverId === user.id || (!cl.receiverId && ['Admin', 'Supervisor'].includes(user.role)))
- );
- if(myIncoming){
-  if(_activeRingingCallId !== myIncoming.id && !document.getElementById('sup-call-status-pill')){
-   showIncomingWhatsAppCallOverlay(myIncoming);
-  }
- } else if(_activeRingingCallId && !String(_activeRingingCallId).startsWith('demo_call_')){
-  hideIncomingWhatsAppCallOverlay();
- }
-}
-
-if(navigator.serviceWorker){
- navigator.serviceWorker.addEventListener('message', ev => {
-  const d = ev.data || {};
-  if(d.type === 'INCOMING_CALL_ACTION'){
-   if(d.action === 'decline') declineIncomingWhatsAppCall(d.callId);
-   else answerIncomingWhatsAppCall(d.callId);
-  }
- });
-}
-
-
-/* ========================================================
-   v7.1.0: Admin Role-Preview Studio, City->Districts Cascade,
-   & WhatsApp-Style Incoming Call Ringing (SW + Web Audio)
-   ======================================================== */
-function adminRolePreviewStudioModal(){
- if(user?.role !== 'Admin' && !window._adminPreviewBackup) return;
- const previewRoles = [
-  ['Customer', '🛍️ عميل تسوق', 'معاينة كتالوج المنتجات، السلة، الطلبات، والدعم الفني'],
-  ['Courier', '🛵 مندوب توصيل', 'معاينة مهام التوصيل، الخرائط، وسجل التسليم'],
-  ['Supervisor', '🛡️ مشرف عام', 'معاينة لوحة الإشراف، الطلبات، ودردشة المشرفين'],
-  ['Support', '🎧 موظف دعم فني', 'معاينة شاشة المحادثات والتذاكر ومتابعة الطلبات'],
-  ['Merchant', '🏪 تاجر / شريك', 'معاينة لوحة التاجر وإدارة منتجاته وطلباته']
- ];
- modal('👁️ شاشة معاينة وتجربة الأدوار للإدارة (بدءاً من شاشة الدخول بدون بيانات)', `
-  <div class="stack">
-   <div style="padding:12px;border-radius:12px;background:rgba(212,175,55,0.12);border:1px solid rgba(212,175,55,0.4);font-size:12.5px;color:#fef08a;line-height:1.7">
-    👑 اختر أي دور أدناه للانتقال إلى شاشة الدخول وتجربة الواجهة والصلاحيات الخاصة به <b>بدون إدخال أي بيانات</b>، مع إمكانية العودة لحساب الإدارة بضغطة واحدة دون التأثير على أي إعدادات.
-   </div>
-   <div style="display:grid;gap:10px">
-    ${previewRoles.map(([rKey, rLbl, rDesc]) => `
-     <div class="panel" style="padding:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-      <div>
-       <strong style="color:#fff;font-size:14px">${rLbl}</strong>
-       <div style="font-size:11.5px;color:#cbd5e1;margin-top:2px">${rDesc}</div>
-      </div>
-      <button type="button" class="btn small" data-action="start-admin-role-preview-from-login" data-id="${rKey}">🚀 معاينة من شاشة الدخول</button>
-     </div>
-    `).join('')}
-   </div>
-  </div>
- `);
-}
-
-const DEFAULT_CITY_DISTRICTS = {
- 'الرياض': ['حي الملقا', 'حي العليا', 'حي النرجس', 'حي الياسمين', 'حي حطين', 'حي السليمانية', 'حي النسيم', 'حي الشفا'],
- 'جدة': ['حي الروضة', 'حي الشاطئ', 'حي الحمراء', 'حي السلامة', 'حي أبحر الشمالية', 'حي الفيصلية'],
- 'مكة المكرمة': ['حي العزيزية', 'حي الشوقية', 'حي العوالي', 'حي بطحاء قريش', 'حي الشرائع'],
- 'الدمام': ['حي الشاطئ', 'حي الفيصلية', 'حي المزروعية', 'حي الجامعيين', 'حي طيبة'],
- 'القاهرة': ['مدينة نصر', 'المعادي', 'التجمع الخامس', 'مصر الجديدة', 'الزمالك', 'المهندسين'],
- 'الإسكندرية': ['سموحة', 'سيدي جابر', 'المنتزه', 'محطة الرمل', 'لوران'],
- 'الخرطوم': ['الرياض', 'المنشية', 'العمارات', 'أركويت', 'جبرة', 'بحري'],
- 'عمّان': ['عبدون', 'دابوق', 'الشميساني', 'خلدا', 'تلاع العلي'],
- 'دبي': ['وسط مدينة دبي', 'دبي مارينا', 'جميرا', 'البرشاء', 'ديرة']
-};
-
-function getDistrictsForCity(cityName){
- const cat = window.arabGeoCatalog || {};
- const customMap = cat.cityDistricts || {};
- if(customMap[cityName] && customMap[cityName].length) return customMap[cityName];
- if(DEFAULT_CITY_DISTRICTS[cityName]) return DEFAULT_CITY_DISTRICTS[cityName];
- return ['وسط المدينة', 'الحي الشمالي', 'الحي الجنوبي', 'الحي الشرقي', 'الحي الغربي'];
-}
-
-window.onFormGeoCountryChange = function(prefix, countryName){
- const countries = getActiveArabCountries();
- const c = countries.find(x => x.name === countryName) || countries[0];
- if(!c) return;
- const citySel = document.getElementById(prefix + '-city-sel');
- const natSel = document.getElementById(prefix + '-nat-sel');
- if(citySel){
-  citySel.innerHTML = (c.cities || ['العاصمة']).map(ct => `<option value="${esc(ct)}">${esc(ct)}</option>`).join('');
-  window.onFormGeoCityChange(prefix, (c.cities || ['العاصمة'])[0]);
- }
- if(natSel && c.nationality) natSel.value = c.nationality;
-};
-
-window.onFormGeoCityChange = function(prefix, cityName){
- const distSel = document.getElementById(prefix + '-district-sel');
- if(!distSel) return;
- const list = getDistrictsForCity(cityName);
- distSel.innerHTML = list.map(ds => `<option value="${esc(ds)}">${esc(ds)}</option>`).join('');
-};
-
-let _incomingRingTimer = null;
-function startIncomingCallRingtone(){
- stopIncomingCallRingtone();
- const ringOnce = () => {
-  try {
-   const customAudio = localStorage.getItem('ts-active-custom-ringtone');
-   if(customAudio){ new Audio(customAudio).play().catch(()=>{}); return; }
-   const Ctx = window.AudioContext || window.webkitAudioContext;
-   if(!Ctx) return;
-   const ctx = new Ctx();
-   const osc = ctx.createOscillator();
-   const gain = ctx.createGain();
-   osc.type = 'sine';
-   osc.frequency.setValueAtTime(660, ctx.currentTime);
-   osc.frequency.setValueAtTime(880, ctx.currentTime + 0.25);
-   gain.gain.setValueAtTime(0.18, ctx.currentTime);
-   gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.7);
-   osc.connect(gain); gain.connect(ctx.destination);
-   osc.start(); osc.stop(ctx.currentTime + 0.72);
-  } catch(e){}
- };
- ringOnce();
- _incomingRingTimer = setInterval(ringOnce, 2200);
-}
-
-function stopIncomingCallRingtone(){
- if(_incomingRingTimer){ clearInterval(_incomingRingTimer); _incomingRingTimer = null; }
-}
-
-function showWhatsAppIncomingCallAlert(call){
- if(!call || !call.id || call.callerId === user?.id) return;
- if(window._lastRungCallId === call.id) return;
- window._lastRungCallId = call.id;
- startIncomingCallRingtone();
- // Notify via Service Worker so it rings in phone notification shade even when minimized/closed
- try {
-  if(navigator.serviceWorker?.controller){
-   navigator.serviceWorker.controller.postMessage({ type: 'SHOW_INCOMING_CALL', call });
-  }
- } catch(e){}
- if(document.getElementById('wa-incoming-call-overlay')) return;
- const ov = document.createElement('div');
- ov.id = 'wa-incoming-call-overlay';
- ov.style.cssText = 'position:fixed;inset:16px 16px auto 16px;z-index:9999;max-width:440px;margin:0 auto;background:linear-gradient(135deg,#064e3b,#021711);border:2px solid #facc15;border-radius:20px;padding:16px;box-shadow:0 20px 50px rgba(0,0,0,0.75);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap';
- ov.innerHTML = `
-  <div>
-   <strong style="color:#fef08a;font-size:14.5px;display:block">📲 مكالمة ${call.callKind==='video'?'فيديو 🎥':'صوتية 📞'} واردة</strong>
-   <small style="color:#fff;font-size:12.5px">من: <b>${esc(call.callerName || 'الإدارة')}</b> — يرن الآن...</small>
-  </div>
-  <div class="inline" style="gap:8px">
-   <button type="button" class="btn small" style="background:#16a34a;color:#fff;font-weight:800" data-action="answer-incoming-call-wa" data-id="${esc(call.id)}">🟢 رد</button>
-   <button type="button" class="btn small danger" data-action="decline-incoming-call-wa" data-id="${esc(call.id)}">🔴 رفض</button>
-  </div>
- `;
- document.body.appendChild(ov);
-}
-
-if(navigator.serviceWorker?.addEventListener){
- navigator.serviceWorker.addEventListener('message', e => {
-  const d = e.data || {};
-  if(d.type === 'INCOMING_CALL_ACTION' && d.callId){
-   if(d.action === 'decline') action('decline-incoming-call-wa', d.callId);
-   else action('answer-incoming-call-wa', d.callId);
-  }
- });
-}
-
-
-/* ========================================================
-   v7.2.0: Job Pre-Popup Control, Registration Terms Manager,
-   & Comprehensive App Traffic / Analytics Screen (Point 1, 2, 7)
-   ======================================================== */
-function getJobPrePopupConfig(){
- if(window.jobPrePopupCfg) return window.jobPrePopupCfg;
- try {
-  const s = JSON.parse(localStorage.getItem('ts-job-pre-popup') || 'null');
-  if(s){ window.jobPrePopupCfg = s; return s; }
- } catch(e){}
- window.jobPrePopupCfg = { enabled: true, title: '💼 تنبيه هام قبل التقديم على الوظيفة', message: 'يرجى التأكد من إدخال بياناتك الصحيحة ورقم الجوال الفعّال ليتم التواصل معك من قِبل إدارة المتجر.' };
- return window.jobPrePopupCfg;
-}
-
-async function saveJobPrePopupConfig(cfg){
- window.jobPrePopupCfg = cfg;
- if(dashboard) dashboard.jobPrePopup = cfg;
- localStorage.setItem('ts-job-pre-popup', JSON.stringify(cfg));
- if(apiBase && user?.role === 'Admin'){
-  await request('/admin/job-popup-settings', 'PUT', cfg).catch(()=>{});
- }
-}
-
-function jobPopupSettingsModal(){
- if(user?.role !== 'Admin') return;
- const cfg = getJobPrePopupConfig();
- modal('💼 التحكم في الرسالة المنبثقة قبل فتح نموذج الوظائف', `
-  <form class="form" data-form="save-job-popup-settings">
-   <label class="check"><input type="checkbox" name="enabled" ${cfg.enabled?'checked':''}> <strong>إظهار الرسالة المنبثقة قبل فتح نموذج التقديم على الوظائف</strong></label>
-   <label>عنوان الرسالة المنبثقة<input name="title" value="${esc(cfg.title||'')}" required></label>
-   <label>نص الرسالة المنبثقة<textarea name="message" rows="4" required>${esc(cfg.message||'')}</textarea></label>
-   <button class="btn full" type="submit">💾 حفظ إعدادات الرسالة المنبثقة</button>
-  </form>
- `);
-}
-
-function getRegTermsConfig(){
- if(window.regTermsCfg) return window.regTermsCfg;
- try {
-  const s = JSON.parse(localStorage.getItem('ts-reg-terms') || 'null');
-  if(s){ window.regTermsCfg = s; return s; }
- } catch(e){}
- window.regTermsCfg = { enabled: true, title: '📜 شروط وأحكام التسجيل في المتجر', body: '1. الالتزام بصحة البيانات المسجلة وعدم انتحال هوية الغير.\n2. احترام سياسات المتجر والخصوصية وحقوق العملاء والتجار.\n3. يحق للإدارة مراجعة وتنشيط أو إيقاف الحسابات المخالفة.' };
- return window.regTermsCfg;
-}
-
-async function saveRegTermsConfig(cfg){
- window.regTermsCfg = cfg;
- if(dashboard) dashboard.regTerms = cfg;
- localStorage.setItem('ts-reg-terms', JSON.stringify(cfg));
- if(apiBase && user?.role === 'Admin'){
-  await request('/admin/reg-terms-settings', 'PUT', cfg).catch(()=>{});
- }
-}
-
-function regTermsManagerModal(){
- if(user?.role !== 'Admin') return;
- const cfg = getRegTermsConfig();
- modal('📜 التحكم في شروط التسجيل (تعديل / إخفاء / حذف)', `
-  <form class="form" data-form="save-reg-terms-settings">
-   <label class="check"><input type="checkbox" name="enabled" ${cfg.enabled?'checked':''}> <strong>إظهار شروط التسجيل وإلزام الموافقة عليها (في حالة الرفض لا يستطيع التسجيل)</strong></label>
-   <label>عنوان الشروط<input name="title" value="${esc(cfg.title||'')}"></label>
-   <label>نص شروط وأحكام التسجيل<textarea name="body" rows="6">${esc(cfg.body||'')}</textarea></label>
-   <div class="inline" style="justify-content:space-between;gap:8px;flex-wrap:wrap">
-    <button type="button" class="btn small danger" data-action="delete-reg-terms">🗑️ حذف الشروط بالكامل</button>
-    <button class="btn" type="submit">💾 حفظ وتطبيق الشروط</button>
-   </div>
-  </form>
- `);
-}
-
-let _lastTrackedPageId = '';
-let _lastTrackedPageAt = Date.now();
-function trackPageAnalytics(nextPage){
- if(!nextPage) return;
- const now = Date.now();
- const prevPage = _lastTrackedPageId;
- const durSec = prevPage ? Math.max(1, Math.round((now - _lastTrackedPageAt) / 1000)) : 0;
- _lastTrackedPageId = nextPage;
- _lastTrackedPageAt = now;
- if(apiBase){
-  fetch(apiBase + '/api/telemetry/page-visit', {
-   method: 'POST',
-   headers: { 'Content-Type': 'application/json' },
-   body: JSON.stringify({ pageId: prevPage || nextPage, pageTitle: prevPage || nextPage, durationSec: durSec, isAppOpen: !prevPage })
-  }).catch(()=>{});
- }
-}
-
-async function appAnalyticsView(){
- if(user?.role !== 'Admin') return empty('شاشة حركة وإحصائيات التطبيق مخصصة للإدارة العليا فقط');
- let data = {
-  totalInstalls: 12, activeDevices: 8, estimatedUninstalls: 1, totalAppOpens: 145, totalLogins: 64,
-  topRegions: [
-   { country: 'السعودية', region: 'الرياض', installs: 6, topPhone: 'Apple iPhone 15 Pro' },
-   { country: 'السعودية', region: 'جدة', installs: 4, topPhone: 'Samsung Galaxy S24 Ultra' },
-   { country: 'مصر', region: 'القاهرة', installs: 2, topPhone: 'Xiaomi 14 Pro' }
-  ],
-  phoneBreakdown: [
-   { model: 'Apple iPhone 15 Pro', platform: 'iOS', count: 5 },
-   { model: 'Samsung Galaxy S24 Ultra', platform: 'Android', count: 4 },
-   { model: 'Xiaomi 14 Pro', platform: 'Android', count: 3 }
-  ],
-  topPages: [
-   { pageId: 'home', pageTitle: 'الرئيسية والتسوق', visitsCount: 58, totalSeconds: 1840 },
-   { pageId: 'orders', pageTitle: 'الطلبات', visitsCount: 34, totalSeconds: 920 },
-   { pageId: 'support', pageTitle: 'الدعم الفني', visitsCount: 22, totalSeconds: 760 }
-  ],
-  topAccounts: [
-   { userName: user.name || 'Ahmed', role: 'Admin', loginCount: 24, lastLoginAt: new Date().toISOString(), recentTimes: [new Date().toISOString()] }
-  ],
-  recentLogins: []
- };
- try {
   if(apiBase){
-   const res = await request('/admin/app-analytics');
-   if(res) data = res;
+   const res = await fetch(apiBase + '/api/public-sync-config', { cache: 'no-store' });
+   if(res.ok) applyUnifiedPublicConfig(await res.json());
+   if(typeof refreshAppearance === 'function') await refreshAppearance().catch(()=>{});
+   if(typeof refreshBanners === 'function') await refreshBanners().catch(()=>{});
+   if(typeof refreshDesigns === 'function') await refreshDesigns().catch(()=>{});
+   if(user && typeof refresh === 'function') await refresh().catch(()=>{});
   }
- } catch(e){}
-
- const fmtDur = sec => {
-  const s = Number(sec||0);
-  if(s < 60) return s + ' ثانية';
-  const m = Math.floor(s / 60);
-  const rem = s % 60;
-  return `${m} دقيقة و ${rem} ثانية`;
- };
-
- return `
- <div class="section-head">
-  <div>
-   <h1>📊 شاشة حركة وإحصائيات التطبيق الشاملة</h1>
-   <p>تحليل دقيق لعدد مرات التثبيت والحذف والفتح، المناطق والدول الأكثر تحميلاً، أنواع الهواتف، الصفحات الأكثر فتحاً ومدتها، وأنشط الحسابات وأوقات الدخول</p>
-  </div>
-  <button type="button" class="btn secondary" data-action="navigate" data-id="appanalytics">🔄 تحديث الإحصائيات الآن</button>
- </div>
-
- <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(175px,1fr));margin-bottom:20px">
-  <div class="stat featured"><div class="label">📲 إجمالي مرات التثبيت</div><strong>${data.totalInstalls||0}</strong><small>جهاز مثبّت للتطبيق</small></div>
-  <div class="stat"><div class="label">🗑️ حالات الحذف / الخمول</div><strong style="color:#f87171">${data.estimatedUninstalls||0}</strong><small>أجهزة غير نشطة أو محذوفة</small></div>
-  <div class="stat"><div class="label">🚀 إجمالي مرات فتح التطبيق</div><strong style="color:#4ade80">${data.totalAppOpens||0}</strong><small>جلسات فتح التطبيق</small></div>
-  <div class="stat"><div class="label">🔑 إجمالي مرات تسجيل الدخول</div><strong style="color:#fef08a">${data.totalLogins||0}</strong><small>دخول موثق للحسابات</small></div>
- </div>
-
- <div class="dashboard-grid" style="margin-bottom:18px">
-  <div class="panel">
-   <h3 style="color:#fef08a;margin-bottom:12px">🌍 الدول والمناطق الأكثر تحميلاً للتطبيق ونوع الهاتف</h3>
-   <div style="display:grid;gap:8px">
-    ${(data.topRegions||[]).map((r, i) => `
-     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(212,175,55,0.22)">
-      <div>
-       <strong style="color:#fff">${i+1}. ${esc(r.country)} — ${esc(r.region)}</strong>
-       <div style="font-size:11.5px;color:#7dd3fc">📱 أكثر هاتف في المنطقة: ${esc(r.topPhone)}</div>
-      </div>
-      <span class="badge Ready">${r.installs} تحميل</span>
-     </div>
-    `).join('') || '<p class="hint">لا توجد بيانات مناطق بعد</p>'}
-   </div>
-  </div>
-
-  <div class="panel">
-   <h3 style="color:#7dd3fc;margin-bottom:12px">📄 الصفحات الأكثر فتحاً ومدة بقاء المستخدمين</h3>
-   <div style="display:grid;gap:8px">
-    ${(data.topPages||[]).map((p, i) => `
-     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(56,189,248,0.22)">
-      <div>
-       <strong style="color:#fff">${i+1}. ${esc(p.pageTitle || p.pageId)}</strong>
-       <div style="font-size:11.5px;color:#86efac">⏱️ إجمالي مدة الفتح: ${fmtDur(p.totalSeconds)}</div>
-      </div>
-      <span class="badge" style="background:rgba(212,175,55,0.2);color:#fef08a">${p.visitsCount} زيارة</span>
-     </div>
-    `).join('') || '<p class="hint">لا توجد زيارات مسجلة بعد</p>'}
-   </div>
-  </div>
- </div>
-
- <div class="dashboard-grid">
-  <div class="panel">
-   <h3 style="color:#4ade80;margin-bottom:12px">👤 الحسابات الأكثر دخولاً ومرات وأوقات الدخول</h3>
-   <div style="display:grid;gap:8px">
-    ${(data.topAccounts||[]).map((a, i) => `
-     <div style="padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(34,197,94,0.25)">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-       <strong style="color:#fff">${i+1}. ${esc(a.userName)} (${esc(roles[a.role]||a.role)})</strong>
-       <span class="badge Ready">${a.loginCount} مرة دخول</span>
-      </div>
-      <div style="font-size:11px;color:#cbd5e1;margin-top:4px">🕒 آخر دخول: ${a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString('ar-SA') : '-'}</div>
-     </div>
-    `).join('') || '<p class="hint">لا توجد عمليات دخول مسجلة بعد</p>'}
-   </div>
-  </div>
-
-  <div class="panel">
-   <h3 style="color:#fef08a;margin-bottom:12px">📱 توزيع أنواع الهواتف المثبّتة للتطبيق</h3>
-   <div style="display:grid;gap:8px">
-    ${(data.phoneBreakdown||[]).map(ph => `
-     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(212,175,55,0.2)">
-      <strong style="color:#fff;font-size:13px">${ph.platform==='iOS'?'🍏':'🤖'} ${esc(ph.model)}</strong>
-      <span class="badge Ready">${ph.count} جهاز</span>
-     </div>
-    `).join('') || '<p class="hint">لا توجد أجهزة مسجلة بعد</p>'}
-   </div>
-  </div>
- </div>
- `;
+  localStorage.setItem('ts-applied-app-ver', String(targetVer));
+  document.getElementById('vip-app-update-banner')?.remove();
+  render();
+  toast(`✅ تم تحديث التطبيق والبيانات بالكامل إلى الإصدار v${targetVer} بنجاح!`);
+ } catch(e){
+  toast('تم تحديث بيانات التطبيق من السيرفر');
+ }
 }
+
+document.addEventListener('change', async e => {
+ const t = e.target;
+ if(t && t.id === 'auto-rotate-phone-imgs' && t.files?.length){
+  const cfg = getActiveAutoStyleRotation();
+  cfg.customImages = cfg.customImages || [];
+  let added = 0;
+  for(const file of Array.from(t.files)){
+   try {
+    const dUrl = await normalizeImage(file, 1400, 1800000);
+    cfg.customImages.push(dUrl);
+    added++;
+   } catch(err){}
+  }
+  if(added > 0){
+   await saveAutoStyleRotation(cfg);
+   autoStyleRotationModal();
+   toast(`📱 تم رفع ${added} صورة من الجوال إلى قائمة التدوير التلقائي بنجاح!`);
+  }
+ }
+});

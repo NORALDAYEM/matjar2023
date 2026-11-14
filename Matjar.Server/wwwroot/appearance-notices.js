@@ -5,8 +5,49 @@
 let activeChimeType = localStorage.getItem('ts-notification-chime') || 'gold-chime';
 let activeVibeType = localStorage.getItem('ts-notification-vibe') || 'standard';
 
+function readAudioFileAsDataUrl(file, maxBytes = 3500000) {
+  return new Promise((resolve, reject) => {
+    if (!file) return reject(new Error('لم يتم اختيار ملف صوتي'));
+    if (file.size > maxBytes) return reject(new Error('حجم الملف الصوتي يجب ألا يتجاوز 3.5 ميجابايت'));
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('تعذر قراءة الملف الصوتي من الهاتف'));
+    reader.readAsDataURL(file);
+  });
+}
+
+let _phoneBgAudioEl = null;
+function syncPhoneBackgroundAudio() {
+  const nc = (typeof dashboard !== 'undefined' && dashboard?.notificationCenter) || window._ncSettingsCache || {};
+  const enabled = nc.backgroundAudioEnabled ?? (localStorage.getItem('ts-bg-audio-enabled') === 'true');
+  const data = nc.backgroundAudioData || localStorage.getItem('ts-bg-audio-data') || '';
+  const vol = Math.max(0, Math.min(1, Number(nc.backgroundAudioVolume ?? localStorage.getItem('ts-bg-audio-vol') ?? 45) / 100));
+  if (!enabled || !data) {
+    if (_phoneBgAudioEl) { try { _phoneBgAudioEl.pause(); } catch(e){} }
+    return;
+  }
+  try {
+    if (!_phoneBgAudioEl) _phoneBgAudioEl = new Audio();
+    if (_phoneBgAudioEl.src !== data) _phoneBgAudioEl.src = data;
+    _phoneBgAudioEl.loop = true;
+    _phoneBgAudioEl.volume = vol;
+    _phoneBgAudioEl.play().catch(()=>{});
+  } catch(e){}
+}
+
 function playSelectedNotificationChime(type = activeChimeType) {
   if (type === 'silent') return;
+  if (type === 'custom-phone') {
+    const customAudio = (typeof dashboard !== 'undefined' && dashboard?.notificationCenter?.customToneData) || localStorage.getItem('ts-custom-chime-data') || '';
+    if (customAudio) {
+      try {
+        const a = new Audio(customAudio);
+        a.volume = 0.85;
+        a.play().catch(()=>{});
+        return;
+      } catch(e){}
+    }
+  }
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const now = ctx.currentTime;
@@ -88,9 +129,30 @@ function notificationStyleModal() {
         <option value="crystal-bell" ${activeChimeType==='crystal-bell'?'selected':''}>🔔 جرس بلوري فاخر (Crystal Bell)</option>
         <option value="modern-pulse" ${activeChimeType==='modern-pulse'?'selected':''}>⚡ نبض تقني حديث (Modern Pulse)</option>
         <option value="soft-marimba" ${activeChimeType==='soft-marimba'?'selected':''}>🎵 نغمة الماريمبا الدافئة (Warm Acoustic)</option>
+        <option value="custom-phone" ${activeChimeType==='custom-phone'?'selected':''}>📱 نغمة مخصصة مرفوعة من الجوال ${localStorage.getItem('ts-custom-chime-name') ? '('+esc(localStorage.getItem('ts-custom-chime-name'))+')' : ''}</option>
         <option value="silent" ${activeChimeType==='silent'?'selected':''}>🔕 صامت (بدون صوت - اهتزاز فقط)</option>
       </select>
     </label>
+
+    <div class="panel" style="padding:10px;display:grid;gap:8px;border:1px dashed rgba(212,175,55,0.4)">
+      <strong style="color:#fef08a;font-size:12.5px">📱 رفع نغمة إشعار أو نغمة تشغيل في الخلفية مباشرة من الجوال (MP3 / WAV / M4A):</strong>
+      <div class="inline" style="gap:8px;flex-wrap:wrap">
+        <label class="btn small secondary" style="margin:0;cursor:pointer">
+          🔔 ارفع نغمة إشعار من الهاتف
+          <input type="file" id="phone-chime-upload" accept="audio/*" hidden>
+        </label>
+        <label class="btn small secondary" style="margin:0;cursor:pointer">
+          🎵 ارفع نغمة تشغيل في الخلفية من الهاتف
+          <input type="file" id="phone-bg-audio-upload" accept="audio/*" hidden>
+        </label>
+      </div>
+      <small id="phone-audio-status" style="color:#a7f3d0;font-size:11.5px">
+        نغمة الإشعار المرفوعة: <b>${esc(localStorage.getItem('ts-custom-chime-name')||'لا توجد')}</b> · نغمة الخلفية: <b>${esc(localStorage.getItem('ts-bg-audio-name')||'لا توجد')}</b>
+      </small>
+      <label class="check" style="margin:0;font-size:12px">
+        <input type="checkbox" name="bgAudioEnabled" ${localStorage.getItem('ts-bg-audio-enabled')==='true'?'checked':''}> 🔊 تشغيل نغمة الخلفية المرفوعة تلقائياً
+      </label>
+    </div>
     
     <div class="inline">
       <button type="button" class="btn small secondary" data-action="preview-selected-chime">
@@ -232,14 +294,7 @@ function paintAppearance(){
  });
  const bar=document.getElementById('announcement-banner');
  if(bar){
-  const dismissedVer = localStorage.getItem('ts-dismissed-update-ver');
-  if(a.forceUpdateBannerEnabled && dismissedVer !== (a.forceUpdateVersion||'v7.1.0')){
-   bar.hidden=false;
-   bar.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:4px 8px">
-    <span>${esc(a.forceUpdateMessage || '🚀 يتوفر تحديث جديد للتطبيق — اضغط تحديث الآن لتنزيل الملفات الجديدة')} (${esc(a.forceUpdateVersion||'v7.1.0')})</span>
-    <button type="button" class="btn small" style="background:#facc15;color:#031711;font-weight:800;padding:4px 12px" data-action="apply-forced-app-update">🔄 تحديث وتنزيل الملفات الآن</button>
-   </div>`;
-  } else if(a.announcementActive&&a.announcement){bar.hidden=false;bar.textContent=a.announcement;}
+  if(a.announcementActive&&a.announcement){bar.hidden=false;bar.textContent=a.announcement;}
   else{bar.hidden=true;bar.textContent='';}
  }
  paintInterface();
@@ -360,14 +415,6 @@ function appearanceEditor(){
  <div id="appearance-preview" class="appearance-preview"></div>
  <label class="check"><input type="checkbox" name="announcementActive" ${a.announcementActive?'checked':''}>تفعيل شريط الإعلانات أعلى المتجر</label>
  <label>نص الإعلان العلوي<input name="announcement" value="${esc(a.announcement||'')}" maxlength="150" placeholder="مثال: خصم 20% بمناسبة الافتتاح | توصيل مجاني للطلبات فوق 150 ر.س"></label>
- <div class="panel" style="padding:12px;border:1.5px solid #38bdf8;background:rgba(2,132,199,0.12);display:grid;gap:8px">
-  <strong style="color:#7dd3fc;font-size:13.5px">🚀 مفتاح إظهار رسالة تحديث التطبيق للمستخدمين (تنزيل الملفات والتحديثات الجديدة):</strong>
-  <label class="check" style="margin:0"><input type="checkbox" name="forceUpdateBannerEnabled" ${a.forceUpdateBannerEnabled?'checked':''}> <strong>تفعيل إظهار رسالة التحديث لجميع المستخدمين والهواتف</strong></label>
-  <div class="row">
-   <label>رقم إصدار التحديث الجديد<input name="forceUpdateVersion" value="${esc(a.forceUpdateVersion||'v7.1.0')}" placeholder="v7.1.0" dir="ltr"></label>
-   <label>نص رسالة التحديث الظاهرة للمستخدمين<input name="forceUpdateMessage" value="${esc(a.forceUpdateMessage||'🚀 يتوفر تحديث جديد ومهم للتطبيق — اضغط تحديث الآن لتنزيل الملفات الجديدة.')}" maxlength="200"></label>
-  </div>
- </div>
  <button type="button" class="btn secondary" data-action="reset-appearance">استعادة الإعدادات الافتراضية</button>
  <button class="btn" type="submit">حفظ وتطبيق الشكل الجديد</button>
  <div class="form-error" hidden></div></form>`);
@@ -396,20 +443,16 @@ async function bannersManager(){
   all = Array.isArray(res) ? res : storeBanners;
   if(Array.isArray(res)) storeBanners = res;
  } catch(e){ all = Array.isArray(storeBanners) ? storeBanners : []; }
- const jobAdsActive = all.some(b => (b.bannerKind === 'job' || (b.title||'').includes('وظيف') || (b.title||'').includes('توظيف')) && b.active);
- modal('📢 لوحة التحكم المتطورة في الإعلانات المتحركة (3D) وإعلانات الوظائف', `<div class="stack">
+ modal('📢 لوحة إدارة الإعلانات المتحركة وإعلانات الوظائف والتوظيف', `<div class="stack">
  <div style="background:rgba(212,175,55,0.12);border:1px solid rgba(212,175,55,0.35);padding:14px;border-radius:14px;font-size:12.5px;line-height:1.8;color:#fef08a">
-  <strong>لوحة الإعلانات الاحترافية بدون وميض (Zero-Flicker 3D Ad Studio):</strong><br>
-  تحكم كامل في اتجاه حركة الإعلان (يمين، يسار، أعلى، أسفل، 3D)، تحديد حجم ومساحة الإعلان، التمرير باللمس والماوس للعميل، والكتابة على عشرات الصور الجاهزة.
+  <strong>لوحة التحكم الشاملة في الإعلانات المتحركة وإعلانات الوظائف:</strong><br>
+  أضف إعلانات عروض متحركة أو <b>إعلانات وظائف وتوظيف تفاعلية</b>، وحدد مكان ظهورها في <b>صفحة تسجيل الدخول</b> أو <b>الصفحة الرئيسية للمتجر</b> أو كليهما معاً.
  </div>
  
  <div class="inline" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
-  <div class="inline" style="gap:6px;flex-wrap:wrap">
-   <button class="btn small" type="button" data-action="new-banner">✨ + إضافة إعلان متحرك 3D</button>
-   <button class="btn small" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff" type="button" data-action="new-job-banner">💼 + إضافة إعلان وظائف</button>
-   <button class="btn small" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff" type="button" data-action="ad-motion-settings-modal">🎛️ إعدادات الحركة و3D والحجم</button>
-   <button class="btn small ${jobAdsActive?'danger':'secondary'}" type="button" data-action="toggle-job-ads-visibility">${jobAdsActive ? '🙈 إخفاء إعلان الوظائف' : '👁️ إظهار إعلان الوظائف'}</button>
-   <button class="btn small secondary" type="button" data-action="open-jobs-screen-from-modal">🪪 شاشة التوظيف وحقول التقديم</button>
+  <div class="inline" style="gap:8px;flex-wrap:wrap">
+   <button class="btn small" type="button" data-action="new-banner">✨ + إضافة إعلان متحرك جديد</button>
+   <button class="btn small" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff" type="button" data-action="new-job-banner">💼 + إضافة إعلان وظائف / توظيف</button>
   </div>
   <span class="badge Ready">${all.length} إعلان مسجل</span>
  </div>
@@ -417,33 +460,28 @@ async function bannersManager(){
  <div style="display:grid;gap:12px;max-height:54vh;overflow-y:auto;padding-left:4px">
   ${all.map(b=>{
    const isJob = b.bannerKind === 'job' || (b.title||'').includes('وظيف') || (b.title||'').includes('توظيف');
-   const dirMap = {'right-to-left':'يمين ⬅ يسار','left-to-right':'يسار ➡ يمين','bottom-to-top':'أسفل ⬆ أعلى','top-to-bottom':'أعلى ⬇ أسفل','3d-cube':'مكعب 3D 🧊','3d-flip':'انقلاب 3D 🔄','3d-carousel':'حلقة 3D 🎠','kenburns-zoom':'زووم سينمائي 🔍'};
    return `
    <article class="ticket-card" style="border:1px solid rgba(212,175,55,0.25);border-right:6px solid ${b.active?'#22c55e':'#ef4444'};background:rgba(4,25,19,0.88);border-radius:14px;padding:14px">
     <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
-     ${b.image?`<img src="${esc(b.image)}" style="width:98px;height:70px;object-fit:cover;border-radius:10px;border:1px solid rgba(212,175,55,0.3)" alt="إعلان">`:`''`}
+     ${b.image?`<img src="${esc(b.image)}" style="width:94px;height:68px;object-fit:cover;border-radius:10px;border:1px solid rgba(212,175,55,0.3)" alt="إعلان">`:`''`}
      <div style="flex:1;min-width:200px">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
        <strong style="color:#ffffff;font-size:14.5px">${esc(b.title)}</strong>
        <span class="${isJob?'vip-job-ad-badge':'badge'}" style="${isJob?'':'background:var(--vip-gold-gradient);color:#031711;font-size:10px;font-weight:bold'}">${esc(b.badge||(isJob?'💼 وظائف شاغرة':'★ عرض خاص'))}</span>
-       ${b.enable3D !== false ? `<span class="badge" style="background:rgba(124,58,237,0.3);color:#ddd6fe;font-size:10px">🧊 3D</span>` : ''}
       </div>
       <small style="display:block;color:#cbd5e1;margin-top:4px">${esc(b.subtitle)}</small>
       ${isJob && (b.jobDepartment || b.jobSalary) ? `<div style="font-size:11.5px;color:#93c5fd;margin-top:4px">💼 القسم: <b>${esc(b.jobDepartment||'عام')}</b> · 💰 المزايا: <b>${esc(b.jobSalary||'راتب مجزٍ')}</b> · ⏰ الدوام: <b>${esc(b.jobType||'مرن')}</b></div>` : ''}
       <div style="display:flex;gap:10px;font-size:11px;color:#94a3b8;margin-top:6px;flex-wrap:wrap">
        <span>النوع: <b style="color:#7dd3fc">${isJob?'💼 إعلان وظائف':'✨ إعلان متحرك'}</b></span>
        <span>·</span>
-       <span>الظهور: <b style="color:#fef08a">${b.placement==='Login'?'صفحة الدخول':b.placement==='Home'?'الرئيسية':b.placement==='All'?'جميع الصفحات':'الدخول والرئيسية'}</b></span>
+       <span>الظهور: <b style="color:#fef08a">${b.placement==='Login'?'صفحة الدخول فقط':b.placement==='Home'?'الرئيسية فقط':'الدخول والرئيسية معاً'}</b></span>
        <span>·</span>
-       <span>الاتجاه: <b style="color:#a7f3d0">${dirMap[b.direction||'right-to-left']||'يمين ⬅ يسار'}</b></span>
+       <span>الحركة: <b style="color:#fef08a">${b.animation==='fade'?'تلاشي ناعم':b.animation==='zoom'?'تكبير سينمائي متحرك':'انزلاق سلس'}</b></span>
        <span>·</span>
-       <span>الارتفاع: <b style="color:#fef08a">${b.heightPx||240}px</b></span>
-       <span>·</span>
-       <span>الحالة: <b style="color:${b.active?'#22c55e':'#ef4444'}">${b.active?'نشط ومفعل':'مخفي مؤقتاً'}</b></span>
+       <span>الحالة: <b style="color:${b.active?'#22c55e':'#ef4444'}">${b.active?'نشط ومفعل':'معطل مؤقتاً'}</b></span>
       </div>
      </div>
      <div class="inline" style="gap:6px">
-      <button class="btn small ${b.active?'ghost':'secondary'}" type="button" data-action="quick-toggle-banner" data-id="${esc(b.id)}">${b.active?'🙈 إخفاء':'👁️ إظهار'}</button>
       <button class="btn small secondary" type="button" data-action="edit-banner" data-id="${esc(b.id)}">✏️ تعديل</button>
       <button class="btn small danger" type="button" data-action="delete-banner" data-id="${esc(b.id)}">🗑️ حذف</button>
      </div>
@@ -468,9 +506,6 @@ function bannerEditor(id, defaultKind='promo'){
   textColor: '#ffffff',
   placement: 'Both',
   animation: 'zoom',
-  direction: 'right-to-left',
-  enable3D: true,
-  heightPx: 240,
   badge: isJobPreset ? '💼 وظائف شاغرة الآن' : '★ عرض خاص وحصري',
   bannerKind: defaultKind || 'promo',
   jobDepartment: isJobPreset ? 'الإشراف، خدمة العملاء، والتوصيل' : '',
@@ -481,47 +516,36 @@ function bannerEditor(id, defaultKind='promo'){
  };
  
  const quickBannerImages = [
-  ['🛍️ بوتيك ملكي', 'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=1400&auto=format&fit=crop&q=80'],
-  ['💼 فريق عمل وتوظيف', 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1400&auto=format&fit=crop&q=80'],
-  ['💎 مجوهرات وساعات', 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=1400&auto=format&fit=crop&q=80'],
-  ['✨ عطور ملكية', 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=1400&auto=format&fit=crop&q=80'],
-  ['👑 قصر مذهّب VIP', 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=1400&auto=format&fit=crop&q=80'],
-  ['📱 تقنية وهواتف', 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=1400&auto=format&fit=crop&q=80'],
-  ['⌚ ساعات سويسرية', 'https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=1400&auto=format&fit=crop&q=80'],
-  ['👗 أزياء وموضة راقية', 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1400&auto=format&fit=crop&q=80'],
-  ['☕ قهوة عربية وضيافة', 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=1400&auto=format&fit=crop&q=80'],
-  ['🚚 توصيل سريع وشحن', 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=1400&auto=format&fit=crop&q=80'],
-  ['🎁 هدايا ومناسبات', 'https://images.unsplash.com/photo-1513885535751-8b9238bd345a?w=1400&auto=format&fit=crop&q=80'],
-  ['🌸 عناية وتجميل فاخر', 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=1400&auto=format&fit=crop&q=80'],
-  ['💻 لابتوبات وأجهزة', 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=1400&auto=format&fit=crop&q=80'],
-  ['👜 حقائب جلدية إيطالية', 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=1400&auto=format&fit=crop&q=80'],
-  ['🏛️ معرض تسوق فاخر', 'https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?w=1400&auto=format&fit=crop&q=80'],
-  ['🔥 تخفيضات موسمية كبرى', 'https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?w=1400&auto=format&fit=crop&q=80']
+  ['بوتيك ملكي', 'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=1400&auto=format&fit=crop&q=80'],
+  ['فريق عمل وتوظيف', 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1400&auto=format&fit=crop&q=80'],
+  ['مجوهرات وساعات', 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=1400&auto=format&fit=crop&q=80'],
+  ['عطور ملكية', 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=1400&auto=format&fit=crop&q=80'],
+  ['قصر مذهّب VIP', 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=1400&auto=format&fit=crop&q=80'],
+  ['تقنية وهواتف', 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=1400&auto=format&fit=crop&q=80']
  ];
 
- modal(id ? '✏️ تعديل الإعلان أو الوظيفة (مع الكتابة على الصورة و3D)' : (isJobPreset ? '💼 إضافة إعلان وظائف وتوظيف جديد' : '✨ إضافة إعلان وبانر متحرك 3D جديد'), `<form class="form" data-form="banner" data-id="${esc(id||'')}" style="max-height:78vh;overflow-y:auto;padding-left:4px">
+ modal(id ? '✏️ تعديل الإعلان أو الوظيفة' : (isJobPreset ? '💼 إضافة إعلان وظائف وتوظيف جديد' : '✨ إضافة إعلان وبانر متحرك جديد'), `<form class="form" data-form="banner" data-id="${esc(id||'')}" style="max-height:78vh;overflow-y:auto;padding-left:4px">
  <div class="row">
   <label>نوع الإعلان
    <select name="bannerKind" id="banner-kind-sel">
     <option value="promo" ${b.bannerKind!=='job'?'selected':''}>✨ إعلان تسويقي / عرض متحرك جذاب</option>
-    <option value="job" ${b.bannerKind==='job'?'selected':''}>💼 إعلان وظائف وتوظيف (مع شاشة تقديم وفيديو تحقق)</option>
+    <option value="job" ${b.bannerKind==='job'?'selected':''}>💼 إعلان وظائف وتوظيف (مع نموذج تقديم مباشر)</option>
    </select>
   </label>
-  <label>مكان ظهور الإعلان في الصفحات
+  <label>مكان ظهور الإعلان
    <select name="placement">
     <option value="Both" ${b.placement==='Both'?'selected':''}>⭐ في صفحة الدخول والصفحة الرئيسية معاً</option>
-    <option value="All" ${b.placement==='All'?'selected':''}>🌐 في جميع صفحات المتجر والدخول</option>
     <option value="Login" ${b.placement==='Login'?'selected':''}>🔐 صفحة تسجيل الدخول فقط</option>
     <option value="Home" ${b.placement==='Home'?'selected':''}>🛍️ الصفحة الرئيسية للمتجر فقط</option>
    </select>
   </label>
  </div>
 
- <label>عنوان الإعلان أو الوظيفة الرئيسي (يُكتب مباشرة على صورة الإعلان)
-  <input name="title" id="banner-live-title" value="${esc(b.title)}" required minlength="2" maxlength="140" placeholder="مثال: مطلوب موظفو دعم فني ومشرفو مبيعات أو عروض الموسم الملكية">
+ <label>عنوان الإعلان أو الوظيفة الرئيسي
+  <input name="title" value="${esc(b.title)}" required minlength="2" maxlength="140" placeholder="مثال: مطلوب موظفو دعم فني ومشرفو مبيعات أو عروض الموسم">
  </label>
- <label>العنوان الفرعي أو النص الإضافي على صورة الإعلان
-  <input name="subtitle" id="banner-live-subtitle" value="${esc(b.subtitle)}" maxlength="240" placeholder="مثال: رواتب مجزية وحوافز يومية — قدّم الآن أو خصم 40% لفترة محدودة">
+ <label>العنوان الفرعي أو تفاصيل الإعلان
+  <input name="subtitle" value="${esc(b.subtitle)}" maxlength="240" placeholder="مثال: رواتب مجزية وحوافز يومية — قدّم الآن أو خصم 40% لفترة محدودة">
  </label>
 
  <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
@@ -536,44 +560,23 @@ function bannerEditor(id, defaultKind='promo'){
   </label>
  </div>
  
- <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
+ <div class="row">
   <label>شارة الإعلان البارزة (Badge)
-   <input name="badge" id="banner-live-badge" value="${esc(b.badge||'★ عرض خاص')}" maxlength="40" placeholder="مثال: 💼 وظائف شاغرة أو 🔥 خصم 40%">
+   <input name="badge" value="${esc(b.badge||'★ عرض خاص')}" maxlength="40" placeholder="مثال: 💼 وظائف شاغرة أو 🔥 خصم 40%">
   </label>
-  <label>اتجاه حركة الإعلان (Motion Direction)
-   <select name="direction">
-    <option value="right-to-left" ${(b.direction||'right-to-left')==='right-to-left'?'selected':''}>⬅️ تحرك من اليمين إلى اليسار</option>
-    <option value="left-to-right" ${b.direction==='left-to-right'?'selected':''}>➡️ تحرك من اليسار إلى اليمين</option>
-    <option value="bottom-to-top" ${b.direction==='bottom-to-top'?'selected':''}>⬆️ تحرك من الأسفل إلى الأعلى</option>
-    <option value="top-to-bottom" ${b.direction==='top-to-bottom'?'selected':''}>⬇️ تحرك من الأعلى إلى الأسفل</option>
-    <option value="3d-cube" ${b.direction==='3d-cube'?'selected':''}>🧊 دوران مكعب ثلاثي الأبعاد (3D Cube)</option>
-    <option value="3d-flip" ${b.direction==='3d-flip'?'selected':''}>🔄 انقلاب ثلاثي الأبعاد (3D Flip)</option>
-    <option value="3d-carousel" ${b.direction==='3d-carousel'?'selected':''}>🎠 حلقة ثلاثية الأبعاد (3D Ring)</option>
-    <option value="kenburns-zoom" ${b.direction==='kenburns-zoom'?'selected':''}>🔍 زووم سينمائي انسيابي (Ken Burns)</option>
-   </select>
-  </label>
-  <label>طريقة التأثير البصري
+  <label>طريقة الحركة البصرية (Animation)
    <select name="animation">
-    <option value="zoom" ${b.animation==='zoom'?'selected':''}>🔍 حركة سينمائية متكبرة</option>
-    <option value="slide" ${b.animation==='slide'?'selected':''}>↔️ انزلاق سلس بدون وميض</option>
-    <option value="fade" ${b.animation==='fade'?'selected':''}>✨ تلاشي وتوهج ناعم</option>
+    <option value="zoom" ${b.animation==='zoom'?'selected':''}>🔍 حركة سينمائية متكبرة (Ken Burns Motion)</option>
+    <option value="slide" ${b.animation==='slide'?'selected':''}>↔️ انزلاق تلقائي سلس (Smooth Slide)</option>
+    <option value="fade" ${b.animation==='fade'?'selected':''}>✨ تلاشي وتوهج ناعم (Soft Glow Fade)</option>
    </select>
-  </label>
- </div>
-
- <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">
-  <label>ارتفاع ومساحة الإعلان بالبكسل (140 - 450)
-   <input type="number" name="heightPx" value="${b.heightPx||240}" min="120" max="500" step="10">
-  </label>
-  <label class="check" style="margin-top:22px">
-   <input type="checkbox" name="enable3D" ${b.enable3D!==false?'checked':''}> <strong>🧊 تفعيل العرض ثلاثي الأبعاد (3D) للإعلان</strong>
   </label>
  </div>
 
  <div class="panel" style="padding:10px">
-  <small style="color:#fef08a;display:block;margin-bottom:6px">🖼️ مكتبة الصور الجاهزة للإعلانات (16 صورة احترافية — اضغط على أي صورة لاختيارها والكتابة عليها فوراً):</small>
+  <small style="color:#fef08a;display:block;margin-bottom:6px">🖼️ اختر صورة متحركة جاهزة بضغطة زر أو ارفع صورة من جهازك:</small>
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-   ${quickBannerImages.map(([lbl, u]) => `<button type="button" class="btn small secondary" style="font-size:11px;padding:4px 8px" onclick="document.getElementById('banner-img-url').value='${u}';document.getElementById('banner-image-data').value='${u}';document.getElementById('banner-preview-box').style.backgroundImage='linear-gradient(rgba(0,0,0,0.35),rgba(0,0,0,0.78)),url(\x27${u}\x27)';">${lbl}</button>`).join('')}
+   ${quickBannerImages.map(([lbl, u]) => `<button type="button" class="btn small secondary" style="font-size:11px;padding:4px 8px" onclick="document.getElementById('banner-img-url').value='${u}';document.getElementById('banner-image-data').value='${u}';document.getElementById('banner-preview-box').innerHTML='<img src=\x22${u}\x22 style=\x22width:100%;max-height:150px;object-fit:cover;border-radius:12px\x22>';">${lbl}</button>`).join('')}
   </div>
   <label>أو ارفع صورة من جهازك (PNG / JPEG / WebP)
    <input type="file" id="banner-image" accept="image/png,image/jpeg,image/webp">
@@ -582,10 +585,8 @@ function bannerEditor(id, defaultKind='promo'){
    <input name="imageUrl" id="banner-img-url" value="${esc(b.image)}" placeholder="https://images.unsplash.com/photo-...">
   </label>
   <input type="hidden" name="image" id="banner-image-data" value="${esc(b.image)}">
-  <div id="banner-preview-box" style="width:100%;min-height:155px;border-radius:14px;margin:8px 0;border:1.5px solid rgba(212,175,55,0.45);background-size:cover;background-position:center;background-image:linear-gradient(rgba(0,0,0,0.35),rgba(0,0,0,0.78)),url('${esc(b.image)}');padding:16px;display:flex;flex-direction:column;justify-content:flex-end;color:#fff">
-   <span class="badge" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold;align-self:flex-start;margin-bottom:6px">${esc(b.badge||'★ معاينة حية للكتابة على الصورة')}</span>
-   <strong style="font-size:16px;color:#fff">${esc(b.title||'عنوان الإعلان يظهر هنا مباشرة فوق الصورة')}</strong>
-   <small style="color:#e2e8f0;margin-top:4px">${esc(b.subtitle||'النص الفرعي للإعلان يظهر هنا بوضوح تام')}</small>
+  <div id="banner-preview-box">
+   ${b.image?`<img src="${esc(b.image)}" style="width:100%;max-height:150px;object-fit:cover;border-radius:12px;margin:6px 0;border:1px solid rgba(212,175,55,0.3)" alt="معاينة الإعلان">`:`''`}
   </div>
  </div>
 
@@ -597,14 +598,14 @@ function bannerEditor(id, defaultKind='promo'){
 
  <div class="row">
   <label>نص الزر التفاعلي<input name="buttonText" value="${esc(b.buttonText||'اكتشف الآن')}" maxlength="40"></label>
-  <label>الرابط أو القسم الموجه إليه عند الضغط<input name="linkUrl" value="${esc(b.linkUrl||'الكل')}" placeholder="الكل أو اسم القسم"></label>
+  <label>الرابط أو القسم الموجه إليه<input name="linkUrl" value="${esc(b.linkUrl||'الكل')}" placeholder="الكل أو اسم القسم"></label>
  </div>
 
  <label class="check">
   <input type="checkbox" name="active" ${b.active?'checked':''}> <strong>تفعيل الإعلان فوراً وعرضه في المتجر وشاشة الدخول</strong>
  </label>
 
- <button class="btn full" type="submit">💾 حفظ الإعلان وتطبيقه فوراً بدون وميض</button>
+ <button class="btn full" type="submit">💾 حفظ الإعلان وتطبيقه فوراً</button>
  <div class="form-error" hidden></div>
  </form>`);
 
@@ -616,8 +617,7 @@ function bannerEditor(id, defaultKind='promo'){
    try {
     const dataUrl = await normalizeImage(file, 1200, 1500000);
     document.getElementById('banner-image-data').value = dataUrl;
-    const pBox = document.getElementById('banner-preview-box');
-    if(pBox) pBox.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.35),rgba(0,0,0,0.78)),url('${dataUrl}')`;
+    document.getElementById('banner-preview-box').innerHTML = `<img src="${dataUrl}" style="width:100%;max-height:150px;object-fit:cover;border-radius:12px;margin:6px 0;border:1px solid rgba(212,175,55,0.3)" alt="معاينة الصورة">`;
    } catch(e){ toast(e.message || 'تعذر قراءة الصورة'); }
   };
  }
@@ -627,8 +627,7 @@ function bannerEditor(id, defaultKind='promo'){
    const url = urlInput.value.trim();
    if(url){
     document.getElementById('banner-image-data').value = url;
-    const pBox = document.getElementById('banner-preview-box');
-    if(pBox) pBox.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.35),rgba(0,0,0,0.78)),url('${url}')`;
+    document.getElementById('banner-preview-box').innerHTML = `<img src="${url}" style="width:100%;max-height:150px;object-fit:cover;border-radius:12px;margin:6px 0;border:1px solid rgba(212,175,55,0.3)" alt="معاينة الصورة">`;
    }
   };
  }
@@ -765,6 +764,7 @@ async function composeNotice(){
       <option value="royal-harp" ${ncSettings.defaultTone==='royal-harp'?'selected':''}>🎵 نغمة ملكية ثلاثية</option>
       <option value="urgent-radar" ${ncSettings.defaultTone==='urgent-radar'?'selected':''}>🚨 تنبيه رادار سريع للطلبات</option>
       <option value="soft-pop" ${ncSettings.defaultTone==='soft-pop'?'selected':''}>✨ نقرة هادئة سريعة</option>
+      <option value="custom-phone" ${ncSettings.defaultTone==='custom-phone'?'selected':''}>📱 نغمة مخصصة من الجوال (${esc(ncSettings.customToneName||localStorage.getItem('ts-custom-chime-name')||'مرفوعة')})</option>
      </select>
     </label>
     <label>شكل وتصميم بطاقة الإشعار
@@ -776,39 +776,22 @@ async function composeNotice(){
      </select>
     </label>
    </div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px;border-radius:10px;background:rgba(255,255,255,0.04)">
+    <label class="btn small secondary" style="margin:0;cursor:pointer">
+     📱 رفع نغمة إشعار من الجوال
+     <input type="file" id="phone-chime-upload" accept="audio/*" hidden>
+    </label>
+    <label class="btn small secondary" style="margin:0;cursor:pointer">
+     🎵 رفع نغمة خلفية من الجوال
+     <input type="file" id="phone-bg-audio-upload" accept="audio/*" hidden>
+    </label>
+    <small id="phone-audio-status" style="color:#a7f3d0;font-size:11px">${esc(ncSettings.customToneName||localStorage.getItem('ts-custom-chime-name')||'')}</small>
+   </div>
    <div class="inline" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
     <button type="button" class="btn small secondary" data-action="preview-selected-chime">🔊 سماع ومعاينة النغمة</button>
     <button type="submit" class="btn small">💾 حفظ النغمة والشكل</button>
    </div>
   </form>
-
-    <!-- 1.5 رفع مقطع صوتي مخصص للنغمات من الهاتف أو الحاسوب + الحذف من المخزن -->
-  <div class="panel" style="padding:14px;border:1px solid rgba(250,204,21,0.4)">
-   <strong style="color:#fef08a;font-size:13.5px;display:block;margin-bottom:8px">🎧 رفع مقطع صوتي لنغمات الإشعارات (من الهاتف أو الحاسوب) وإدارة مخزن النغمات:</strong>
-   <form class="form" data-form="upload-custom-ringtone" style="gap:8px">
-    <div class="row">
-     <label>اسم النغمة الجديدة<input name="name" required placeholder="مثال: نغمة تنبيه ملكية خاصة"></label>
-     <label>اختر ملف صوتي (MP3 / WAV / OGG / M4A)<input type="file" id="custom-ringtone-file" accept="audio/*" required></label>
-    </div>
-    <button type="submit" class="btn small">⬆️ رفع وحفظ المقطع الصوتي في مخزن النغمات</button>
-   </form>
-   ${(() => {
-    const rts = ncSettings.customRingtones || JSON.parse(localStorage.getItem('ts-custom-ringtones')||'[]');
-    if(!rts.length) return '<p class="hint" style="margin-top:8px">لا توجد نغمات مرفوعة مخصصة بعد.</p>';
-    return `<div style="display:grid;gap:8px;margin-top:10px">${rts.map(rt => `
-     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(212,175,55,0.25)">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-       <strong style="color:#fff;font-size:12.5px">🎵 ${esc(rt.name)}</strong>
-       <audio controls preload="metadata" src="${esc(rt.audioData)}" style="height:30px;max-width:210px"></audio>
-      </div>
-      <div class="inline" style="gap:6px">
-       <button type="button" class="btn small secondary" data-action="use-custom-ringtone" data-id="${esc(rt.id)}">✅ اعتماد كنغمة</button>
-       <button type="button" class="btn small danger" data-action="delete-custom-ringtone" data-id="${esc(rt.id)}">🗑️ حذف من المخزن</button>
-      </div>
-     </div>
-    `).join('')}</div>`;
-   })()}
-  </div>
 
   <!-- 2. ضبط مؤقت لإرسال إشعارات تلقائية في أوقات معينة -->
   <form class="form panel" data-form="schedule-auto-notice" style="padding:14px;border:1px solid rgba(56,189,248,0.4)">
@@ -987,71 +970,27 @@ async function appearanceAction(name,id,el){
   render();
   return true;
  }
- if(name==='apply-forced-app-update'){
-  try {
-   localStorage.setItem('ts-dismissed-update-ver', storeAppearance?.forceUpdateVersion || 'v7.1.0');
-   if(navigator.serviceWorker?.controller){
-    navigator.serviceWorker.controller.postMessage({ type: 'FORCE_APP_UPDATE_NOW' });
-   }
-   if(window.caches?.keys){
-    const ks = await caches.keys();
-    await Promise.all(ks.map(k => caches.delete(k)));
-   }
-   toast('🚀 جاري تحميل أحدث ملفات وتحديثات المتجر الآن...');
-   setTimeout(() => location.reload(true), 600);
-  } catch(e){ location.reload(); }
-  return true;
- }
- if(name==='use-custom-ringtone'){
-  const rts = dashboard?.notificationCenter?.customRingtones || JSON.parse(localStorage.getItem('ts-custom-ringtones')||'[]');
-  const found = rts.find(x => x.id === id);
-  if(found){
-   localStorage.setItem('ts-active-custom-ringtone', found.audioData);
-   try { new Audio(found.audioData).play().catch(()=>{}); } catch(e){}
-   toast('✅ تم اعتماد النغمة المخصصة: ' + found.name);
-  }
-  return true;
- }
- if(name==='delete-custom-ringtone'){
-  const rts = (dashboard?.notificationCenter?.customRingtones || JSON.parse(localStorage.getItem('ts-custom-ringtones')||'[]')).filter(x => x.id !== id);
-  localStorage.setItem('ts-custom-ringtones', JSON.stringify(rts));
-  if(dashboard?.notificationCenter) dashboard.notificationCenter.customRingtones = rts;
-  if(apiBase) await request('/admin/ringtones/' + id, 'DELETE').catch(()=>{});
-  await composeNotice();
-  toast('🗑️ تم حذف المقطع الصوتي من مخزن النغمات');
-  return true;
- }
  return false;
 }
 
 async function appearanceForm(kind,id,f,form){
- if(kind==='upload-custom-ringtone'){
-  const fileEl = document.getElementById('custom-ringtone-file');
-  const file = fileEl?.files?.[0];
-  if(!file) throw new Error('اختر ملفاً صوتياً من هاتفك أو حاسوبك أولاً');
-  if(file.size > 2500000) throw new Error('الحد الأقصى لحجم المقطع الصوتي 2.5 ميجابايت');
-  const audioData = await new Promise((resolve, reject) => {
-   const r = new FileReader();
-   r.onload = () => resolve(r.result);
-   r.onerror = () => reject(new Error('تعذر قراءة الملف الصوتي'));
-   r.readAsDataURL(file);
-  });
-  let saved = { id:'rt_'+Date.now(), name:(f.name||file.name).trim(), audioData, createdAt:new Date().toISOString() };
-  if(apiBase){
-   saved = await request('/admin/ringtones', 'POST', { name: saved.name, audioData });
-  }
-  const rts = [saved, ...(dashboard?.notificationCenter?.customRingtones || JSON.parse(localStorage.getItem('ts-custom-ringtones')||'[]'))].slice(0, 30);
-  localStorage.setItem('ts-custom-ringtones', JSON.stringify(rts));
-  if(dashboard?.notificationCenter) dashboard.notificationCenter.customRingtones = rts;
-  await composeNotice();
-  toast('🎵 تم رفع وحفظ المقطع الصوتي بنجاح في مخزن النغمات!');
-  return true;
- }
  if(kind==='save-notification-center-all'){
   activeChimeType = f.defaultTone || 'gold-chime';
   localStorage.setItem('ts-notification-chime', activeChimeType);
   localStorage.setItem('ts-notice-visual-style', f.visualStyle || 'royal-gold');
-  const payload = { defaultTone: activeChimeType, visualStyle: f.visualStyle || 'royal-gold', popupEnabled: true, soundEnabled: true, autoTimerEnabled: true };
+  const payload = {
+   defaultTone: activeChimeType,
+   visualStyle: f.visualStyle || 'royal-gold',
+   popupEnabled: true,
+   soundEnabled: true,
+   autoTimerEnabled: true,
+   customToneName: localStorage.getItem('ts-custom-chime-name') || '',
+   customToneData: localStorage.getItem('ts-custom-chime-data') || '',
+   backgroundAudioEnabled: localStorage.getItem('ts-bg-audio-enabled') === 'true',
+   backgroundAudioName: localStorage.getItem('ts-bg-audio-name') || '',
+   backgroundAudioData: localStorage.getItem('ts-bg-audio-data') || '',
+   backgroundAudioVolume: Number(localStorage.getItem('ts-bg-audio-vol') || 45)
+  };
   if(dashboard) dashboard.notificationCenter = payload;
   if(apiBase) await request('/admin/notification-center/settings', 'PUT', payload);
   playSelectedNotificationChime(activeChimeType);
@@ -1087,9 +1026,11 @@ async function appearanceForm(kind,id,f,form){
   activeVibeType = f.vibration || 'standard';
   localStorage.setItem('ts-notification-chime', activeChimeType);
   localStorage.setItem('ts-notification-vibe', activeVibeType);
+  localStorage.setItem('ts-bg-audio-enabled', f.bgAudioEnabled === 'on' ? 'true' : 'false');
+  syncPhoneBackgroundAudio();
   closeModal();
   playSelectedNotificationChime();
-  toast('تم حفظ نغمة وشكل إشعارات التطبيق بنجاح');
+  toast('تم حفظ نغمة الإشعارات والتشغيل الخلفي من الجوال بنجاح');
   return true;
  }
  if(kind==='save-icon-bubbles'){
@@ -1138,7 +1079,7 @@ async function appearanceForm(kind,id,f,form){
  }
  if(kind==='appearance'){
   if(imageLoading)throw new Error('انتظر اكتمال تجهيز الصورة');
-  storeAppearance=await request('/appearance','PUT',{...storeAppearance,storeName:f.storeName,subtitle:f.subtitle,loadingTitle:f.loadingTitle||f.storeName||'التسوق',loadingSubtitle:f.loadingSubtitle||'نجهّز لك تجربة أجمل…',primary:f.primary,background:f.background,ink:f.ink,font:f.font,logo:draftLogo,announcement:f.announcement||'',announcementActive:f.announcementActive==='on',forceUpdateBannerEnabled:f.forceUpdateBannerEnabled==='on',forceUpdateVersion:f.forceUpdateVersion||'v7.1.0',forceUpdateMessage:f.forceUpdateMessage||'🚀 يتوفر تحديث جديد للتطبيق'});
+  storeAppearance=await request('/appearance','PUT',{...storeAppearance,storeName:f.storeName,subtitle:f.subtitle,loadingTitle:f.loadingTitle||f.storeName||'التسوق',loadingSubtitle:f.loadingSubtitle||'نجهّز لك تجربة أجمل…',primary:f.primary,background:f.background,ink:f.ink,font:f.font,logo:draftLogo,announcement:f.announcement||'',announcementActive:f.announcementActive==='on'});
   try {
    localStorage.setItem('ts-loading-title', f.loadingTitle||f.storeName||'التسوق');
    localStorage.setItem('ts-loading-sub', f.loadingSubtitle||'نجهّز لك تجربة أجمل…');
@@ -1146,15 +1087,8 @@ async function appearanceForm(kind,id,f,form){
   if(typeof saveAdminLocalCloudSnapshot==='function')saveAdminLocalCloudSnapshot();closeModal();paintAppearance();toast('تم تطبيق شكل وهوية المتجر والأيقونة الجديدة بنجاح');return true;
  }
  if(kind==='banner'){
-  await request('/banners'+(id?'/'+id:''),id?'PUT':'POST',{
-   ...f,
-   sortOrder:Number(f.sortOrder||0),
-   heightPx:Number(f.heightPx||240),
-   enable3D:f.enable3D==='on',
-   direction:f.direction||'right-to-left',
-   active:f.active==='on'
-  });
-  await refreshBanners();if(typeof saveAdminLocalCloudSnapshot==='function')saveAdminLocalCloudSnapshot();closeModal();await bannersManager();toast('تم حفظ الإعلان وتحديث الحركة ثلاثية الأبعاد بنجاح');return true;
+  await request('/banners'+(id?'/'+id:''),id?'PUT':'POST',{...f,sortOrder:Number(f.sortOrder||0),active:f.active==='on'});
+  await refreshBanners();if(typeof saveAdminLocalCloudSnapshot==='function')saveAdminLocalCloudSnapshot();closeModal();await bannersManager();toast('تم حفظ الإعلان بنجاح');return true;
  }
  if(kind==='staff'){
   await request('/staff'+(id?'/'+id:''),id?'PUT':'POST',{...f,monthlySalary:Number(f.monthlySalary||0)});
@@ -1360,6 +1294,10 @@ async function storeStylesStudioModal(){
      `).join('')}
     </div>
     <label>أو رابط صورة خلفية مخصّصة للأزرار<input id="studio-btn-img-url" name="buttonBgImage" value="${esc(studioBtnImg)}" placeholder="https://..." dir="ltr"></label>
+    <label class="btn small secondary" style="margin:0;cursor:pointer;justify-self:start">
+     📱 أو ارفع صورة خلفية للأزرار من الجوال مباشرة
+     <input type="file" id="studio-btn-img-file" accept="image/*" hidden>
+    </label>
     <button class="btn full" type="submit">💾 حفظ الاستايل وتطبيقه على المتجر فوراً</button>
     <div class="form-error" hidden></div>
    </form>
@@ -1384,3 +1322,49 @@ async function storeStylesStudioModal(){
   </div>
  `);
 }
+
+
+document.addEventListener('change', async e => {
+ const t = e.target;
+ if (!t) return;
+ if (t.id === 'phone-chime-upload') {
+  const file = t.files?.[0]; if (!file) return;
+  try {
+   const dUrl = await readAudioFileAsDataUrl(file);
+   localStorage.setItem('ts-custom-chime-data', dUrl);
+   localStorage.setItem('ts-custom-chime-name', file.name);
+   activeChimeType = 'custom-phone';
+   localStorage.setItem('ts-notification-chime', 'custom-phone');
+   const sel = document.getElementById('sel-chime-type');
+   if (sel) sel.value = 'custom-phone';
+   const st = document.getElementById('phone-audio-status');
+   if (st) st.innerHTML = '✅ تم رفع نغمة الإشعار من الجوال: <b>' + esc(file.name) + '</b>';
+   playSelectedNotificationChime('custom-phone');
+   toast('🔔 تم رفع نغمة الإشعار من الجوال وتجربتها بنجاح!');
+  } catch (err) { toast(err.message || 'تعذر قراءة الملف الصوتي'); }
+ }
+ if (t.id === 'phone-bg-audio-upload') {
+  const file = t.files?.[0]; if (!file) return;
+  try {
+   const dUrl = await readAudioFileAsDataUrl(file);
+   localStorage.setItem('ts-bg-audio-data', dUrl);
+   localStorage.setItem('ts-bg-audio-name', file.name);
+   localStorage.setItem('ts-bg-audio-enabled', 'true');
+   const st = document.getElementById('phone-audio-status');
+   if (st) st.innerHTML = '✅ تم رفع نغمة الخلفية من الجوال: <b>' + esc(file.name) + '</b>';
+   syncPhoneBackgroundAudio();
+   toast('🎵 تم رفع وتشغيل نغمة الخلفية من الجوال بنجاح!');
+  } catch (err) { toast(err.message || 'تعذر قراءة الملف الصوتي'); }
+ }
+ if (t.id === 'studio-btn-img-file') {
+  const file = t.files?.[0]; if (!file) return;
+  try {
+   const dUrl = await normalizeImage(file, 800, 900000);
+   studioBtnImg = dUrl;
+   studioBtnStyle = 'custom-img';
+   const uIn = document.getElementById('studio-btn-img-url');
+   if (uIn) uIn.value = dUrl;
+   toast('📱 تم رفع صورة الأزرار من الجوال بنجاح!');
+  } catch (err) { toast(err.message || 'تعذر قراءة الصورة'); }
+ }
+});
