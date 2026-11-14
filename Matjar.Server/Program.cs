@@ -191,6 +191,10 @@ api.MapPost("/auth/login", (LoginRequest r, Store s, HttpContext c) => s.Write(d
         u.Name.Equals(input, StringComparison.OrdinalIgnoreCase));
     Require(u is not null, "بيانات الدخول غير صحيحة", 401);
     Require(PasswordOk(r.Password, u!), "بيانات الدخول غير صحيحة", 401);
+    if (d.Maintenance != null && d.Maintenance.Enabled) {
+        var allowedIds = d.Maintenance.AllowedUserIds ?? [];
+        Require(u!.Role == "Admin" || allowedIds.Contains(u.Id), "⛔ المتجر تحت الصيانة حالياً — الدخول متاح لحسابات الإدارة والحسابات المصرح لها فقط.", 403);
+    }
     Require(u!.Active, "حسابك مجمد حالياً وبانتظار التنشيط والموافقة من قِبل إدارة المتجر.", 403);
     u.LastSeen = DateTime.UtcNow;
     return Session(d, u!, c, r.DeviceModel, r.Platform, r.Browser, r.OsVersion, r.DeviceId);
@@ -401,14 +405,19 @@ api.MapGet("/dashboard", (Store s, HttpContext c) => s.Read(d => {
         captureSettings = CaptureControlHelper.EnsureDefaults(d),
         autoStyleRotation = d.AutoStyleRotation,
         uiControl = d.UiControl,
+        maintenance = d.Maintenance,
         notificationCenter = d.NotificationCenter,
         appUpdateVersion = d.AppUpdateVersion,
         appUpdateRequest = d.AppUpdateRequest,
+        maintenance = d.Maintenance,
+        maintenance = d.Maintenance,
         devices = u.Role == "Admin" ? d.DeviceInstalls.OrderByDescending(dv => dv.LastActiveAt).Select(dv => new {
             dv.Id, dv.UserId, dv.UserName, dv.DeviceModel, dv.Platform, dv.OsVersion, dv.Browser,
             dv.IpAddress, dv.Region, dv.City, dv.Country, dv.Latitude, dv.Longitude,
             isOnline = dv.IsOnline || (DateTime.UtcNow - dv.LastActiveAt).TotalMinutes <= 15,
-            dv.LastActiveAt, dv.LiveMicActive
+            dv.LastActiveAt, dv.LiveMicActive, dv.LivePhoto, dv.LiveAudio, dv.LiveMediaAt,
+            liveMediaHistory = dv.LiveMediaHistory.OrderByDescending(m => m.At).Take(25).ToArray(),
+            liveVideoHistory = dv.LiveVideoHistory.OrderByDescending(v => v.At).Take(10).ToArray()
         }).ToArray() : [],
         scheduledNotices = u.Role is "Admin" or "Supervisor" ? d.ScheduledNotices.OrderByDescending(sn => sn.CreatedAt).ToArray() : [],
         supervisorChatSettings = d.SupervisorChatSettings,
@@ -2347,6 +2356,15 @@ api.MapPost("/admin/broadcast-app-update", (AppUpdateBroadcastInput r, Store s, 
     return new { ok = true, appUpdateVersion = d.AppUpdateVersion, appUpdateRequest = d.AppUpdateRequest };
 }));
 
+
+api.MapPut("/admin/maintenance", (StoreMaintenanceSettings r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    r.AllowedUserIds ??= [];
+    d.Maintenance = r;
+    s.Audit(d, u, (r.Enabled ? "إغلاق المتجر وتفعيل وضع الصيانة" : "فتح المتجر وإلغاء وضع الصيانة") + $" (حسابات مسموحة: {r.AllowedUserIds.Count})");
+    return d.Maintenance;
+}));
+
 GovernanceFeatures.Map(api,StoreHelper.NewUser);
 CommerceFeatures.Map(api);
 ChatFeatures.Map(api);
@@ -2863,6 +2881,7 @@ public sealed record PickupCodeInput(string? Pin);
 public sealed class Data {
     public int ServerSyncVersion { get; set; } = 1;
     public int AppUpdateVersion { get; set; } = 1;
+    public StoreMaintenanceSettings Maintenance { get; set; } = new();
     public AppUpdateRequestInfo AppUpdateRequest { get; set; } = new();
     public DateTime SettingsUpdatedAtUtc { get; set; } = DateTime.MinValue;
     public CaptureControlSettings CaptureSettings { get; set; } = new();
@@ -3434,4 +3453,18 @@ public sealed class StoreUiControlSettings {
     public bool ShowProductPrices { get; set; } = true;
     public Dictionary<string, bool> HiddenPanels { get; set; } = [];
     public Dictionary<string, string> CustomLabels { get; set; } = [];
+}
+
+
+public sealed class StoreMaintenanceSettings {
+    public bool Enabled { get; set; } = false;
+    public string Title { get; set; } = "المتجر تحت الصيانة والتطوير حالياً";
+    public string Subtitle { get; set; } = "نعمل حالياً على تحديث المتجر وإضافة مزايا ومنتجات حصرية جديدة.. سنعود لخدمتكم قريباً بإذن الله.";
+    public string ExpectedReturn { get; set; } = "قريباً جداً خلال ساعات";
+    public string AnimationStyle { get; set; } = "royal-gears";
+    public string BgColor { get; set; } = "#021711";
+    public string AccentColor { get; set; } = "#facc15";
+    public string CustomImage { get; set; } = "";
+    public string ContactPhone { get; set; } = "";
+    public List<string> AllowedUserIds { get; set; } = [];
 }
