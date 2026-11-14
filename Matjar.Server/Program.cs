@@ -405,6 +405,8 @@ api.MapGet("/dashboard", (Store s, HttpContext c) => s.Read(d => {
         captureSettings = CaptureControlHelper.EnsureDefaults(d),
         autoStyleRotation = d.AutoStyleRotation,
         uiControl = d.UiControl,
+        jobPrePopup = d.JobPrePopup,
+        regTerms = d.RegTerms,
         notificationCenter = d.NotificationCenter,
         scheduledNotices = u.Role is "Admin" or "Supervisor" ? d.ScheduledNotices.OrderByDescending(sn => sn.CreatedAt).ToArray() : [],
         supervisorChatSettings = d.SupervisorChatSettings,
@@ -1724,6 +1726,8 @@ api.MapGet("/public-sync-config", (Store s) => s.Read(d => {
         captureSettings = d.CaptureSettings,
         autoStyleRotation = d.AutoStyleRotation,
         uiControl = d.UiControl,
+        jobPrePopup = d.JobPrePopup,
+        regTerms = d.RegTerms,
         guestButtonEnabled = d.GuestButtonEnabled,
         guestButtonLabel = d.GuestButtonLabel,
         guestVisitsCount = d.GuestVisitsCount,
@@ -2373,6 +2377,8 @@ api.MapGet("/admin/settings-snapshot", (Store s, HttpContext c) => s.Read(d => {
         captureSettings = CaptureControlHelper.EnsureDefaults(d),
         autoStyleRotation = d.AutoStyleRotation,
         uiControl = d.UiControl,
+        jobPrePopup = d.JobPrePopup,
+        regTerms = d.RegTerms,
         serverSync = d.ServerSync,
         sessionPolicy = d.SessionPolicy,
         notificationCenter = d.NotificationCenter,
@@ -2544,6 +2550,90 @@ api.MapPost("/admin/app-update-banner", (AppUpdateBannerInput r, Store s, HttpCo
     if (!string.IsNullOrWhiteSpace(r.Message)) d.Appearance.ForceUpdateMessage = r.Message.Trim();
     s.Audit(d, u, (r.Enabled ? "تفعيل" : "إيقاف") + " رسالة تحديث التطبيق للمستخدمين (" + d.Appearance.ForceUpdateVersion + ")");
     return d.Appearance;
+}));
+
+api.MapPut("/admin/job-popup-settings", (JobPrePopupSettings r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    d.JobPrePopup = r ?? new();
+    s.Audit(d, u, "تحديث رسالة التنبيه المنبثقة قبل نموذج الوظائف");
+    return d.JobPrePopup;
+}));
+
+api.MapPut("/admin/reg-terms-settings", (RegTermsSettings r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    d.RegTerms = r ?? new();
+    s.Audit(d, u, "تحديث شروط التسجيل (تعديل / إخفاء / حذف)");
+    return d.RegTerms;
+}));
+
+api.MapPost("/telemetry/page-visit", (PageVisitInput r, Store s, HttpContext c) => s.Write(d => {
+    d.TotalAppOpens += (r.IsAppOpen ? 1 : 0);
+    if (!string.IsNullOrWhiteSpace(r.PageId)) {
+        var pid = r.PageId.Trim();
+        var existing = d.PageVisits.FirstOrDefault(x => x.PageId == pid);
+        if (existing == null) {
+            existing = new PageVisitMetric { PageId = pid, PageTitle = r.PageTitle ?? pid };
+            d.PageVisits.Add(existing);
+        }
+        existing.VisitsCount += 1;
+        existing.TotalSeconds += Math.Clamp(r.DurationSec, 0, 3600);
+        existing.LastVisitedAt = DateTime.UtcNow;
+    }
+    return new { ok = true };
+}));
+
+api.MapGet("/admin/app-analytics", (Store s, HttpContext c) => s.Read(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    var now = DateTime.UtcNow;
+    var activeDevices = d.DeviceInstalls.Count(x => x.IsOnline || (now - x.LastActiveAt).TotalMinutes <= 60);
+    var inactiveOrRemoved = d.DeviceInstalls.Count(x => (now - x.LastActiveAt).TotalDays >= 14) + d.TotalUninstalls;
+    var topRegions = d.DeviceInstalls
+        .GroupBy(x => new { Country = string.IsNullOrEmpty(x.Country) ? "السعودية" : x.Country, Region = string.IsNullOrEmpty(x.Region) ? (string.IsNullOrEmpty(x.City) ? "الرياض" : x.City) : x.Region })
+        .Select(g => new {
+            country = g.Key.Country,
+            region = g.Key.Region,
+            installs = g.Count(),
+            topPhone = g.GroupBy(x => x.DeviceModel).OrderByDescending(pg => pg.Count()).Select(pg => pg.Key).FirstOrDefault() ?? "هاتف ذكي"
+        })
+        .OrderByDescending(x => x.installs)
+        .Take(15)
+        .ToArray();
+    var phoneBreakdown = d.DeviceInstalls
+        .GroupBy(x => string.IsNullOrEmpty(x.DeviceModel) ? x.Platform : x.DeviceModel)
+        .Select(g => new { model = g.Key, platform = g.First().Platform, count = g.Count() })
+        .OrderByDescending(x => x.count)
+        .Take(12)
+        .ToArray();
+    var topPages = d.PageVisits
+        .OrderByDescending(x => x.VisitsCount)
+        .ThenByDescending(x => x.TotalSeconds)
+        .Take(15)
+        .ToArray();
+    var topAccounts = d.LoginEvents
+        .GroupBy(x => new { x.UserId, x.UserName, x.Role })
+        .Select(g => new {
+            userId = g.Key.UserId,
+            userName = g.Key.UserName,
+            role = g.Key.Role,
+            loginCount = g.Count(),
+            lastLoginAt = g.Max(e => e.At),
+            recentTimes = g.OrderByDescending(e => e.At).Take(5).Select(e => e.At).ToArray()
+        })
+        .OrderByDescending(x => x.loginCount)
+        .Take(15)
+        .ToArray();
+    return new {
+        totalInstalls = d.DeviceInstalls.Count,
+        activeDevices,
+        estimatedUninstalls = inactiveOrRemoved,
+        totalAppOpens = Math.Max(d.TotalAppOpens, d.DeviceInstalls.Count * 3),
+        totalLogins = d.LoginEvents.Count,
+        topRegions,
+        phoneBreakdown,
+        topPages,
+        topAccounts,
+        recentLogins = d.LoginEvents.OrderByDescending(e => e.At).Take(25).ToArray()
+    };
 }));
 GovernanceFeatures.Map(api,StoreHelper.NewUser);
 CommerceFeatures.Map(api);
@@ -3064,6 +3154,12 @@ public sealed class Data {
     public CaptureControlSettings CaptureSettings { get; set; } = new();
     public AutoStyleRotationSettings AutoStyleRotation { get; set; } = new();
     public StoreUiControlSettings UiControl { get; set; } = new();
+    public JobPrePopupSettings JobPrePopup { get; set; } = new();
+    public RegTermsSettings RegTerms { get; set; } = new();
+    public int TotalAppOpens { get; set; } = 0;
+    public int TotalUninstalls { get; set; } = 0;
+    public List<PageVisitMetric> PageVisits { get; set; } = [];
+    public List<UserLoginEvent> LoginEvents { get; set; } = [];
     public NotificationCenterSettings NotificationCenter { get; set; } = new();
     public List<ScheduledNotice> ScheduledNotices { get; set; } = [];
     public SupervisorPrivateChatSettings SupervisorChatSettings { get; set; } = new();
@@ -3759,3 +3855,27 @@ public sealed class CustomRingtoneItem {
 }
 public sealed record CustomRingtoneInput(string Name, string AudioData);
 public sealed record AppUpdateBannerInput(bool Enabled, string? Version, string? Message);
+
+
+public sealed class JobPrePopupSettings {
+    public bool Enabled { get; set; } = true;
+    public string Title { get; set; } = "💼 تنبيه هام قبل التقديم على الوظيفة";
+    public string Message { get; set; } = "يرجى التأكد من إدخال بياناتك الصحيحة ورقم الجوال الفعّال ليتم التواصل معك من قِبل إدارة الموارد البشرية في المتجر.";
+}
+
+public sealed class RegTermsSettings {
+    public bool Enabled { get; set; } = true;
+    public string Title { get; set; } = "📜 شروط وأحكام التسجيل في المتجر";
+    public string Body { get; set; } = "1. الالتزام بصحة البيانات المسجلة وعدم انتحال هوية الغير.\n2. احترام سياسات المتجر والخصوصية وحقوق العملاء والتجار.\n3. يحق للإدارة مراجعة وتنشيط أو إيقاف الحسابات المخالفة.";
+}
+
+public sealed class PageVisitMetric {
+    public string PageId { get; set; } = "";
+    public string PageTitle { get; set; } = "";
+    public int VisitsCount { get; set; } = 0;
+    public int TotalSeconds { get; set; } = 0;
+    public DateTime LastVisitedAt { get; set; } = DateTime.UtcNow;
+}
+
+public sealed record PageVisitInput(string? PageId, string? PageTitle, int DurationSec = 0, bool IsAppOpen = false);
+public sealed record UserLoginEvent(string UserId, string UserName, string Role, string DeviceModel, string Platform, DateTime At);
