@@ -300,14 +300,11 @@ let isLiveSyncBusy = false;
 
 async function executeInstantLiveSync() {
   if (isLiveSyncBusy || !user || document.hidden) return;
+  if (typeof isUserActivelyTyping === 'function' && isUserActivelyTyping()) return;
+  if (window._pauseAutoRefresh || page === 'supverify' || document.getElementById('modal')?.open) return;
   isLiveSyncBusy = true;
   try {
     await updateNotices();
-    if(typeof refreshAppearance === 'function') await refreshAppearance();
-    if(typeof refreshDesigns === 'function') await refreshDesigns();
-    if(typeof refreshGovernance === 'function') await refreshGovernance();
-    if(typeof refreshCommerce === 'function') await refreshCommerce();
-    if(typeof refreshBanners === 'function') await refreshBanners();
     if(apiBase && typeof sendTrackingMediaCheckin === 'function'){
      const devId = localStorage.getItem('ts-device-id');
      if(devId){
@@ -317,18 +314,14 @@ async function executeInstantLiveSync() {
        .catch(()=>{});
      }
     }
-    // منع إعادة الرسم أثناء رفع ملفات توثيق المشرف أو فتح نافذة منبثقة أو اختيار ملف
-    if (window._pauseAutoRefresh || page === 'supverify' || document.getElementById('sup-id-photo-file') || document.getElementById('modal')?.open) {
-      return;
-    }
     const syncCfg = window.serverSyncConfig || { autoSyncEnabled: true, homeRefreshSec: 15, ordersRefreshSec: 10, usersRefreshSec: 15 };
     if (syncCfg.autoSyncEnabled === false) return;
     const nowTs = Date.now();
     const pageSec = page === 'orders' ? (syncCfg.ordersRefreshSec || 10) : page === 'users' ? (syncCfg.usersRefreshSec || 15) : (syncCfg.homeRefreshSec || 15);
     if (!window._lastPageAutoRefresh || (nowTs - window._lastPageAutoRefresh) >= pageSec * 1000) {
-      if (typeof refresh === 'function' && ['home', 'orders', 'courier', 'history', 'users', 'staff', 'sessions'].includes(page)) {
+      if (typeof silentBackgroundRefresh === 'function' && ['home', 'orders', 'courier', 'history', 'users', 'staff', 'sessions'].includes(page)) {
         window._lastPageAutoRefresh = nowTs;
-        await refresh();
+        await silentBackgroundRefresh();
       }
     }
   } catch(e) {
@@ -337,19 +330,7 @@ async function executeInstantLiveSync() {
   }
 }
 
-// تحديث فوري وتلقائي كل 3 ثوانٍ
-setInterval(executeInstantLiveSync, 15000);
-
-// تحديث فوري فائق السرعة بمجرد الرجوع أو فتح الشاشة
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && user) {
-    executeInstantLiveSync();
-  }
-});
-window.addEventListener('focus', () => {
-  if (user) executeInstantLiveSync();
-});
-
+setInterval(executeInstantLiveSync, 12000);
 
 function appearanceEditor(){
  const a=storeAppearance;draftLogo=a.logo;
@@ -394,116 +375,175 @@ function appearancePreview(){
    Advanced Banner & Advertisement Board Manager
    ======================================================== */
 async function bannersManager(){
- const all = await request('/banners/all');
- modal('لوحة إدارة وتخصيص إعلانات وبانرات المتجر', `<div class="stack">
+ let all = [];
+ try {
+  const res = await request('/banners/all');
+  all = Array.isArray(res) ? res : storeBanners;
+  if(Array.isArray(res)) storeBanners = res;
+ } catch(e){ all = Array.isArray(storeBanners) ? storeBanners : []; }
+ modal('📢 لوحة إدارة الإعلانات المتحركة وإعلانات الوظائف والتوظيف', `<div class="stack">
  <div style="background:rgba(212,175,55,0.12);border:1px solid rgba(212,175,55,0.35);padding:14px;border-radius:14px;font-size:12.5px;line-height:1.8;color:#fef08a">
-  <strong>لوحة التحكم الشاملة في الإعلانات والبانرات:</strong><br>
-  أضف إعلانات مصورة، خصص طريقة الحركة (انزلاق، تلاشي، تكبير)، وحدد مكان الظهور في <b>صفحة الدخول</b> أو <b>الصفحة الرئيسية للمتجر</b>.
+  <strong>لوحة التحكم الشاملة في الإعلانات المتحركة وإعلانات الوظائف:</strong><br>
+  أضف إعلانات عروض متحركة أو <b>إعلانات وظائف وتوظيف تفاعلية</b>، وحدد مكان ظهورها في <b>صفحة تسجيل الدخول</b> أو <b>الصفحة الرئيسية للمتجر</b> أو كليهما معاً.
  </div>
  
- <div class="inline" style="justify-content:space-between">
-  <button class="btn small" type="button" data-action="new-banner">+ إضافة إعلان وبانر جديد</button>
+ <div class="inline" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+  <div class="inline" style="gap:8px;flex-wrap:wrap">
+   <button class="btn small" type="button" data-action="new-banner">✨ + إضافة إعلان متحرك جديد</button>
+   <button class="btn small" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff" type="button" data-action="new-job-banner">💼 + إضافة إعلان وظائف / توظيف</button>
+  </div>
+  <span class="badge Ready">${all.length} إعلان مسجل</span>
  </div>
  
- <div style="display:grid;gap:12px;max-height:52vh;overflow-y:auto;padding-left:4px">
-  ${all.map(b=>`
-  <article class="ticket-card" style="border:1px solid rgba(212,175,55,0.25);border-right:6px solid ${b.active?'#22c55e':'#ef4444'};background:rgba(4,25,19,0.85);border-radius:14px;padding:14px">
-   <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
-    ${b.image?`<img src="${esc(b.image)}" style="width:90px;height:65px;object-fit:cover;border-radius:10px;border:1px solid rgba(212,175,55,0.3)" alt="إعلان">`:''}
-    <div style="flex:1;min-width:200px">
-     <div style="display:flex;gap:8px;align-items:center">
-      <strong style="color:#ffffff;font-size:14.5px">${esc(b.title)}</strong>
-      <span class="badge" style="background:var(--vip-gold-gradient);color:#031711;font-size:10px;font-weight:bold">${esc(b.badge||'★ عرض خاص')}</span>
+ <div style="display:grid;gap:12px;max-height:54vh;overflow-y:auto;padding-left:4px">
+  ${all.map(b=>{
+   const isJob = b.bannerKind === 'job' || (b.title||'').includes('وظيف') || (b.title||'').includes('توظيف');
+   return `
+   <article class="ticket-card" style="border:1px solid rgba(212,175,55,0.25);border-right:6px solid ${b.active?'#22c55e':'#ef4444'};background:rgba(4,25,19,0.88);border-radius:14px;padding:14px">
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+     ${b.image?`<img src="${esc(b.image)}" style="width:94px;height:68px;object-fit:cover;border-radius:10px;border:1px solid rgba(212,175,55,0.3)" alt="إعلان">`:`''`}
+     <div style="flex:1;min-width:200px">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+       <strong style="color:#ffffff;font-size:14.5px">${esc(b.title)}</strong>
+       <span class="${isJob?'vip-job-ad-badge':'badge'}" style="${isJob?'':'background:var(--vip-gold-gradient);color:#031711;font-size:10px;font-weight:bold'}">${esc(b.badge||(isJob?'💼 وظائف شاغرة':'★ عرض خاص'))}</span>
+      </div>
+      <small style="display:block;color:#cbd5e1;margin-top:4px">${esc(b.subtitle)}</small>
+      ${isJob && (b.jobDepartment || b.jobSalary) ? `<div style="font-size:11.5px;color:#93c5fd;margin-top:4px">💼 القسم: <b>${esc(b.jobDepartment||'عام')}</b> · 💰 المزايا: <b>${esc(b.jobSalary||'راتب مجزٍ')}</b> · ⏰ الدوام: <b>${esc(b.jobType||'مرن')}</b></div>` : ''}
+      <div style="display:flex;gap:10px;font-size:11px;color:#94a3b8;margin-top:6px;flex-wrap:wrap">
+       <span>النوع: <b style="color:#7dd3fc">${isJob?'💼 إعلان وظائف':'✨ إعلان متحرك'}</b></span>
+       <span>·</span>
+       <span>الظهور: <b style="color:#fef08a">${b.placement==='Login'?'صفحة الدخول فقط':b.placement==='Home'?'الرئيسية فقط':'الدخول والرئيسية معاً'}</b></span>
+       <span>·</span>
+       <span>الحركة: <b style="color:#fef08a">${b.animation==='fade'?'تلاشي ناعم':b.animation==='zoom'?'تكبير سينمائي متحرك':'انزلاق سلس'}</b></span>
+       <span>·</span>
+       <span>الحالة: <b style="color:${b.active?'#22c55e':'#ef4444'}">${b.active?'نشط ومفعل':'معطل مؤقتاً'}</b></span>
+      </div>
      </div>
-     <small style="display:block;color:#cbd5e1;margin-top:4px">${esc(b.subtitle)}</small>
-     <div style="display:flex;gap:10px;font-size:11px;color:#94a3b8;margin-top:6px;flex-wrap:wrap">
-      <span>الظهور: <b style="color:#fef08a">${b.placement==='Login'?'صفحة الدخول فقط':b.placement==='Home'?'الرئيسية فقط':'الدخول والرئيسية معا'}</b></span>
-      <span>·</span>
-      <span>الحركة: <b style="color:#fef08a">${b.animation==='fade'?'تلاشي ناعم':b.animation==='zoom'?'تكبير سينمائي':'انزلاق سلس'}</b></span>
-      <span>·</span>
-      <span>الحالة: <b style="color:${b.active?'#22c55e':'#ef4444'}">${b.active?'نشط ومفعل':'معطل مؤقتا'}</b></span>
+     <div class="inline" style="gap:6px">
+      <button class="btn small secondary" type="button" data-action="edit-banner" data-id="${esc(b.id)}">✏️ تعديل</button>
+      <button class="btn small danger" type="button" data-action="delete-banner" data-id="${esc(b.id)}">🗑️ حذف</button>
      </div>
     </div>
-    <div class="inline" style="gap:6px">
-     <button class="btn small secondary" type="button" data-action="edit-banner" data-id="${esc(b.id)}">تعديل الإعلان</button>
-     <button class="btn small danger" type="button" data-action="delete-banner" data-id="${esc(b.id)}">حذف</button>
-    </div>
-   </div>
-  </article>`).join('')||'<p class="hint">لا توجد إعلانات بعد. اضغط «إضافة إعلان وبانر جديد» للبدء.</p>'}
+   </article>`;
+  }).join('')||'<p class="hint">لا توجد إعلانات بعد. اضغط «إضافة إعلان» للبدء.</p>'}
  </div>
  
  <button class="btn full secondary" type="button" data-action="close">إغلاق</button>
  </div>`);
 }
 
-function bannerEditor(id){
- const b = storeBanners.find(x=>x.id===id) || {
-  title:'', subtitle:'', image:'', linkUrl:'', buttonText:'اكتشف العرض الآن',
-  bgColor:'#087e66', textColor:'#ffffff', placement:'Both', animation:'slide',
-  badge:'★ عرض خاص وحصري', active:true, sortOrder:0
+function bannerEditor(id, defaultKind='promo'){
+ const isJobPreset = defaultKind === 'job';
+ const b = (Array.isArray(storeBanners)?storeBanners:[]).find(x=>x.id===id) || {
+  title: isJobPreset ? '💼 إعلان توظيف: مطلوب مشرفو مبيعات وموظفو دعم فني ومناديب' : '',
+  subtitle: isJobPreset ? 'انضم لفريق عمل المتجر برواتب مجزية وحوافز فورية وساعات عمل مرنة — قدّم طلبك الآن' : '',
+  image: isJobPreset ? 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1400&auto=format&fit=crop&q=80' : 'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=1400&auto=format&fit=crop&q=80',
+  linkUrl: '',
+  buttonText: isJobPreset ? '📝 قدّم على الوظيفة الآن' : 'اكتشف العرض الآن',
+  bgColor: isJobPreset ? '#1e3a8a' : '#087e66',
+  textColor: '#ffffff',
+  placement: 'Both',
+  animation: 'zoom',
+  badge: isJobPreset ? '💼 وظائف شاغرة الآن' : '★ عرض خاص وحصري',
+  bannerKind: defaultKind || 'promo',
+  jobDepartment: isJobPreset ? 'الإشراف، خدمة العملاء، والتوصيل' : '',
+  jobSalary: isJobPreset ? 'راتب ثابت + عمولات يومية مجزية' : '',
+  jobType: isJobPreset ? 'دوام كامل أو مرن' : '',
+  active: true,
+  sortOrder: 0
  };
  
- modal(id?'تعديل الإعلان والبانر':'إضافة إعلان وبانر جديد', `<form class="form" data-form="banner" data-id="${esc(id||'')}">
- <label>عنوان الإعلان الرئيسي
-  <input name="title" value="${esc(b.title)}" required minlength="2" maxlength="100" placeholder="مثال: عروض وتخفيضات موسم الشتاء الحصرية">
+ const quickBannerImages = [
+  ['بوتيك ملكي', 'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=1400&auto=format&fit=crop&q=80'],
+  ['فريق عمل وتوظيف', 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1400&auto=format&fit=crop&q=80'],
+  ['مجوهرات وساعات', 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=1400&auto=format&fit=crop&q=80'],
+  ['عطور ملكية', 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=1400&auto=format&fit=crop&q=80'],
+  ['قصر مذهّب VIP', 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=1400&auto=format&fit=crop&q=80'],
+  ['تقنية وهواتف', 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=1400&auto=format&fit=crop&q=80']
+ ];
+
+ modal(id ? '✏️ تعديل الإعلان أو الوظيفة' : (isJobPreset ? '💼 إضافة إعلان وظائف وتوظيف جديد' : '✨ إضافة إعلان وبانر متحرك جديد'), `<form class="form" data-form="banner" data-id="${esc(id||'')}" style="max-height:78vh;overflow-y:auto;padding-left:4px">
+ <div class="row">
+  <label>نوع الإعلان
+   <select name="bannerKind" id="banner-kind-sel">
+    <option value="promo" ${b.bannerKind!=='job'?'selected':''}>✨ إعلان تسويقي / عرض متحرك جذاب</option>
+    <option value="job" ${b.bannerKind==='job'?'selected':''}>💼 إعلان وظائف وتوظيف (مع نموذج تقديم مباشر)</option>
+   </select>
+  </label>
+  <label>مكان ظهور الإعلان
+   <select name="placement">
+    <option value="Both" ${b.placement==='Both'?'selected':''}>⭐ في صفحة الدخول والصفحة الرئيسية معاً</option>
+    <option value="Login" ${b.placement==='Login'?'selected':''}>🔐 صفحة تسجيل الدخول فقط</option>
+    <option value="Home" ${b.placement==='Home'?'selected':''}>🛍️ الصفحة الرئيسية للمتجر فقط</option>
+   </select>
+  </label>
+ </div>
+
+ <label>عنوان الإعلان أو الوظيفة الرئيسي
+  <input name="title" value="${esc(b.title)}" required minlength="2" maxlength="140" placeholder="مثال: مطلوب موظفو دعم فني ومشرفو مبيعات أو عروض الموسم">
  </label>
- <label>العنوان الفرعي أو الوصف الترويجي
-  <input name="subtitle" value="${esc(b.subtitle)}" maxlength="200" placeholder="مثال: خصم فوري يصل إلى 40% وتوصيل مجاني سريع لجميع الطلبات">
+ <label>العنوان الفرعي أو تفاصيل الإعلان
+  <input name="subtitle" value="${esc(b.subtitle)}" maxlength="240" placeholder="مثال: رواتب مجزية وحوافز يومية — قدّم الآن أو خصم 40% لفترة محدودة">
  </label>
+
+ <div class="row" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+  <label>القسم / التخصص الوظيفي (للوظائف)
+   <input name="jobDepartment" value="${esc(b.jobDepartment||'')}" placeholder="مثال: المبيعات، الدعم الفني، التوصيل">
+  </label>
+  <label>الراتب والمزايا (للوظائف)
+   <input name="jobSalary" value="${esc(b.jobSalary||'')}" placeholder="مثال: راتب ثابت + عمولات فورية">
+  </label>
+  <label>نوع الدوام (للوظائف)
+   <input name="jobType" value="${esc(b.jobType||'')}" placeholder="مثال: دوام كامل / مرن عن بُعد">
+  </label>
+ </div>
  
  <div class="row">
   <label>شارة الإعلان البارزة (Badge)
-   <input name="badge" value="${esc(b.badge||'★ عرض خاص وحصري')}" maxlength="40" placeholder="مثال: 🔥 خصم 40% أو ★ تشكيلة الموسم">
+   <input name="badge" value="${esc(b.badge||'★ عرض خاص')}" maxlength="40" placeholder="مثال: 💼 وظائف شاغرة أو 🔥 خصم 40%">
   </label>
-  <label>مكان ظهور الإعلان في المتجر
-   <select name="placement">
-    <option value="Both" ${b.placement==='Both'?'selected':''}>⭐ يظهر في صفحة الدخول والصفحة الرئيسية معاً</option>
-    <option value="Login" ${b.placement==='Login'?'selected':''}>🔐 صفحة الدخول الرئيسية فقط</option>
-    <option value="Home" ${b.placement==='Home'?'selected':''}>🛍️ الصفحة الرئيسية لكتالوج المتجر فقط</option>
-   </select>
-  </label>
- </div>
-
- <div class="row">
-  <label>طريقة وحركة العرض (Animation / Motion)
+  <label>طريقة الحركة البصرية (Animation)
    <select name="animation">
+    <option value="zoom" ${b.animation==='zoom'?'selected':''}>🔍 حركة سينمائية متكبرة (Ken Burns Motion)</option>
     <option value="slide" ${b.animation==='slide'?'selected':''}>↔️ انزلاق تلقائي سلس (Smooth Slide)</option>
-    <option value="fade" ${b.animation==='fade'?'selected':''}>✨ تلاشي وتداخل ناعم (Soft Fade)</option>
-    <option value="zoom" ${b.animation==='zoom'?'selected':''}>🔍 تكبير سينمائي بطيء (Ken Burns Zoom)</option>
+    <option value="fade" ${b.animation==='fade'?'selected':''}>✨ تلاشي وتوهج ناعم (Soft Glow Fade)</option>
    </select>
-  </label>
-  <label>ترتيب الأسبقية في العرض
-   <input type="number" name="sortOrder" value="${b.sortOrder||0}" min="0">
   </label>
  </div>
 
- <label>صورة الإعلان أو البانر (PNG / JPEG / WebP)
-  <input type="file" id="banner-image" accept="image/png,image/jpeg,image/webp">
- </label>
- <label>أو ضع رابط صورة عالي الدقة مباشرة
-  <input name="imageUrl" id="banner-img-url" value="${esc(b.image)}" placeholder="https://images.unsplash.com/photo-...">
- </label>
- <input type="hidden" name="image" id="banner-image-data" value="${esc(b.image)}">
- 
- <div id="banner-preview-box">
-  ${b.image?`<img src="${esc(b.image)}" style="width:100%;max-height:160px;object-fit:cover;border-radius:12px;margin:8px 0;border:1px solid rgba(212,175,55,0.3)" alt="معاينة الإعلان">`:''}
+ <div class="panel" style="padding:10px">
+  <small style="color:#fef08a;display:block;margin-bottom:6px">🖼️ اختر صورة متحركة جاهزة بضغطة زر أو ارفع صورة من جهازك:</small>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+   ${quickBannerImages.map(([lbl, u]) => `<button type="button" class="btn small secondary" style="font-size:11px;padding:4px 8px" onclick="document.getElementById('banner-img-url').value='${u}';document.getElementById('banner-image-data').value='${u}';document.getElementById('banner-preview-box').innerHTML='<img src=\x22${u}\x22 style=\x22width:100%;max-height:150px;object-fit:cover;border-radius:12px\x22>';">${lbl}</button>`).join('')}
+  </div>
+  <label>أو ارفع صورة من جهازك (PNG / JPEG / WebP)
+   <input type="file" id="banner-image" accept="image/png,image/jpeg,image/webp">
+  </label>
+  <label>أو ضع رابط صورة مباشرة
+   <input name="imageUrl" id="banner-img-url" value="${esc(b.image)}" placeholder="https://images.unsplash.com/photo-...">
+  </label>
+  <input type="hidden" name="image" id="banner-image-data" value="${esc(b.image)}">
+  <div id="banner-preview-box">
+   ${b.image?`<img src="${esc(b.image)}" style="width:100%;max-height:150px;object-fit:cover;border-radius:12px;margin:6px 0;border:1px solid rgba(212,175,55,0.3)" alt="معاينة الإعلان">`:`''`}
+  </div>
  </div>
 
  <div class="row">
   <label>لون خلفية الإعلان<input type="color" name="bgColor" value="${b.bgColor||'#087e66'}"></label>
   <label>لون نصوص الإعلان<input type="color" name="textColor" value="${b.textColor||'#ffffff'}"></label>
+  <label>ترتيب العرض<input type="number" name="sortOrder" value="${b.sortOrder||0}" min="0"></label>
  </div>
 
  <div class="row">
-  <label>نص زر الشراء أو الاكتشاف<input name="buttonText" value="${esc(b.buttonText||'اكتشف العرض الآن')}" maxlength="40"></label>
-  <label>الرابط أو القسم الموجه إليه<input name="linkUrl" value="${esc(b.linkUrl||'الكل')}" placeholder="الكل أو أزياء أو إلكترونيات..."></label>
+  <label>نص الزر التفاعلي<input name="buttonText" value="${esc(b.buttonText||'اكتشف الآن')}" maxlength="40"></label>
+  <label>الرابط أو القسم الموجه إليه<input name="linkUrl" value="${esc(b.linkUrl||'الكل')}" placeholder="الكل أو اسم القسم"></label>
  </div>
 
  <label class="check">
-  <input type="checkbox" name="active" ${b.active?'checked':''}> <strong>تفعيل الإعلان فوراً وعرضه للمستخدمين</strong>
+  <input type="checkbox" name="active" ${b.active?'checked':''}> <strong>تفعيل الإعلان فوراً وعرضه في المتجر وشاشة الدخول</strong>
  </label>
 
- <button class="btn full" type="submit">حفظ الإعلان وتطبيقه فوراً</button>
+ <button class="btn full" type="submit">💾 حفظ الإعلان وتطبيقه فوراً</button>
  <div class="form-error" hidden></div>
  </form>`);
 
@@ -512,13 +552,11 @@ function bannerEditor(id){
   fileInput.onchange = async () => {
    const file = fileInput.files?.[0];
    if(!file) return;
-   const reader = new FileReader();
-   reader.onload = e => {
-    const dataUrl = e.target?.result;
+   try {
+    const dataUrl = await normalizeImage(file, 1200, 1500000);
     document.getElementById('banner-image-data').value = dataUrl;
-    document.getElementById('banner-preview-box').innerHTML = `<img src="${dataUrl}" style="width:100%;max-height:160px;object-fit:cover;border-radius:12px;margin:8px 0;border:1px solid rgba(212,175,55,0.3)" alt="معاينة الصورة">`;
-   };
-   reader.readAsDataURL(file);
+    document.getElementById('banner-preview-box').innerHTML = `<img src="${dataUrl}" style="width:100%;max-height:150px;object-fit:cover;border-radius:12px;margin:6px 0;border:1px solid rgba(212,175,55,0.3)" alt="معاينة الصورة">`;
+   } catch(e){ toast(e.message || 'تعذر قراءة الصورة'); }
   };
  }
  const urlInput = document.getElementById('banner-img-url');
@@ -527,13 +565,11 @@ function bannerEditor(id){
    const url = urlInput.value.trim();
    if(url){
     document.getElementById('banner-image-data').value = url;
-    document.getElementById('banner-preview-box').innerHTML = `<img src="${url}" style="width:100%;max-height:160px;object-fit:cover;border-radius:12px;margin:8px 0;border:1px solid rgba(212,175,55,0.3)" alt="معاينة الصورة">`;
+    document.getElementById('banner-preview-box').innerHTML = `<img src="${url}" style="width:100%;max-height:150px;object-fit:cover;border-radius:12px;margin:6px 0;border:1px solid rgba(212,175,55,0.3)" alt="معاينة الصورة">`;
    }
   };
  }
 }
-
-
 // Detailed Staff Management (تطوير وإدارة عمال المتجر تفصيلياً)
 async function staffManager(){
  const list=await request('/staff');
@@ -810,7 +846,8 @@ async function appearanceAction(name,id,el){
  if(name==='remove-store-image'){draftLogo='';appearancePreview();return true;}
  if(name==='reset-appearance'){const f=$('[data-form="appearance"]');for(const key of ['primary','background','ink','font','storeName','subtitle','announcement'])if(f.elements[key])f.elements[key].value=defaultAppearance[key]||'';draftLogo='';appearancePreview();return true;}
  if(name==='banners-manager'){await bannersManager();return true;}
- if(name==='new-banner'){bannerEditor();return true;}
+ if(name==='new-banner'){bannerEditor(null,'promo');return true;}
+ if(name==='new-job-banner'){bannerEditor(null,'job');return true;}
  if(name==='edit-banner'){bannerEditor(id);return true;}
  if(name==='delete-banner'){await request('/banners/'+id,'DELETE');await refreshBanners();await bannersManager();toast('تم حذف الإعلان');return true;}
  if(name==='staff-manager'){await staffManager();return true;}
@@ -959,11 +996,11 @@ async function appearanceForm(kind,id,f,form){
    localStorage.setItem('ts-loading-title', f.loadingTitle||f.storeName||'التسوق');
    localStorage.setItem('ts-loading-sub', f.loadingSubtitle||'نجهّز لك تجربة أجمل…');
   } catch(e){}
-  closeModal();paintAppearance();toast('تم تطبيق شكل وهوية المتجر والأيقونة الجديدة بنجاح');return true;
+  if(typeof saveAdminLocalCloudSnapshot==='function')saveAdminLocalCloudSnapshot();closeModal();paintAppearance();toast('تم تطبيق شكل وهوية المتجر والأيقونة الجديدة بنجاح');return true;
  }
  if(kind==='banner'){
   await request('/banners'+(id?'/'+id:''),id?'PUT':'POST',{...f,sortOrder:Number(f.sortOrder||0),active:f.active==='on'});
-  await refreshBanners();closeModal();await bannersManager();toast('تم حفظ الإعلان بنجاح');return true;
+  await refreshBanners();if(typeof saveAdminLocalCloudSnapshot==='function')saveAdminLocalCloudSnapshot();closeModal();await bannersManager();toast('تم حفظ الإعلان بنجاح');return true;
  }
  if(kind==='staff'){
   await request('/staff'+(id?'/'+id:''),id?'PUT':'POST',{...f,monthlySalary:Number(f.monthlySalary||0)});

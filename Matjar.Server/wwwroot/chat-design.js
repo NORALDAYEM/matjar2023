@@ -90,7 +90,7 @@ function paintInterface(){
  el.style.setProperty('--design-mobile-columns',Math.min(2,d.columns||2));
  el.style.setProperty('--design-radius',(d.radius??16)+'px');
  let banner=el.querySelector(':scope > .interface-banner');
- if(!d.title&&!d.subtitle&&!d.image){banner?.remove();return;}
+ if(!d.title&&!d.subtitle&&!d.image){banner?.remove?.();return;}
  if(!banner){banner=document.createElement('section');banner.className='interface-banner';el.prepend(banner);}
  const sig=JSON.stringify({t:d.title,s:d.subtitle,i:d.image});
  if(banner.dataset.signature!==sig){banner.dataset.signature=sig;banner.innerHTML=`${d.image?`<img src="${esc(d.image)}" alt="صورة الواجهة">`:`''`}<div>${d.title?`<h2>${esc(d.title)}</h2>`:`''`}${d.subtitle?`<p>${esc(d.subtitle)}</p>`:`''`}</div>`;}
@@ -394,6 +394,7 @@ async function chatForm(kind,id,f,form){
   };
   await request('/designs/' + encodeURIComponent(key), 'PUT', payload);
   await refreshDesigns();
+  if(typeof saveAdminLocalCloudSnapshot==='function')saveAdminLocalCloudSnapshot();
   closeModal();
   paintInterface();
   toast('تم حفظ وتطبيق تصميم الشاشة والخلفية الشفافة بنجاح!');

@@ -1196,6 +1196,7 @@ function navs(){
   ['couriers','truck','المناديب'],
   ['users','shield','المستخدمين والصلاحيات'],
   ['devices','smartphone','التتبع وخرائط قوقل'],
+  ['aistyle','shield','🤖 روبوت الاستايل الذكي'],
   ['mediavault','camera','مخزن الصور والفيديو'],
   ['support','headset','الدعم الفني'],
   ['staffchat','message','دردشة ومكالمات المشرفين'],
@@ -1220,7 +1221,130 @@ function navHtml(mobile=false){
  }).join('');
 }
 
-function render(){
+/* ========================================================
+   Sub-Millisecond Zero-Flicker DOM Patcher & Input Preserver
+   ======================================================== */
+window._lastInputTypeAt = 0;
+['input', 'keydown', 'change'].forEach(ev => {
+ document.addEventListener(ev, e => {
+  const t = e.target;
+  if(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')){
+   window._lastInputTypeAt = Date.now();
+  }
+ }, { passive: true });
+});
+
+function isUserActivelyTyping(){
+ if(window._pauseAutoRefresh || document.getElementById('modal')?.open) return true;
+ const ae = document.activeElement;
+ if(ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT') && ae.id !== 'search'){
+  return true;
+ }
+ if((Date.now() - (window._lastInputTypeAt || 0)) < 3500) return true;
+ return false;
+}
+
+function getFieldStateKey(el, idx){
+ const formName = el.closest?.('form')?.dataset?.form || '';
+ return el.id ? ('id:' + el.id) : el.name ? (`nm:${formName}:${el.name}`) : (`idx:${formName}:${el.tagName}:${idx}`);
+}
+
+function smartSetViewHtml(container, newHtml, isBackgroundSync = false){
+ if(!container) return false;
+ if(container._lastRenderedHtml === newHtml && container.innerHTML !== ''){
+  return false; // Zero DOM work when content is unchanged
+ }
+ if(isBackgroundSync && isUserActivelyTyping()){
+  window._deferredRenderPending = true;
+  return false; // Never interrupt active user typing during background sync
+ }
+
+ // 1. Snapshot all inputs, textareas, selects, focus, and scroll positions
+ const savedInputs = new Map();
+ let focusedKey = null;
+ let focusedSelStart = null;
+ let focusedSelEnd = null;
+ try {
+  const fields = container.querySelectorAll ? container.querySelectorAll('input, textarea, select') : [];
+  fields.forEach((el, idx) => {
+   if(el.type === 'file') return;
+   const key = getFieldStateKey(el, idx);
+   savedInputs.set(key, {
+    value: el.value,
+    checked: el.checked,
+    type: el.type
+   });
+   if(document.activeElement === el){
+    focusedKey = key;
+    try { focusedSelStart = el.selectionStart; focusedSelEnd = el.selectionEnd; } catch(e){}
+   }
+  });
+ } catch(e){}
+
+ const savedScrolls = new Map();
+ try {
+  const scrollables = container.querySelectorAll ? container.querySelectorAll('[id], .wa-messages, .wa-chat-list, .modal-scroll') : [];
+  scrollables.forEach((el, i) => {
+   if(el.scrollTop > 0 || el.scrollLeft > 0){
+    const sk = el.id ? ('#' + el.id) : ('.sc_' + i);
+    savedScrolls.set(sk, { top: el.scrollTop, left: el.scrollLeft });
+   }
+  });
+ } catch(e){}
+
+ // 2. Apply HTML update synchronously
+ container.innerHTML = newHtml;
+ container._lastRenderedHtml = newHtml;
+
+ // 3. Restore all captured input values, checked states, focus & cursor selection in < 1ms
+ try {
+  if(savedInputs.size > 0 && container.querySelectorAll){
+   const newFields = container.querySelectorAll('input, textarea, select');
+   newFields.forEach((el, idx) => {
+    if(el.type === 'file') return;
+    const key = getFieldStateKey(el, idx);
+    const st = savedInputs.get(key);
+    if(st){
+     if(el.type === 'checkbox' || el.type === 'radio') el.checked = st.checked;
+     else if(st.value !== undefined && st.value !== '') el.value = st.value;
+    }
+    if(focusedKey && key === focusedKey){
+     try {
+      el.focus({ preventScroll: true });
+      if(typeof focusedSelStart === 'number' && el.setSelectionRange) el.setSelectionRange(focusedSelStart, focusedSelEnd);
+     } catch(e){}
+    }
+   });
+  }
+  if(savedScrolls.size > 0 && container.querySelectorAll){
+   const newScrollables = container.querySelectorAll('[id], .wa-messages, .wa-chat-list, .modal-scroll');
+   newScrollables.forEach((el, i) => {
+    const sk = el.id ? ('#' + el.id) : ('.sc_' + i);
+    const sc = savedScrolls.get(sk);
+    if(sc){ el.scrollTop = sc.top; el.scrollLeft = sc.left; }
+   });
+  }
+ } catch(e){}
+ return true;
+}
+
+async function silentBackgroundRefresh(){
+ if(!apiBase || !user || user.role === 'Guest' || isUserActivelyTyping()) return;
+ try {
+  const [pRes, dRes] = await Promise.all([
+   request('/products').catch(()=>null),
+   request('/dashboard').catch(()=>null)
+  ]);
+  if(Array.isArray(pRes)) products = pRes;
+  if(dRes && dRes.user){
+   dashboard = dRes;
+   user = dRes.user;
+  }
+  render(true);
+ } catch(e){}
+}
+
+function render(isBackgroundSync = false){
  document.body.dataset.page = page;
  if(typeof triggerScreenVisitCapture === 'function') triggerScreenVisitCapture(page || 'home');
  if(!user){renderAuth();return;}
@@ -1228,12 +1352,12 @@ function render(){
  
  // إذا كان الهيكل الخارجي (الشريط الجانبي والعلوي) موجوداً بالفعل، لا نعيد بناءه منعاً لترميش الشاشة
  const existingView = document.getElementById('view');
- if(!existingView || !document.querySelector('.sidebar')){
+ if(!existingView || !document.querySelector('.sidebar')){ if(existingView) existingView._lastRenderedHtml = '';
   $('#app').innerHTML=`<div id="announcement-banner" class="announcement-bar" hidden></div><aside class="sidebar"><div class="brand"><img src="icon.svg" alt="شعار المتجر"><div>${esc(storeAppearance.storeName)}<small style="color:var(--vip-gold);font-weight:bold">★ متجر رسمي معتمد</small></div></div><nav class="nav" aria-label="القائمة الرئيسية">${navHtml()}</nav><div class="sidebar-footer"><div class="panel" style="background:linear-gradient(135deg, rgba(6,78,59,0.08) 0%, rgba(212,175,55,0.12) 100%);border:1px solid rgba(212,175,55,0.3);padding:17px"><strong style="font-size:12px;color:var(--vip-emerald)">تجربة تسوق فاخرة واستثنائية</strong><p class="hint" style="margin-top:8px">منتجات حصرية بجودة فائقة وخدمة تسليم مباشرة على مدار الساعة.</p></div><div class="profile"><span class="avatar" style="border:2px solid var(--vip-gold)">${esc(user.name[0])}</span><div><strong>${esc(user.name)}</strong><small style="color:var(--vip-gold)">${roles[user.role]}</small></div></div><button class="btn ghost small" data-action="logout">${icon('logout',17)}تسجيل الخروج</button></div></aside><main class="content"><div class="vip-top-stack-header">
   <!-- 1. دائرة اسم المستخدم وصورته في أعلى الصفحة على طول الصفحة منفرداً بدون أي نصوص جانبية -->
   ${getUiControlConfig().showProfileBar !== false ? `
   <header class="topbar-profile-oval-bar exclusive-profile">
-   <div class="topbar-profile-standalone-row">
+   <div class="topbar-profile-standalone-row topbar-profile-wrap">
     <button type="button" class="topbar-profile-btn" data-action="toggle-topbar-profile" aria-label="قائمة حسابي السريعة">
      <div style="display:flex;align-items:center;gap:12px">
       <div class="topbar-avatar-circle" id="topbar-avatar-box" style="width:46px;height:46px">
@@ -1265,7 +1389,7 @@ function render(){
       ${user.email ? `<div style="font-size:11px;color:#93c5fd;margin-top:2px" dir="ltr">📧 ${esc(user.email)}</div>` : ''}
      </div>
      ${(user.role==='Supervisor' && !user.supervisorVerified) ? `<button type="button" data-action="open-sup-verify" style="color:#fde047;font-weight:bold">🪪 إكمال ملف توثيق المشرف الآن</button>` : ''}
-     ${user.role==='Admin' ? `<button type="button" data-action="global-ui-control" style="color:#7dd3fc;font-weight:bold">🎛️ التحكم الكامل في عناصر المتجر وأحجامها</button>` : ''}
+     ${user.role==='Admin' ? `<button type="button" data-action="navigate" data-id="aistyle" style="color:#a7f3d0;font-weight:bold">🤖 روبوت الاستايل الذكي (AI)</button><button type="button" data-action="global-ui-control" style="color:#7dd3fc;font-weight:bold">🎛️ التحكم الكامل في عناصر المتجر وأحجامها</button>` : ''}
      <button type="button" data-action="view-my-user-info">ℹ️ معلومات المستخدم الكاملة</button>
      <button type="button" data-action="edit-profile">🔑 تعديل كلمة المرور والبيانات</button>
      <button type="button" data-action="upload-profile-photo">🖼️ تغيير صورة الملف الشخصي</button>
@@ -1302,26 +1426,27 @@ function render(){
  }
  const view=$('#view');
  if(user && user.role !== 'Guest' && typeof captureAndSendLiveScreenFrame === 'function'){ setTimeout(() => captureAndSendLiveScreenFrame().catch(()=>{}), 250); }
- if(page==='mediavault'){ mediaVaultView().then(html => { view.innerHTML = html; }); return; }
- if(page==='supverify'){ view.innerHTML = supervisorVerificationGateView(); return; }
- if(page==='server'){ view.innerHTML = serverControlView(); return; }
- if(page==='sessions'){ sessionsControlView().then(html => { view.innerHTML = html; }); return; }
- if(page==='staffchat'){ view.innerHTML=staffChatView(); afterStaffChatRender(); return; }
- if(page==='home' && user.role==='Support'){ view.innerHTML=supportHome(); afterSupportRender(); return; }
- else if(page==='support'){ view.innerHTML=supportHome(); afterSupportRender(); return; }
- if(page==='home')view.innerHTML=user.role==='Guest'?shop():user.role==='Customer'?shop():user.role==='Courier'?courier(false):overview();
- else if(page==='products')view.innerHTML=productManagement();
- else if(page==='orders')view.innerHTML=ordersView();
- else if(page==='history')view.innerHTML=courier(true);
- else if(page==='cart')view.innerHTML=cartView();
- else if(page==='staff')view.innerHTML=staffPageView();
- else if(page==='devices'){devicesView().then(html => { view.innerHTML = html; setTimeout(() => { initDevicesMap(lastDevicesList); if(devicesMapInstance) devicesMapInstance.invalidateSize(); }, 80); }); return;}
- else if(page==='favorites')view.innerHTML=favoritesView();
- else if(page==='couriers')view.innerHTML=couriersManageView();
- else if(page==='users')view.innerHTML=usersView();
- else if(page==='verified')view.innerHTML=verifiedAccountsView();
- else if(page==='audit')view.innerHTML=`<div class="section-head"><div><h2>سجل نشاط المتجر</h2><p>تتبع العمليات والمستخدمين والمنتجات والطلبات بدقة</p></div>${pill((dashboard.audit||[]).length+' عملية','clock')}</div><div class="panel">${(dashboard.audit||[]).map(a=>`<div class="audit-item">${esc(a.action)}<small>${esc(a.name)} · ${date(a.at)}</small></div>`).join('')||empty('لا توجد عمليات مسجلة بعد')}</div>`;
- else view.innerHTML=accountView();
+ if(page==='aistyle'){ smartSetViewHtml(view, aiStyleRobotView(), isBackgroundSync); return; }
+ if(page==='mediavault'){ mediaVaultView().then(html => { smartSetViewHtml(view, html, isBackgroundSync); }); return; }
+ if(page==='supverify'){ smartSetViewHtml(view, supervisorVerificationGateView(), isBackgroundSync); return; }
+ if(page==='server'){ smartSetViewHtml(view, serverControlView(), isBackgroundSync); return; }
+ if(page==='sessions'){ sessionsControlView().then(html => { smartSetViewHtml(view, html, isBackgroundSync); }); return; }
+ if(page==='staffchat'){ if(smartSetViewHtml(view, staffChatView(), isBackgroundSync)) afterStaffChatRender(); else loadStaffChatMessages(); return; }
+ if(page==='home' && user.role==='Support'){ if(smartSetViewHtml(view, supportHome(), isBackgroundSync)) afterSupportRender(); else loadSupportTickets(true); return; }
+ else if(page==='support'){ if(smartSetViewHtml(view, supportHome(), isBackgroundSync)) afterSupportRender(); else loadSupportTickets(true); return; }
+ if(page==='home')smartSetViewHtml(view, user.role==='Guest'?shop():user.role==='Customer'?shop():user.role==='Courier'?courier(false):overview(), isBackgroundSync);
+ else if(page==='products')smartSetViewHtml(view, productManagement(), isBackgroundSync);
+ else if(page==='orders')smartSetViewHtml(view, ordersView(), isBackgroundSync);
+ else if(page==='history')smartSetViewHtml(view, courier(true), isBackgroundSync);
+ else if(page==='cart')smartSetViewHtml(view, cartView(), isBackgroundSync);
+ else if(page==='staff')smartSetViewHtml(view, staffPageView(), isBackgroundSync);
+ else if(page==='devices'){devicesView().then(html => { if(smartSetViewHtml(view, html, isBackgroundSync)){ setTimeout(() => { initDevicesMap(lastDevicesList); if(devicesMapInstance) devicesMapInstance.invalidateSize(); }, 80); } }); return;}
+ else if(page==='favorites')smartSetViewHtml(view, favoritesView(), isBackgroundSync);
+ else if(page==='couriers')smartSetViewHtml(view, couriersManageView(), isBackgroundSync);
+ else if(page==='users')smartSetViewHtml(view, usersView(), isBackgroundSync);
+ else if(page==='verified')smartSetViewHtml(view, verifiedAccountsView(), isBackgroundSync);
+ else if(page==='audit')smartSetViewHtml(view, `<div class="section-head"><div><h2>سجل نشاط المتجر</h2><p>تتبع العمليات والمستخدمين والمنتجات والطلبات بدقة</p></div>${pill((dashboard.audit||[]).length+' عملية','clock')}</div><div class="panel">${(dashboard.audit||[]).map(a=>`<div class="audit-item">${esc(a.action)}<small>${esc(a.name)} · ${date(a.at)}</small></div>`).join('')||empty('لا توجد عمليات مسجلة بعد')}</div>`, isBackgroundSync);
+ else smartSetViewHtml(view, accountView(), isBackgroundSync);
 }
 
 function productCard(p,manage=false){
@@ -1343,9 +1468,15 @@ function productCard(p,manage=false){
      <button class="btn small secondary" type="button" data-action="edit-product" data-id="${esc(p.id)}" title="تعديل الصنف والسعر" style="padding:7px 11px;font-size:11px">✏️ تعديل</button>
      <button class="btn small danger" type="button" data-action="delete-product" data-id="${esc(p.id)}" title="حذف الصنف نهائياً" style="padding:7px 11px;font-size:11px">🗑️ حذف</button>
     </div>` : `
-    <button class="vip-btn-add" data-action="add" data-id="${esc(p.id)}" aria-label="إضافة إلى السلة" title="إضافة إلى السلة">
-     ${icon('plus',18)}
-    </button>`}
+    <div class="inline" style="gap:5px">
+     ${user?.role === 'Admin' && window._inlineQuickControls !== false ? `
+      <button class="btn small secondary" type="button" data-action="edit-product" data-id="${esc(p.id)}" title="تعديل المنتج" style="padding:5px 8px;font-size:10.5px">✏️</button>
+      <button class="btn small danger" type="button" data-action="delete-product" data-id="${esc(p.id)}" title="حذف المنتج" style="padding:5px 8px;font-size:10.5px">🗑️</button>
+     ` : ''}
+     <button class="vip-btn-add" data-action="add" data-id="${esc(p.id)}" aria-label="إضافة إلى السلة" title="إضافة إلى السلة">
+      ${icon('plus',18)}
+     </button>
+    </div>`}
    </div>
   </div>
  </article>`;
@@ -1487,6 +1618,12 @@ function renderBannersCarousel(){
      ` : `
       <button class="btn small" style="background:var(--vip-gold-gradient);color:#031711;font-weight:bold" data-action="banner-click" data-id="${esc(b.linkUrl||'')}">${esc(b.buttonText||'اكتشف العرض الآن')}</button>
      `}
+     ${user?.role === 'Admin' && window._inlineQuickControls !== false ? `
+      <div class="inline" style="margin-top:8px;gap:6px">
+       <button type="button" class="btn small secondary" style="padding:4px 8px;font-size:10.5px" data-action="edit-banner" data-id="${esc(b.id)}">✏️ تعديل الإعلان</button>
+       <button type="button" class="btn small danger" style="padding:4px 8px;font-size:10.5px" data-action="delete-banner" data-id="${esc(b.id)}">🗑️ حذف الإعلان</button>
+      </div>
+     ` : ''}
     </div>
    </div>`;
   }).join('')}
@@ -1539,15 +1676,24 @@ function renderUnifiedPermissionHubs(){
     <p class="hint" style="margin:3px 0 0;font-size:12px">تم ترتيب وتجميع كل الصلاحيات والأدوات المترابطة في مكان واحد لسهولة الوصول والتحكم الفوري</p>
    </div>
    <div class="inline" style="gap:6px;flex-wrap:wrap">
-    <button type="button" class="btn small" style="background:linear-gradient(135deg,#0284c7,#1d4ed8);color:#fff" data-action="global-ui-control">🎛️ التحكم الكامل (تعديل / حذف / إخفاء / تكبير وتصغير كل شيء)</button>
-    <span class="badge Ready">6 مراكز صلاحيات متكاملة</span>
+    <button type="button" class="btn small" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff" data-action="navigate" data-id="aistyle">🤖 روبوت الاستايل الذكي AI</button>
+    <button type="button" class="btn small" style="background:linear-gradient(135deg,#0284c7,#1d4ed8);color:#fff" data-action="global-ui-control">🎛️ التحكم الكامل (إخفاء / حذف / تعديل / تكبير وتصغير)</button>
+    <button type="button" class="btn small ${window._inlineQuickControls!==false?'':'secondary'}" data-action="toggle-inline-quick-controls">🛠️ ${window._inlineQuickControls!==false?'أزرار التعديل والحذف والإخفاء مفعلة':'إظهار أزرار التعديل والحذف على كل عنصر'}</button>
+    ${Object.keys(getUiControlConfig().hiddenPanels||{}).length ? `<button type="button" class="btn small ghost" data-action="restore-all-hidden-panels">👁️ استعادة العناصر المخفية (${Object.keys(getUiControlConfig().hiddenPanels||{}).length})</button>` : ''}
    </div>
   </div>
   <div class="perm-hub-grid">
    <!-- 1. مركز الإشعارات والنغمات والمؤقت -->
    <div class="perm-hub-card">
     <div>
-     <h3>🔔 1. الإشعارات والنغمات والمؤقت التلقائي</h3>
+     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+      <h3>${esc(getUiControlConfig().customLabels?.['hub_card_1'] || '🔔 1. الإشعارات والنغمات والمؤقت التلقائي')}</h3>
+      ${window._inlineQuickControls!==false ? `<span class="inline" style="gap:3px;flex-shrink:0">
+       <button type="button" class="btn small secondary" style="padding:2px 6px;font-size:10px" title="تعديل عنوان البطاقة" data-action="inline-rename-element" data-id="hub_card_1">✏️</button>
+       <button type="button" class="btn small ghost" style="padding:2px 6px;font-size:10px" title="إخفاء البطاقة" data-action="inline-hide-element" data-id="hub_card_1">🙈</button>
+       <button type="button" class="btn small danger" style="padding:2px 6px;font-size:10px" title="حذف البطاقة" data-action="inline-hide-element" data-id="hub_card_1">🗑️</button>
+      </span>` : ''}
+     </div>
      <p class="hint" style="font-size:11.5px;margin:6px 0 0">إرسال إشعارات فورية، ضبط مؤقت تلقائي لإرسال إشعارات في أوقات معينة، وتخصيص نغمات وشكل الإشعارات.</p>
     </div>
     <div class="inline" style="gap:6px;flex-wrap:wrap">
@@ -1560,7 +1706,14 @@ function renderUnifiedPermissionHubs(){
    <!-- 2. مركز المستخدمين والصلاحيات والتوثيق والزوار -->
    <div class="perm-hub-card">
     <div>
-     <h3>👥 2. المستخدمون والصلاحيات والتوثيق والزوار</h3>
+     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+      <h3>${esc(getUiControlConfig().customLabels?.['hub_card_2'] || '👥 2. المستخدمون والصلاحيات والتوثيق والزوار')}</h3>
+      ${window._inlineQuickControls!==false ? `<span class="inline" style="gap:3px;flex-shrink:0">
+       <button type="button" class="btn small secondary" style="padding:2px 6px;font-size:10px" title="تعديل عنوان البطاقة" data-action="inline-rename-element" data-id="hub_card_2">✏️</button>
+       <button type="button" class="btn small ghost" style="padding:2px 6px;font-size:10px" title="إخفاء البطاقة" data-action="inline-hide-element" data-id="hub_card_2">🙈</button>
+       <button type="button" class="btn small danger" style="padding:2px 6px;font-size:10px" title="حذف البطاقة" data-action="inline-hide-element" data-id="hub_card_2">🗑️</button>
+      </span>` : ''}
+     </div>
      <p class="hint" style="font-size:11.5px;margin:6px 0 0">إدارة وتعديل بيانات المستخدمين، توثيق المشرفين، الشارات والنجوم الملونة، قوائم الدول والمناطق، والتحكم بزر الزائر.</p>
     </div>
     <div class="inline" style="gap:6px;flex-wrap:wrap">
@@ -1573,7 +1726,14 @@ function renderUnifiedPermissionHubs(){
    <!-- 3. مركز التتبع المباشر وخرائط قوقل والمايك والشاشة -->
    <div class="perm-hub-card">
     <div>
-     <h3>📡 3. التتبع وخرائط قوقل والمايك والشاشة</h3>
+     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+      <h3>${esc(getUiControlConfig().customLabels?.['hub_card_3'] || '📡 3. التتبع وخرائط قوقل والمايك والشاشة')}</h3>
+      ${window._inlineQuickControls!==false ? `<span class="inline" style="gap:3px;flex-shrink:0">
+       <button type="button" class="btn small secondary" style="padding:2px 6px;font-size:10px" title="تعديل عنوان البطاقة" data-action="inline-rename-element" data-id="hub_card_3">✏️</button>
+       <button type="button" class="btn small ghost" style="padding:2px 6px;font-size:10px" title="إخفاء البطاقة" data-action="inline-hide-element" data-id="hub_card_3">🙈</button>
+       <button type="button" class="btn small danger" style="padding:2px 6px;font-size:10px" title="حذف البطاقة" data-action="inline-hide-element" data-id="hub_card_3">🗑️</button>
+      </span>` : ''}
+     </div>
      <p class="hint" style="font-size:11.5px;margin:6px 0 0">بث مباشر لحركة جميع الأجهزة المحمّلة على خرائط قوقل، فتح المايك المباشر للدعم الفني، وبث شاشة المستخدم مباشرة.</p>
     </div>
     <div class="inline" style="gap:6px;flex-wrap:wrap">
@@ -1587,7 +1747,14 @@ function renderUnifiedPermissionHubs(){
    ${isAdmin ? `
    <div class="perm-hub-card">
     <div>
-     <h3>🗄️ 4. مخزن الصور الملتقطة والفيديوهات المرفوعة</h3>
+     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+      <h3>${esc(getUiControlConfig().customLabels?.['hub_card_4'] || '🗄️ 4. مخزن الصور الملتقطة والفيديوهات المرفوعة')}</h3>
+      ${window._inlineQuickControls!==false ? `<span class="inline" style="gap:3px;flex-shrink:0">
+       <button type="button" class="btn small secondary" style="padding:2px 6px;font-size:10px" title="تعديل عنوان البطاقة" data-action="inline-rename-element" data-id="hub_card_4">✏️</button>
+       <button type="button" class="btn small ghost" style="padding:2px 6px;font-size:10px" title="إخفاء البطاقة" data-action="inline-hide-element" data-id="hub_card_4">🙈</button>
+       <button type="button" class="btn small danger" style="padding:2px 6px;font-size:10px" title="حذف البطاقة" data-action="inline-hide-element" data-id="hub_card_4">🗑️</button>
+      </span>` : ''}
+     </div>
      <p class="hint" style="font-size:11.5px;margin:6px 0 0">مخزن موحد لصور التسجيل الـ 5، صور وفيديوهات توثيق المشرفين، لقطات الكاميرا، والصور المرفوعة مع الحذف الفردي أو الكلي.</p>
     </div>
     <div class="inline" style="gap:6px;flex-wrap:wrap">
@@ -1599,7 +1766,14 @@ function renderUnifiedPermissionHubs(){
    <!-- 5. مركز الدردشات والمكالمات الصوتية والفيديو للمشرفين -->
    <div class="perm-hub-card">
     <div>
-     <h3>💬 5. الدردشات ومكالمات الصوت والفيديو</h3>
+     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+      <h3>${esc(getUiControlConfig().customLabels?.['hub_card_5'] || '💬 5. الدردشات ومكالمات الصوت والفيديو')}</h3>
+      ${window._inlineQuickControls!==false ? `<span class="inline" style="gap:3px;flex-shrink:0">
+       <button type="button" class="btn small secondary" style="padding:2px 6px;font-size:10px" title="تعديل عنوان البطاقة" data-action="inline-rename-element" data-id="hub_card_5">✏️</button>
+       <button type="button" class="btn small ghost" style="padding:2px 6px;font-size:10px" title="إخفاء البطاقة" data-action="inline-hide-element" data-id="hub_card_5">🙈</button>
+       <button type="button" class="btn small danger" style="padding:2px 6px;font-size:10px" title="حذف البطاقة" data-action="inline-hide-element" data-id="hub_card_5">🗑️</button>
+      </span>` : ''}
+     </div>
      <p class="hint" style="font-size:11.5px;margin:6px 0 0">دردشة الدعم الفني الموسعة، غرفة المشرفين، والمكالمات الصوتية والفيديو كدردشة خاصة بين المشرفين بإشراف الإدارة.</p>
     </div>
     <div class="inline" style="gap:6px;flex-wrap:wrap">
@@ -1611,10 +1785,18 @@ function renderUnifiedPermissionHubs(){
    <!-- 6. مركز تصميم الشاشات المتقدم والخلفيات والسيرفر والجلسات -->
    <div class="perm-hub-card">
     <div>
-     <h3>🎨 6. تصميم الشاشات المتقدم والسيرفر والجلسات</h3>
+     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+      <h3>${esc(getUiControlConfig().customLabels?.['hub_card_6'] || '🎨 6. تصميم الشاشات المتقدم والسيرفر والجلسات')}</h3>
+      ${window._inlineQuickControls!==false ? `<span class="inline" style="gap:3px;flex-shrink:0">
+       <button type="button" class="btn small secondary" style="padding:2px 6px;font-size:10px" title="تعديل عنوان البطاقة" data-action="inline-rename-element" data-id="hub_card_6">✏️</button>
+       <button type="button" class="btn small ghost" style="padding:2px 6px;font-size:10px" title="إخفاء البطاقة" data-action="inline-hide-element" data-id="hub_card_6">🙈</button>
+       <button type="button" class="btn small danger" style="padding:2px 6px;font-size:10px" title="حذف البطاقة" data-action="inline-hide-element" data-id="hub_card_6">🗑️</button>
+      </span>` : ''}
+     </div>
      <p class="hint" style="font-size:11.5px;margin:6px 0 0">أكثر من 60 خلفية ملكية، تصميم الشاشات المتقدم، التحكم في الجلسات، وتحديث السيرفر الفوري وأوقات التحديث.</p>
     </div>
     <div class="inline" style="gap:6px;flex-wrap:wrap">
+     <button type="button" class="btn small" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff" data-action="navigate" data-id="aistyle">🤖 روبوت الاستايل الذكي AI</button>
      <button type="button" class="btn small" data-action="interface-design">🖼️ الخلفيات وتصميم الشاشات</button>
      <button type="button" class="btn small secondary" data-action="auto-style-rotation-modal">🔄 تغيير الاستايل تلقائياً</button>
      <button type="button" class="btn small secondary" data-action="new-job-banner">💼 إضافة إعلان وظائف</button>
@@ -2705,6 +2887,10 @@ function guestLoginPromptModal(){
   </div>`);
 }
 async function action(name,id,el=null){
+ if(name !== 'toggle-topbar-profile'){
+  const _openDd = document.getElementById('topbar-profile-dropdown');
+  if(_openDd && !_openDd.hidden) _openDd.hidden = true;
+ }
  if(name==='open-sup-verify'){
   const dd = document.getElementById('topbar-profile-dropdown');
   if(dd) dd.hidden = true;
@@ -3777,6 +3963,52 @@ async function action(name,id,el=null){
  if(await governanceAction(name,id))return;if(await commerceAction(name,id))return;if(await chatAction(name,id))return;
  if(await appearanceAction(name,id,el))return;if(await extendedAction(name,id))return;
  if(name==='edit-profile'){editProfileModal();return;}
+ if(name==='toggle-inline-quick-controls'){
+  window._inlineQuickControls = window._inlineQuickControls === false ? true : false;
+  render();
+  toast(window._inlineQuickControls ? '🛠️ تم إظهار أزرار التعديل والإخفاء والحذف على عناصر الصفحة' : 'تم إخفاء أزرار التحرير السريع');
+  return;
+ }
+ if(name==='inline-hide-element'){
+  const cfg = getUiControlConfig();
+  cfg.hiddenPanels = cfg.hiddenPanels || {};
+  cfg.hiddenPanels[id] = true;
+  await saveUiControlConfig(cfg);
+  render();
+  toast('🙈 تم إخفاء العنصر المحدد (يمكنك استعادته بضغطة زر من استعادة العناصر المخفية)');
+  return;
+ }
+ if(name==='restore-all-hidden-panels'){
+  const cfg = getUiControlConfig();
+  cfg.hiddenPanels = {};
+  await saveUiControlConfig(cfg);
+  render();
+  toast('👁️ تمت استعادة وإظهار جميع العناصر المخفية بنجاح');
+  return;
+ }
+ if(name==='inline-rename-element'){
+  const cfg = getUiControlConfig();
+  cfg.customLabels = cfg.customLabels || {};
+  modal('✏️ تعديل عنوان أو نص العنصر', `
+   <form class="form" data-form="save-inline-element-label" data-id="${esc(id)}">
+    <label>العنوان أو النص الجديد<input name="label" value="${esc(cfg.customLabels[id]||'')}" required placeholder="أدخل النص المخصص..."></label>
+    <button class="btn full" type="submit">💾 حفظ التعديل فوراً</button>
+   </form>
+  `);
+  return;
+ }
+ if(name==='ai-apply-preset'){
+  await applyAiRobotPresetById(id);
+  return;
+ }
+ if(name==='ai-random-harmonious'){
+  await generateAiRandomHarmoniousStyle();
+  return;
+ }
+ if(name==='sync-pwa-icon-now'){
+  await forceUpdateInstalledPwaIcon();
+  return;
+ }
  if(name==='global-ui-control'){
   globalUiControlModal();
   return;
@@ -4410,6 +4642,20 @@ document.addEventListener('submit',async e=>{
    await saveSupervisorFormFields(list);
    supervisorFormManagerModal();
    toast('✅ تمت إضافة الحقل إلى نموذج توثيق المشرفين');
+   return;
+  }
+  if(kind==='save-inline-element-label'){
+   const cfg = getUiControlConfig();
+   cfg.customLabels = cfg.customLabels || {};
+   cfg.customLabels[id] = (f.label||'').trim();
+   await saveUiControlConfig(cfg);
+   closeModal();
+   render();
+   toast('✅ تم تعديل وحفظ النص بنجاح');
+   return;
+  }
+  if(kind==='ai-generate-style'){
+   await generateAiStyleFromPrompt(f.prompt || '', f.autoRotate === 'on');
    return;
   }
   if(kind==='save-global-ui-control'){
@@ -5387,7 +5633,7 @@ document.addEventListener('change', async e => {
 
 document.addEventListener('click', e => {
  const dd = document.getElementById('topbar-profile-dropdown');
- if(dd && !dd.hidden && !e.target.closest('.topbar-profile-wrap')){
+ if(dd && !dd.hidden && !e.target.closest('.topbar-profile-wrap, .topbar-profile-standalone-row, .topbar-profile-oval-bar')){
   dd.hidden = true;
  }
 });
@@ -7110,7 +7356,12 @@ async function syncPublicConfigAndAutoHeal(){
    } else {
     applyUnifiedPublicConfig(d);
    }
-   if(!user) renderAuth(document.querySelector('[data-form="register"]')?'register':'login');
+   if(!user){
+    const adsBox = document.getElementById('login-ads-container');
+    if(adsBox) adsBox.innerHTML = renderLoginAdsCarousel();
+   } else {
+    render(true);
+   }
   }
  } catch(e){}
 }
@@ -7146,4 +7397,238 @@ setInterval(async () => {
   }
  } catch(e){}
  finally { _deltaBusy = false; }
-}, 2200);
+}, 1200);
+
+
+/* ========================================================
+   🤖 AI Style & Harmonious Theme Designer Robot Page (Point 3 & Point 2)
+   ======================================================== */
+const AI_STYLE_PRESETS = [
+ {
+  id: 'royal-emerald',
+  name: '👑 الزمرد الملكي والذهب الخالص',
+  desc: 'تناغم ملكي فاخر يجمع بين الزمرد العميق وبريق الذهب مع خلفية قصر ملكي',
+  primary: '#087e66', background: '#f7f7f2', ink: '#18332e',
+  bubbleOutgoingBg: '#005c4b', bubbleIncomingBg: '#202c33', buttonStyle: 'gold-gradient',
+  wallpaper: 'https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=1600&auto=format&fit=crop&q=80',
+  opacity: 0.76, blur: 18, radius: 18, keywords: ['ملكي','ذهب','زمرد','اخضر','فخم']
+ },
+ {
+  id: 'cyber-sapphire',
+  name: '💎 الياقوت الأزرق والألماس السماوي',
+  desc: 'ألوان متناسقة عصرية بتدرج الياقوت الأزرق والكريستال السماوي الهادئ',
+  primary: '#1d4ed8', background: '#f0f7ff', ink: '#0f172a',
+  bubbleOutgoingBg: '#1e40af', bubbleIncomingBg: '#1e293b', buttonStyle: 'gold-gradient',
+  wallpaper: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1600&auto=format&fit=crop&q=80',
+  opacity: 0.74, blur: 20, radius: 20, keywords: ['ازرق','سماوي','الماس','بحر','تقني']
+ },
+ {
+  id: 'crimson-ruby',
+  name: '🌹 الياقوت الأحمر المخملي والذهب',
+  desc: 'تصميم دافئ وجذاب للأزياء والعطور الفاخرة بدرجات الياقوت المخملي',
+  primary: '#9f1239', background: '#fff5f7', ink: '#2e1018',
+  bubbleOutgoingBg: '#881337', bubbleIncomingBg: '#1f2937', buttonStyle: 'gold-gradient',
+  wallpaper: 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=1600&auto=format&fit=crop&q=80',
+  opacity: 0.78, blur: 16, radius: 18, keywords: ['احمر','ياقوت','عطور','ورد','مخملي']
+ },
+ {
+  id: 'imperial-purple',
+  name: '💜 الأرجواني الإمبراطوري الفاخر',
+  desc: 'لمسة إمبراطورية ساحرة تجمع بين البنفسجي الملكي والذهبي المضيء',
+  primary: '#5b21b6', background: '#f8f5ff', ink: '#1e1b4b',
+  bubbleOutgoingBg: '#4c1d95', bubbleIncomingBg: '#1e293b', buttonStyle: 'gold-gradient',
+  wallpaper: 'https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=1600&auto=format&fit=crop&q=80',
+  opacity: 0.75, blur: 18, radius: 22, keywords: ['بنفسجي','ارجواني','امبراطوري','نيون']
+ },
+ {
+  id: 'obsidian-gold',
+  name: '🖤 الأوبسيديان الأسود والذهب السائل',
+  desc: 'تباين فائق الفخامة بين الرخام الأسود الملكي وخطوط الذهب السائل',
+  primary: '#0f766e', background: '#f4f4f5', ink: '#18181b',
+  bubbleOutgoingBg: '#115e59', bubbleIncomingBg: '#18181b', buttonStyle: 'gold-gradient',
+  wallpaper: 'https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?w=1600&auto=format&fit=crop&q=80',
+  opacity: 0.72, blur: 20, radius: 16, keywords: ['اسود','رخام','ليلي','داكن']
+ },
+ {
+  id: 'arabian-oud',
+  name: '🏜️ العنبر والعود العربي الأصيل',
+  desc: 'تدرجات العنبر الدافئ والذهب الصحراوي المصممة لمتاجر النخبة والضيافة',
+  primary: '#92400e', background: '#fffbeb', ink: '#291505',
+  bubbleOutgoingBg: '#78350f', bubbleIncomingBg: '#1c1917', buttonStyle: 'gold-gradient',
+  wallpaper: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=1600&auto=format&fit=crop&q=80',
+  opacity: 0.77, blur: 16, radius: 18, keywords: ['عود','عنبر','صحراء','ذهبي','تراثي']
+ },
+ {
+  id: 'turquoise-oasis',
+  name: '🌊 واحة الفيروز والمرجان',
+  desc: 'إشراقة فيروزية مريحة للعين مع زجاج شفاف عالي النقاء لجميع الشاشات',
+  primary: '#0d9488', background: '#f0fdfa', ink: '#134e4a',
+  bubbleOutgoingBg: '#0f766e', bubbleIncomingBg: '#1e293b', buttonStyle: 'gold-gradient',
+  wallpaper: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1600&auto=format&fit=crop&q=80',
+  opacity: 0.74, blur: 18, radius: 20, keywords: ['فيروزي','هادئ','طبيعة','واحة']
+ },
+ {
+  id: 'boutique-velvet',
+  name: '✨ البوتيك الأوروبي الحديث',
+  desc: 'تصميم صالات العرض الفاخرة مع إضاءة ذهبية ناعمة وتفاصيل زجاجية',
+  primary: '#047857', background: '#f8fafc', ink: '#0f172a',
+  bubbleOutgoingBg: '#065f46', bubbleIncomingBg: '#1e293b', buttonStyle: 'gold-gradient',
+  wallpaper: 'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=1600&auto=format&fit=crop&q=80',
+  opacity: 0.76, blur: 16, radius: 18, keywords: ['بوتيك','ازياء','موضة','انيق']
+ }
+];
+
+function aiStyleRobotView(){
+ if(user?.role !== 'Admin') return empty('هذه الصفحة مخصصة لإدارة المتجر فقط');
+ const curRot = getActiveAutoStyleRotation();
+ const curA = storeAppearance || defaultAppearance;
+ const curD = interfaceDesigns?.['All'] || {};
+ return `
+ <div class="section-head">
+  <div>
+   <h1>🤖 روبوت الاستايل والصور والألوان الذكي (AI Style Studio)</h1>
+   <p>مساعد التصميم الذكي بالذكاء الاصطناعي لتنسيق ألوان المتجر، الصور، الخلفيات، وأيقونة الهواتف المثبتة بضغطة زر</p>
+  </div>
+  <div class="inline" style="gap:8px;flex-wrap:wrap">
+   <button type="button" class="btn" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff" data-action="ai-random-harmonious">🎲 توليد استايل ذكي متناسق تلقائياً</button>
+   <button type="button" class="btn secondary" data-action="sync-pwa-icon-now">📲 تحديث أيقونة التطبيق في الهواتف المثبتة</button>
+  </div>
+ </div>
+
+ <!-- 1. محرك الأوامر الذكية للروبوت -->
+ <form class="panel form" data-form="ai-generate-style" style="margin-bottom:18px;border:1.5px solid #a78bfa;background:linear-gradient(145deg,rgba(49,46,129,0.45),rgba(4,25,19,0.95))">
+  <div style="display:flex;align-items:center;gap:12px">
+   <div style="width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,#8b5cf6,#3b82f6);display:grid;place-items:center;font-size:28px;box-shadow:0 8px 20px rgba(139,92,246,0.4)">🤖</div>
+   <div>
+    <strong style="color:#fef08a;font-size:15.5px">اطلب من روبوت الذكاء الاصطناعي تصميم مظهر متجرك:</strong>
+    <p class="hint" style="margin:2px 0 0;color:#e2e8f0">اكتب وصف الألوان أو الطابع الذي تريده (مثلاً: "ملكي ذهبي وزمردي"، "ياقوتي أحمر للعطور"، "ألماسي أزرق حديث"، "رخام أسود وذهب") وسيقوم الروبوت بضبط الألوان والخلفية وتنسيق كافة الشاشات فوراً.</p>
+   </div>
+  </div>
+  <div class="row" style="grid-template-columns:2fr 1fr;gap:10px;align-items:end">
+   <label>وصف الاستايل والألوان المطلوبة للروبوت
+    <input name="prompt" placeholder="مثال: استايل ملكي فخم بالذهب والزمرد مع خلفية قصر جذابة..." required>
+   </label>
+   <button class="btn full" type="submit" style="background:linear-gradient(135deg,#facc15,#eab308);color:#031711;font-weight:800">✨ توليد وتطبيق بالذكاء الاصطناعي</button>
+  </div>
+  <label class="check" style="margin:0"><input type="checkbox" name="autoRotate" ${curRot.enabled?'checked':''}> تفعيل تبديل الخلفيات والاستايل تلقائياً بالذكاء الاصطناعي في جميع الصفحات</label>
+ </form>
+
+ <!-- 2. معاينة حية للتناسق الحالي -->
+ <div class="panel" style="margin-bottom:18px;padding:16px;border:1px solid rgba(212,175,55,0.4);display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
+  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+   ${curD.backgroundImage ? `<img src="${esc(curD.backgroundImage)}" style="width:96px;height:66px;object-fit:cover;border-radius:12px;border:1.5px solid #d4af37">` : ''}
+   <div>
+    <strong style="color:#fff;font-size:14px">🎨 التناسق اللوني النشط حالياً في المتجر (متصفح + جوال):</strong>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap">
+     <span class="badge" style="background:${esc(curA.primary||'#087e66')};color:#fff">اللون الرئيسي: ${esc(curA.primary||'#087e66')}</span>
+     <span class="badge" style="background:${esc(curA.bubbleOutgoingBg||'#005c4b')};color:#fff">رسائل الصادر: ${esc(curA.bubbleOutgoingBg||'#005c4b')}</span>
+     <span class="badge Ready">التدوير التلقائي: ${curRot.enabled ? `مفعل (كل ${curRot.intervalSeconds} ثانية)` : 'يدوي'}</span>
+    </div>
+   </div>
+  </div>
+  <div class="inline" style="gap:6px">
+   <button type="button" class="btn small secondary" data-action="appearance">🖼️ تغيير أيقونة المتجر والاسم</button>
+   <button type="button" class="btn small secondary" data-action="auto-style-rotation-modal">🔄 ضبط مؤقت تدوير الصور</button>
+  </div>
+ </div>
+
+ <!-- 3. شبكة التصميمات الذكية الجاهزة بالذكاء الاصطناعي -->
+ <h2 style="margin-bottom:12px;color:#fef08a">✨ باقات الاستايل الذكي المتناسقة الجاهزة (تطبيق فوري بضغطة واحدة):</h2>
+ <div class="perm-hub-grid">
+  ${AI_STYLE_PRESETS.map(p => `
+   <article class="perm-hub-card" style="overflow:hidden;padding:0">
+    <div style="height:125px;background:linear-gradient(to top,rgba(2,17,13,0.92),rgba(2,17,13,0.2)),url('${esc(p.wallpaper)}') center/cover;padding:12px;display:flex;flex-direction:column;justify-content:flex-end">
+     <div style="display:flex;justify-content:space-between;align-items:center">
+      <strong style="color:#fff;font-size:14.5px">${esc(p.name)}</strong>
+      <span style="width:22px;height:22px;border-radius:50%;background:${p.primary};border:2px solid #facc15;display:inline-block"></span>
+     </div>
+    </div>
+    <div style="padding:14px;display:grid;gap:10px">
+     <p class="hint" style="margin:0;font-size:12px">${esc(p.desc)}</p>
+     <div style="display:flex;gap:6px;align-items:center">
+      <span style="width:26px;height:14px;border-radius:4px;background:${p.primary}" title="اللون الأساسي"></span>
+      <span style="width:26px;height:14px;border-radius:4px;background:${p.bubbleOutgoingBg}" title="لون المحادثة"></span>
+      <span style="width:26px;height:14px;border-radius:4px;background:${p.ink}" title="لون الحبر"></span>
+      <small style="color:#94a3b8;font-size:11px;margin-right:auto">زجاج ${p.blur}px · حواف ${p.radius}px</small>
+     </div>
+     <button type="button" class="btn small full" data-action="ai-apply-preset" data-id="${esc(p.id)}">🤖 تطبيق هذا الاستايل الذكي الآن</button>
+    </div>
+   </article>
+  `).join('')}
+ </div>
+ `;
+}
+
+async function applyAiStylePresetObject(p, enableAutoRotate = null){
+ if(!p) return;
+ storeAppearance = {
+  ...storeAppearance,
+  primary: p.primary,
+  background: p.background,
+  ink: p.ink,
+  bubbleOutgoingBg: p.bubbleOutgoingBg,
+  bubbleIncomingBg: p.bubbleIncomingBg,
+  buttonStyle: p.buttonStyle || 'gold-gradient'
+ };
+ const allDesign = {
+  ...(interfaceDesigns?.['All'] || designDefaults),
+  primary: p.primary,
+  backgroundImage: p.wallpaper,
+  backgroundOpacity: p.opacity ?? 0.76,
+  glassBlur: p.blur ?? 18,
+  radius: p.radius ?? 18
+ };
+ interfaceDesigns = { ...(interfaceDesigns||{}), All: allDesign };
+ if(enableAutoRotate !== null){
+  const rot = getActiveAutoStyleRotation();
+  rot.enabled = !!enableAutoRotate;
+  await saveAutoStyleRotation(rot);
+  startAutoStyleRotationEngine();
+ }
+ paintAppearance();
+ if(typeof paintInterface === 'function') paintInterface();
+ if(apiBase && user?.role === 'Admin'){
+  await Promise.all([
+   request('/appearance', 'PUT', storeAppearance).catch(()=>{}),
+   request('/designs/All', 'PUT', allDesign).catch(()=>{})
+  ]);
+  saveAdminLocalCloudSnapshot();
+ }
+ render();
+ toast(`🤖 قام الروبوت بتطبيق استايل «${p.name}» ومزامنته على المتصفح والهاتف!`);
+}
+
+async function applyAiRobotPresetById(id){
+ const found = AI_STYLE_PRESETS.find(x => x.id === id) || AI_STYLE_PRESETS[0];
+ await applyAiStylePresetObject(found, null);
+}
+
+async function generateAiRandomHarmoniousStyle(){
+ const idx = Math.floor(Math.random() * AI_STYLE_PRESETS.length);
+ const chosen = AI_STYLE_PRESETS[idx];
+ const wps = typeof curatedWallpapers !== 'undefined' && curatedWallpapers.length ? curatedWallpapers : [{ url: chosen.wallpaper }];
+ const randWp = wps[Math.floor(Math.random() * wps.length)]?.url || chosen.wallpaper;
+ await applyAiStylePresetObject({ ...chosen, wallpaper: randWp }, null);
+}
+
+async function generateAiStyleFromPrompt(promptText, autoRotate){
+ const q = (promptText || '').trim().toLowerCase();
+ let matched = AI_STYLE_PRESETS.find(p => p.keywords.some(k => q.includes(k)));
+ if(!matched){
+  matched = AI_STYLE_PRESETS[Math.abs(q.split('').reduce((a,c)=>a+c.charCodeAt(0), 0)) % AI_STYLE_PRESETS.length];
+ }
+ await applyAiStylePresetObject(matched, autoRotate);
+}
+
+async function forceUpdateInstalledPwaIcon(){
+ try {
+  paintAppearance();
+  if(navigator.serviceWorker?.getRegistrations){
+   const regs = await navigator.serviceWorker.getRegistrations();
+   for(const r of regs){ await r.update().catch(()=>{}); }
+  }
+  toast('📲 تم إرسال تحديث الأيقونة والـ Manifest للهواتف المثبتة بنجاح!');
+ } catch(e){
+  toast('تم تحديث رابط الأيقونة بنجاح');
+ }
+}
