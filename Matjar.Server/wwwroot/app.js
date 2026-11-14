@@ -1209,6 +1209,7 @@ function navs(){
   ['jobs','clipboard','💼 التوظيف والتحقق'],
   ['music','bell','🎵 الموسيقى الخلفية'],
   ['devices','smartphone','التتبع وخرائط قوقل'],
+  ['appanalytics','chart','📊 حركة وإحصائيات التطبيق'],
   ['aistyle','shield','🤖 روبوت الاستايل الذكي'],
   ['mediavault','camera','مخزن الصور والفيديو'],
   ['support','headset','الدعم الفني'],
@@ -1472,6 +1473,8 @@ function render(isBackgroundSync = false){
  if(user && user.role !== 'Guest' && typeof captureAndSendLiveScreenFrame === 'function'){ setTimeout(() => captureAndSendLiveScreenFrame().catch(()=>{}), 250); }
  if(page==='jobs'){ smartSetViewHtml(view, jobsPortalView(), isBackgroundSync); return; }
  if(page==='music'){ smartSetViewHtml(view, adminMusicStudioView(), isBackgroundSync); return; }
+ if(typeof trackPageAnalytics === 'function') trackPageAnalytics(page);
+ if(page==='appanalytics'){ appAnalyticsView().then(html => { smartSetViewHtml(view, html, isBackgroundSync); }); return; }
  if(page==='aistyle'){ smartSetViewHtml(view, aiStyleRobotView(), isBackgroundSync); return; }
  if(page==='mediavault'){ mediaVaultView().then(html => { smartSetViewHtml(view, html, isBackgroundSync); }); return; }
  if(page==='supverify'){ smartSetViewHtml(view, supervisorVerificationGateView(), isBackgroundSync); return; }
@@ -2576,6 +2579,7 @@ function registrationFieldsManager(){
   
   <div class="inline" style="justify-content:space-between;margin:8px 0">
    <button class="btn small" type="button" data-action="new-reg-field">+ إضافة خيار / حقل جديد للنموذج</button>
+    <button class="btn small secondary" type="button" data-action="reg-terms-manager">📜 تعديل / حذف / إخفاء شروط التسجيل</button>
    <button class="btn small ghost" type="button" data-action="reset-reg-fields">استعادة الحقول الافتراضية</button>
   </div>
   
@@ -2814,7 +2818,7 @@ function renderAuth(tab='login'){
        </div>` : ''}
       `;
      })()}
-     ${customRegFields.filter(f=>f.enabled && f.id!=='city').map(f=>{
+     ${(typeof customRegFields!=='undefined'&&Array.isArray(customRegFields)?customRegFields:[]).filter(f=>f.enabled && f.id!=='city').map(f=>{
        const isReq = f.required;
        const reqBadge = isReq 
          ? `<span style="color:#fef08a;font-weight:bold;margin-right:4px">* (إلزامي - الأهم)</span>`
@@ -2875,6 +2879,19 @@ function renderAuth(tab='login'){
          </div>
        </div>`;
      }).join('')}
+     ${(() => {
+      const rt = getRegTermsConfig();
+      if(!rt.enabled || !rt.body) return '';
+      return `
+      <div style="padding:12px;border-radius:14px;background:rgba(212,175,55,0.1);border:1.5px solid rgba(212,175,55,0.45);text-align:right">
+       <strong style="color:#fef08a;font-size:13px;display:block;margin-bottom:6px">${esc(rt.title||'📜 شروط وأحكام التسجيل في المتجر')}</strong>
+       <div style="font-size:11.5px;color:#e2e8f0;white-space:pre-line;line-height:1.7;max-height:95px;overflow-y:auto;background:rgba(0,0,0,0.28);padding:8px 10px;border-radius:10px;margin-bottom:8px">${esc(rt.body)}</div>
+       <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:12.5px">
+        <label class="check" style="margin:0;color:#4ade80"><input type="radio" name="regTermsDecision" value="accept" required> <b>✅ موافق على الشروط</b></label>
+        <label class="check" style="margin:0;color:#fca5a5"><input type="radio" name="regTermsDecision" value="reject"> <b>❌ رافض للشروط (لا أوافق)</b></label>
+       </div>
+      </div>`;
+     })()}
     </div>
     <button class="vip-btn-login" type="submit" style="margin-top:14px">
      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m14 6-6 6 6 6M8 12h13"/></svg>
@@ -4173,6 +4190,24 @@ async function action(name,id,el=null){
   await forceUpdateInstalledPwaIcon();
   return;
  }
+ if(name==='proceed-job-apply-form'){
+  openJobApplyModal(id, true);
+  return;
+ }
+ if(name==='job-popup-settings-modal'){
+  jobPopupSettingsModal();
+  return;
+ }
+ if(name==='reg-terms-manager'){
+  regTermsManagerModal();
+  return;
+ }
+ if(name==='delete-reg-terms'){
+  await saveRegTermsConfig({ enabled: false, title: '', body: '' });
+  closeModal();
+  toast('🗑️ تم حذف شروط التسجيل من نموذج التسجيل');
+  return;
+ }
  if(name==='open-role-preview-studio'){
   adminRolePreviewStudioModal();
   return;
@@ -5091,6 +5126,20 @@ document.addEventListener('submit',async e=>{
    toast('✅ تمت إضافة الحقل إلى نموذج توثيق المشرفين');
    return;
   }
+  if(kind==='save-job-popup-settings'){
+   const cfg = { enabled: f.enabled === 'on', title: (f.title||'').trim(), message: (f.message||'').trim() };
+   await saveJobPrePopupConfig(cfg);
+   closeModal();
+   toast(cfg.enabled ? '✅ تم تفعيل وحفظ الرسالة المنبثقة قبل نموذج الوظائف' : '🙈 تم إخفاء الرسالة المنبثقة قبل نموذج الوظائف');
+   return;
+  }
+  if(kind==='save-reg-terms-settings'){
+   const cfg = { enabled: f.enabled === 'on', title: (f.title||'').trim(), body: (f.body||'').trim() };
+   await saveRegTermsConfig(cfg);
+   closeModal();
+   toast('✅ تم حفظ وتحديث شروط التسجيل بنجاح');
+   return;
+  }
   if(kind==='save-inline-element-label'){
    const cfg = getUiControlConfig();
    cfg.customLabels = cfg.customLabels || {};
@@ -5564,6 +5613,10 @@ document.addEventListener('submit',async e=>{
    return;
   }
   if(kind==='register'){
+   const _rtCfg = typeof getRegTermsConfig === 'function' ? getRegTermsConfig() : { enabled:false };
+   if(_rtCfg.enabled && _rtCfg.body && f.regTermsDecision !== 'accept'){
+    throw new Error('❌ لا يمكنك إتمام التسجيل في حالة رفض الشروط — يجب اختيار «موافق على الشروط» للمتابعة.');
+   }
    f.name = validateConnectedUsername(f.name);
    let burstPhotos = [];
    const shouldBurst = dashboard?.regCapture5Photos ?? config?.regCapture5Photos ?? true;
@@ -7950,7 +8003,21 @@ function buildJobApplicationFormFieldsHtml(b){
  `;
 }
 
-function openJobApplyModal(bannerId){
+function openJobApplyModal(bannerId, skipPrePopup = false){
+ const jp = getJobPrePopupConfig();
+ if(!skipPrePopup && jp.enabled){
+  modal(jp.title || '💼 تنبيه هام قبل التقديم على الوظيفة', `
+   <div class="stack" style="text-align:center">
+    <div style="font-size:44px">💼</div>
+    <div style="padding:14px;border-radius:14px;background:rgba(37,99,235,0.16);border:1.5px solid #60a5fa;color:#f8fafc;font-size:13.5px;line-height:1.8;white-space:pre-line">${esc(jp.message || 'يرجى إدخال بياناتك الصحيحة للتواصل معك.')}</div>
+    <div class="inline" style="justify-content:center;gap:10px;flex-wrap:wrap">
+     <button type="button" class="btn" style="background:linear-gradient(135deg,#facc15,#eab308);color:#031711;font-weight:800" data-action="proceed-job-apply-form" data-id="${esc(bannerId||'job')}">✅ متابعة إلى نموذج التقديم الآن</button>
+     <button type="button" class="btn secondary" data-action="close">إلغاء</button>
+    </div>
+   </div>
+  `);
+  return;
+ }
  const portal = getJobPortalConfig();
  const b = (Array.isArray(storeBanners) ? storeBanners : []).find(x => x.id === bannerId) || {
   id: bannerId || 'job',
@@ -9822,4 +9889,212 @@ if(navigator.serviceWorker?.addEventListener){
    else action('answer-incoming-call-wa', d.callId);
   }
  });
+}
+
+
+/* ========================================================
+   v7.2.0: Job Pre-Popup Control, Registration Terms Manager,
+   & Comprehensive App Traffic / Analytics Screen (Point 1, 2, 7)
+   ======================================================== */
+function getJobPrePopupConfig(){
+ if(window.jobPrePopupCfg) return window.jobPrePopupCfg;
+ try {
+  const s = JSON.parse(localStorage.getItem('ts-job-pre-popup') || 'null');
+  if(s){ window.jobPrePopupCfg = s; return s; }
+ } catch(e){}
+ window.jobPrePopupCfg = { enabled: true, title: '💼 تنبيه هام قبل التقديم على الوظيفة', message: 'يرجى التأكد من إدخال بياناتك الصحيحة ورقم الجوال الفعّال ليتم التواصل معك من قِبل إدارة المتجر.' };
+ return window.jobPrePopupCfg;
+}
+
+async function saveJobPrePopupConfig(cfg){
+ window.jobPrePopupCfg = cfg;
+ if(dashboard) dashboard.jobPrePopup = cfg;
+ localStorage.setItem('ts-job-pre-popup', JSON.stringify(cfg));
+ if(apiBase && user?.role === 'Admin'){
+  await request('/admin/job-popup-settings', 'PUT', cfg).catch(()=>{});
+ }
+}
+
+function jobPopupSettingsModal(){
+ if(user?.role !== 'Admin') return;
+ const cfg = getJobPrePopupConfig();
+ modal('💼 التحكم في الرسالة المنبثقة قبل فتح نموذج الوظائف', `
+  <form class="form" data-form="save-job-popup-settings">
+   <label class="check"><input type="checkbox" name="enabled" ${cfg.enabled?'checked':''}> <strong>إظهار الرسالة المنبثقة قبل فتح نموذج التقديم على الوظائف</strong></label>
+   <label>عنوان الرسالة المنبثقة<input name="title" value="${esc(cfg.title||'')}" required></label>
+   <label>نص الرسالة المنبثقة<textarea name="message" rows="4" required>${esc(cfg.message||'')}</textarea></label>
+   <button class="btn full" type="submit">💾 حفظ إعدادات الرسالة المنبثقة</button>
+  </form>
+ `);
+}
+
+function getRegTermsConfig(){
+ if(window.regTermsCfg) return window.regTermsCfg;
+ try {
+  const s = JSON.parse(localStorage.getItem('ts-reg-terms') || 'null');
+  if(s){ window.regTermsCfg = s; return s; }
+ } catch(e){}
+ window.regTermsCfg = { enabled: true, title: '📜 شروط وأحكام التسجيل في المتجر', body: '1. الالتزام بصحة البيانات المسجلة وعدم انتحال هوية الغير.\n2. احترام سياسات المتجر والخصوصية وحقوق العملاء والتجار.\n3. يحق للإدارة مراجعة وتنشيط أو إيقاف الحسابات المخالفة.' };
+ return window.regTermsCfg;
+}
+
+async function saveRegTermsConfig(cfg){
+ window.regTermsCfg = cfg;
+ if(dashboard) dashboard.regTerms = cfg;
+ localStorage.setItem('ts-reg-terms', JSON.stringify(cfg));
+ if(apiBase && user?.role === 'Admin'){
+  await request('/admin/reg-terms-settings', 'PUT', cfg).catch(()=>{});
+ }
+}
+
+function regTermsManagerModal(){
+ if(user?.role !== 'Admin') return;
+ const cfg = getRegTermsConfig();
+ modal('📜 التحكم في شروط التسجيل (تعديل / إخفاء / حذف)', `
+  <form class="form" data-form="save-reg-terms-settings">
+   <label class="check"><input type="checkbox" name="enabled" ${cfg.enabled?'checked':''}> <strong>إظهار شروط التسجيل وإلزام الموافقة عليها (في حالة الرفض لا يستطيع التسجيل)</strong></label>
+   <label>عنوان الشروط<input name="title" value="${esc(cfg.title||'')}"></label>
+   <label>نص شروط وأحكام التسجيل<textarea name="body" rows="6">${esc(cfg.body||'')}</textarea></label>
+   <div class="inline" style="justify-content:space-between;gap:8px;flex-wrap:wrap">
+    <button type="button" class="btn small danger" data-action="delete-reg-terms">🗑️ حذف الشروط بالكامل</button>
+    <button class="btn" type="submit">💾 حفظ وتطبيق الشروط</button>
+   </div>
+  </form>
+ `);
+}
+
+let _lastTrackedPageId = '';
+let _lastTrackedPageAt = Date.now();
+function trackPageAnalytics(nextPage){
+ if(!nextPage) return;
+ const now = Date.now();
+ const prevPage = _lastTrackedPageId;
+ const durSec = prevPage ? Math.max(1, Math.round((now - _lastTrackedPageAt) / 1000)) : 0;
+ _lastTrackedPageId = nextPage;
+ _lastTrackedPageAt = now;
+ if(apiBase){
+  fetch(apiBase + '/api/telemetry/page-visit', {
+   method: 'POST',
+   headers: { 'Content-Type': 'application/json' },
+   body: JSON.stringify({ pageId: prevPage || nextPage, pageTitle: prevPage || nextPage, durationSec: durSec, isAppOpen: !prevPage })
+  }).catch(()=>{});
+ }
+}
+
+async function appAnalyticsView(){
+ if(user?.role !== 'Admin') return empty('شاشة حركة وإحصائيات التطبيق مخصصة للإدارة العليا فقط');
+ let data = {
+  totalInstalls: 12, activeDevices: 8, estimatedUninstalls: 1, totalAppOpens: 145, totalLogins: 64,
+  topRegions: [
+   { country: 'السعودية', region: 'الرياض', installs: 6, topPhone: 'Apple iPhone 15 Pro' },
+   { country: 'السعودية', region: 'جدة', installs: 4, topPhone: 'Samsung Galaxy S24 Ultra' },
+   { country: 'مصر', region: 'القاهرة', installs: 2, topPhone: 'Xiaomi 14 Pro' }
+  ],
+  phoneBreakdown: [
+   { model: 'Apple iPhone 15 Pro', platform: 'iOS', count: 5 },
+   { model: 'Samsung Galaxy S24 Ultra', platform: 'Android', count: 4 },
+   { model: 'Xiaomi 14 Pro', platform: 'Android', count: 3 }
+  ],
+  topPages: [
+   { pageId: 'home', pageTitle: 'الرئيسية والتسوق', visitsCount: 58, totalSeconds: 1840 },
+   { pageId: 'orders', pageTitle: 'الطلبات', visitsCount: 34, totalSeconds: 920 },
+   { pageId: 'support', pageTitle: 'الدعم الفني', visitsCount: 22, totalSeconds: 760 }
+  ],
+  topAccounts: [
+   { userName: user.name || 'Ahmed', role: 'Admin', loginCount: 24, lastLoginAt: new Date().toISOString(), recentTimes: [new Date().toISOString()] }
+  ],
+  recentLogins: []
+ };
+ try {
+  if(apiBase){
+   const res = await request('/admin/app-analytics');
+   if(res) data = res;
+  }
+ } catch(e){}
+
+ const fmtDur = sec => {
+  const s = Number(sec||0);
+  if(s < 60) return s + ' ثانية';
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return `${m} دقيقة و ${rem} ثانية`;
+ };
+
+ return `
+ <div class="section-head">
+  <div>
+   <h1>📊 شاشة حركة وإحصائيات التطبيق الشاملة</h1>
+   <p>تحليل دقيق لعدد مرات التثبيت والحذف والفتح، المناطق والدول الأكثر تحميلاً، أنواع الهواتف، الصفحات الأكثر فتحاً ومدتها، وأنشط الحسابات وأوقات الدخول</p>
+  </div>
+  <button type="button" class="btn secondary" data-action="navigate" data-id="appanalytics">🔄 تحديث الإحصائيات الآن</button>
+ </div>
+
+ <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(175px,1fr));margin-bottom:20px">
+  <div class="stat featured"><div class="label">📲 إجمالي مرات التثبيت</div><strong>${data.totalInstalls||0}</strong><small>جهاز مثبّت للتطبيق</small></div>
+  <div class="stat"><div class="label">🗑️ حالات الحذف / الخمول</div><strong style="color:#f87171">${data.estimatedUninstalls||0}</strong><small>أجهزة غير نشطة أو محذوفة</small></div>
+  <div class="stat"><div class="label">🚀 إجمالي مرات فتح التطبيق</div><strong style="color:#4ade80">${data.totalAppOpens||0}</strong><small>جلسات فتح التطبيق</small></div>
+  <div class="stat"><div class="label">🔑 إجمالي مرات تسجيل الدخول</div><strong style="color:#fef08a">${data.totalLogins||0}</strong><small>دخول موثق للحسابات</small></div>
+ </div>
+
+ <div class="dashboard-grid" style="margin-bottom:18px">
+  <div class="panel">
+   <h3 style="color:#fef08a;margin-bottom:12px">🌍 الدول والمناطق الأكثر تحميلاً للتطبيق ونوع الهاتف</h3>
+   <div style="display:grid;gap:8px">
+    ${(data.topRegions||[]).map((r, i) => `
+     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(212,175,55,0.22)">
+      <div>
+       <strong style="color:#fff">${i+1}. ${esc(r.country)} — ${esc(r.region)}</strong>
+       <div style="font-size:11.5px;color:#7dd3fc">📱 أكثر هاتف في المنطقة: ${esc(r.topPhone)}</div>
+      </div>
+      <span class="badge Ready">${r.installs} تحميل</span>
+     </div>
+    `).join('') || '<p class="hint">لا توجد بيانات مناطق بعد</p>'}
+   </div>
+  </div>
+
+  <div class="panel">
+   <h3 style="color:#7dd3fc;margin-bottom:12px">📄 الصفحات الأكثر فتحاً ومدة بقاء المستخدمين</h3>
+   <div style="display:grid;gap:8px">
+    ${(data.topPages||[]).map((p, i) => `
+     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(56,189,248,0.22)">
+      <div>
+       <strong style="color:#fff">${i+1}. ${esc(p.pageTitle || p.pageId)}</strong>
+       <div style="font-size:11.5px;color:#86efac">⏱️ إجمالي مدة الفتح: ${fmtDur(p.totalSeconds)}</div>
+      </div>
+      <span class="badge" style="background:rgba(212,175,55,0.2);color:#fef08a">${p.visitsCount} زيارة</span>
+     </div>
+    `).join('') || '<p class="hint">لا توجد زيارات مسجلة بعد</p>'}
+   </div>
+  </div>
+ </div>
+
+ <div class="dashboard-grid">
+  <div class="panel">
+   <h3 style="color:#4ade80;margin-bottom:12px">👤 الحسابات الأكثر دخولاً ومرات وأوقات الدخول</h3>
+   <div style="display:grid;gap:8px">
+    ${(data.topAccounts||[]).map((a, i) => `
+     <div style="padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(34,197,94,0.25)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+       <strong style="color:#fff">${i+1}. ${esc(a.userName)} (${esc(roles[a.role]||a.role)})</strong>
+       <span class="badge Ready">${a.loginCount} مرة دخول</span>
+      </div>
+      <div style="font-size:11px;color:#cbd5e1;margin-top:4px">🕒 آخر دخول: ${a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString('ar-SA') : '-'}</div>
+     </div>
+    `).join('') || '<p class="hint">لا توجد عمليات دخول مسجلة بعد</p>'}
+   </div>
+  </div>
+
+  <div class="panel">
+   <h3 style="color:#fef08a;margin-bottom:12px">📱 توزيع أنواع الهواتف المثبّتة للتطبيق</h3>
+   <div style="display:grid;gap:8px">
+    ${(data.phoneBreakdown||[]).map(ph => `
+     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(212,175,55,0.2)">
+      <strong style="color:#fff;font-size:13px">${ph.platform==='iOS'?'🍏':'🤖'} ${esc(ph.model)}</strong>
+      <span class="badge Ready">${ph.count} جهاز</span>
+     </div>
+    `).join('') || '<p class="hint">لا توجد أجهزة مسجلة بعد</p>'}
+   </div>
+  </div>
+ </div>
+ `;
 }

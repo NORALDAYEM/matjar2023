@@ -3026,3 +3026,37 @@ body {
     padding: 18px 16px !important;
   }
 }
+
+
+/* === v7.2.0: Proportional Ad Rectangle Scaling (Inner Content Adapts Cleanly) === */
+.topbar-mini-ad-strip {
+  transform: none !important;
+  min-height: calc(52px * var(--ui-miniad-scale, 1)) !important;
+  padding: calc(7px * var(--ui-miniad-scale, 1)) calc(14px * var(--ui-miniad-scale, 1)) !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+.topbar-mini-ad-strip .topbar-mini-ad-thumb {
+  width: calc(36px * var(--ui-miniad-scale, 1)) !important;
+  height: calc(36px * var(--ui-miniad-scale, 1)) !important;
+  flex-shrink: 0 !important;
+}
+.topbar-mini-ad-strip strong {
+  font-size: clamp(11px, calc(12.5px * var(--ui-miniad-scale, 1)), 17px) !important;
+}
+.banner-card, .login-ad-card {
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+.banner-card {
+  min-height: calc(170px * var(--ui-miniad-scale, 1)) !important;
+  padding: calc(18px * var(--ui-miniad-scale, 1)) !important;
+}
+.banner-card h2, .login-ad-card h2 {
+  font-size: clamp(13px, calc(18px * var(--ui-miniad-scale, 1)), 24px) !important;
+  word-break: break-word !important;
+}
+.banner-card p, .login-ad-card p {
+  font-size: clamp(10.5px, calc(12.5px * var(--ui-miniad-scale, 1)), 16px) !important;
+  word-break: break-word !important;
+}

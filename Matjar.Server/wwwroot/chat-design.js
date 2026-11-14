@@ -174,6 +174,9 @@ function interfaceDesignEditor(selectedKey='All'){
    <div style="margin-top:10px;display:grid;gap:8px">
     <label>أو الصق رابط صورة خلفية مخصّصة مباشرة<input id="design-bg-url" name="backgroundImage" value="${esc(designBgImage)}" placeholder="https://..." dir="ltr"></label>
     <label>أو ارفع صورة خلفية عالية الدقة من جهازك أو هاتفك<input id="design-bg-file" type="file" accept="image/*"></label>
+    <div class="inline" style="gap:6px;flex-wrap:wrap">
+     <button type="button" class="btn small danger" data-action="pick-design-bg" data-id="">🗑️ حذف وإزالة صورة الخلفية الحالية</button>
+    </div>
    </div>
   </div>
   <button class="btn full" type="submit">💾 حفظ وتطبيق التصميم المتقدم فوراً</button>
