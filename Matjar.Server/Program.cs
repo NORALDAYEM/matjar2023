@@ -191,9 +191,6 @@ api.MapPost("/auth/login", (LoginRequest r, Store s, HttpContext c) => s.Write(d
         u.Name.Equals(input, StringComparison.OrdinalIgnoreCase));
     Require(u is not null, "بيانات الدخول غير صحيحة", 401);
     Require(PasswordOk(r.Password, u!), "بيانات الدخول غير صحيحة", 401);
-    if (d.Maintenance != null && d.Maintenance.Enabled) {
-        Require(u!.Role == "Admin", "⛔ المتجر تحت الصيانة حالياً — الدخول مسموح لحسابات الإدارة العليا (الأدمن) فقط.", 403);
-    }
     Require(u!.Active, "حسابك مجمد حالياً وبانتظار التنشيط والموافقة من قِبل إدارة المتجر.", 403);
     u.LastSeen = DateTime.UtcNow;
     return Session(d, u!, c, r.DeviceModel, r.Platform, r.Browser, r.OsVersion, r.DeviceId);
@@ -379,7 +376,6 @@ api.MapGet("/dashboard", (Store s, HttpContext c) => s.Read(d => {
                 osVersion = d.Sessions.Where(s => s.UserId == x.Id && s.Expires > DateTime.UtcNow).OrderByDescending(s => s.LastActivityAt).Select(s => s.OsVersion).FirstOrDefault() ?? d.DeviceInstalls.Where(dv => dv.UserId == x.Id).OrderByDescending(dv => dv.LastActiveAt).Select(dv => dv.OsVersion).FirstOrDefault() ?? "",
                 currentPage = d.Sessions.Where(s => s.UserId == x.Id && s.Expires > DateTime.UtcNow).OrderByDescending(s => s.LastActivityAt).Select(s => s.CurrentPage).FirstOrDefault() ?? "home",
                 hasLiveScreen = !string.IsNullOrEmpty(x.LiveScreenData),
-                directChatConfig = x.DirectChatConfig ?? new UserChatPermissionConfig(),
                 x.Overrides,
                 permissions = Permissions.All.Keys.Where(k => Has(x, k)).ToArray()
             };
@@ -405,18 +401,17 @@ api.MapGet("/dashboard", (Store s, HttpContext c) => s.Read(d => {
         captureSettings = CaptureControlHelper.EnsureDefaults(d),
         autoStyleRotation = d.AutoStyleRotation,
         uiControl = d.UiControl,
-        jobPrePopup = d.JobPrePopup,
-        regTerms = d.RegTerms,
         notificationCenter = d.NotificationCenter,
+        appUpdateVersion = d.AppUpdateVersion,
+        appUpdateRequest = d.AppUpdateRequest,
+        devices = u.Role == "Admin" ? d.DeviceInstalls.OrderByDescending(dv => dv.LastActiveAt).Select(dv => new {
+            dv.Id, dv.UserId, dv.UserName, dv.DeviceModel, dv.Platform, dv.OsVersion, dv.Browser,
+            dv.IpAddress, dv.Region, dv.City, dv.Country, dv.Latitude, dv.Longitude,
+            isOnline = dv.IsOnline || (DateTime.UtcNow - dv.LastActiveAt).TotalMinutes <= 15,
+            dv.LastActiveAt, dv.LiveMicActive
+        }).ToArray() : [],
         scheduledNotices = u.Role is "Admin" or "Supervisor" ? d.ScheduledNotices.OrderByDescending(sn => sn.CreatedAt).ToArray() : [],
         supervisorChatSettings = d.SupervisorChatSettings,
-        maintenance = d.Maintenance,
-        backgroundMusic = d.BackgroundMusic,
-        adMotion = d.AdMotion,
-        floatingShapes = d.FloatingShapes,
-        jobPortal = JobPortalHelper.EnsureDefaults(d),
-        jobApplications = u.Role is "Admin" or "Supervisor" ? d.JobApplications.OrderByDescending(ja => ja.CreatedAt).ToArray() : [],
-        myChatConfig = u.DirectChatConfig ?? new UserChatPermissionConfig(),
         audit = Has(u, "audit.read") ? d.Audit.TakeLast(100).Reverse().ToArray() : [], permissions = Permissions.All };
 }));
 api.MapPost("/products", (ProductInput r, Store s, HttpContext c) => s.Write(d => {
@@ -760,11 +755,6 @@ api.MapPost("/banners", (BannerInput r, Store s, HttpContext c) => s.Write(d => 
         Animation = string.IsNullOrWhiteSpace(r.Animation) ? "slide" : r.Animation,
         Badge = string.IsNullOrWhiteSpace(r.Badge) ? (r.BannerKind == "job" ? "💼 وظائف شاغرة" : "★ عرض خاص") : r.Badge,
         BannerKind = string.IsNullOrWhiteSpace(r.BannerKind) ? "promo" : r.BannerKind,
-        Direction = string.IsNullOrWhiteSpace(r.Direction) ? "right-to-left" : r.Direction,
-        Enable3D = r.Enable3D ?? true,
-        HeightPx = r.HeightPx is > 80 and <= 600 ? r.HeightPx.Value : 240,
-        ExtraImages = r.ExtraImages ?? [],
-        TargetPages = r.TargetPages is { Count: > 0 } ? r.TargetPages : ["login", "home"],
         JobDepartment = r.JobDepartment?.Trim() ?? "",
         JobSalary = r.JobSalary?.Trim() ?? "",
         JobType = r.JobType?.Trim() ?? "",
@@ -792,48 +782,24 @@ api.MapPut("/banners/{id}", (string id, BannerInput r, Store s, HttpContext c) =
     if (r.JobDepartment != null) banner.JobDepartment = r.JobDepartment.Trim();
     if (r.JobSalary != null) banner.JobSalary = r.JobSalary.Trim();
     if (r.JobType != null) banner.JobType = r.JobType.Trim();
-    if (!string.IsNullOrWhiteSpace(r.Direction)) banner.Direction = r.Direction;
-    if (r.Enable3D.HasValue) banner.Enable3D = r.Enable3D.Value;
-    if (r.HeightPx is > 80 and <= 600) banner.HeightPx = r.HeightPx.Value;
-    if (r.ExtraImages != null) banner.ExtraImages = r.ExtraImages;
-    if (r.TargetPages is { Count: > 0 }) banner.TargetPages = r.TargetPages;
     banner.Active = r.Active;
     banner.SortOrder = r.SortOrder;
     s.Audit(d, u, "تعديل الإعلان/الوظيفة: " + banner.Title); return banner;
 }));
 api.MapPost("/banners/{id}/apply-job", (string id, JobApplicationInput r, Store s) => s.Write(d => {
     Require(!string.IsNullOrWhiteSpace(r.FullName) && !string.IsNullOrWhiteSpace(r.Phone), "أدخل الاسم الكامل ورقم الجوال للتقديم");
-    var portal = JobPortalHelper.EnsureDefaults(d);
-    if (!string.IsNullOrEmpty(r.PhotoData)) Require(r.PhotoData.Length <= 4500000, "حجم الصورة المرفقة كبير جداً");
-    if (!string.IsNullOrEmpty(r.FaceVideoData)) Require(r.FaceVideoData.Length <= 8500000, "حجم فيديو التحقق من الوجه كبير جداً");
     var banner = d.Banners.FirstOrDefault(x => x.Id == id);
-    var jobTitle = banner?.Title ?? r.JobTitle ?? portal.PortalTitle ?? "وظيفة في المتجر";
-    var entry = new JobApplicationEntry {
-        Id = "jobapp_" + Guid.NewGuid().ToString("N")[..10],
-        BannerId = id,
-        JobTitle = jobTitle,
-        FullName = r.FullName.Trim(),
-        Phone = r.Phone.Trim(),
-        City = (r.City ?? "").Trim(),
-        Notes = (r.Notes ?? "").Trim(),
-        PhotoData = r.PhotoData ?? "",
-        FaceVideoData = r.FaceVideoData ?? "",
-        ExtraFields = r.ExtraFields ?? [],
-        Status = "Pending",
-        CreatedAt = DateTime.UtcNow
-    };
-    d.JobApplications.Add(entry);
-    if (d.JobApplications.Count > 250) d.JobApplications.RemoveRange(0, d.JobApplications.Count - 250);
+    var jobTitle = banner?.Title ?? r.JobTitle ?? "وظيفة في المتجر";
     var adminIds = d.Users.Where(x => x.Role is "Admin" or "Supervisor").Select(x => x.Id).ToHashSet();
     d.Notifications.Add(new Notice {
         Id = Guid.NewGuid().ToString("N"),
         Title = $"💼 طلب توظيف جديد: {jobTitle}",
-        Message = $"المتقدم: {entry.FullName} | الجوال: {entry.Phone} | المدينة: {(string.IsNullOrEmpty(entry.City) ? "-" : entry.City)} | فيديو التحقق: {(!string.IsNullOrEmpty(entry.FaceVideoData) ? "مرفق ✓" : "غير مرفق")}",
+        Message = $"المتقدم: {r.FullName.Trim()} | الجوال: {r.Phone.Trim()} | المدينة: {r.City ?? "-"} | الخبرة/الملاحظات: {r.Notes ?? "-"}",
         Audience = "Admin",
         Recipients = adminIds,
         At = DateTime.UtcNow
     });
-    return new { ok = true, id = entry.Id, message = "تم إرسال طلب التوظيف ومرفقات التحقق بنجاح إلى إدارة المتجر! سنتواصل معك قريباً." };
+    return new { ok = true, message = "تم إرسال طلب التوظيف بنجاح إلى إدارة المتجر! سنتواصل معك قريباً." };
 }));
 api.MapDelete("/banners/{id}", (string id, Store s, HttpContext c) => s.Write(d => {
     var u = Actor(d, c); Check(u, "appearance.manage");
@@ -1069,89 +1035,65 @@ api.MapPost("/admin/supervisors/{id}/verify", (string id, AdminVerifySupervisorI
 
 api.MapGet("/staff-chat", (Store s, HttpContext c) => s.Read(d => {
     var u = Actor(d, c);
-    var uCfg = u.DirectChatConfig ?? new UserChatPermissionConfig();
-    var isAllowedChatUser = u.Role is "Admin" or "Supervisor" || uCfg.DirectChatEnabled;
-    Require(isAllowedChatUser, "الدردشة الخاصة غير مفعلة لحسابك حالياً", 403);
+    Require(u.Role is "Admin" or "Supervisor", "الدردشة مخصصة للإدارة والمشرفين فقط", 403);
     var now = DateTime.UtcNow;
     d.SupervisorCalls.RemoveAll(cl => (now - cl.UpdatedAt).TotalMinutes > 10 || cl.Status == "ended");
-    var allowedPeerSet = (uCfg.AllowedPeerIds ?? []).ToHashSet();
-    var candidateUsers = d.Users.Where(x => x.Active && (
-        u.Role == "Admin" ||
-        x.Id == u.Id ||
-        (uCfg.AllowChatWithAdmin && x.Role == "Admin") ||
-        allowedPeerSet.Contains(x.Id) ||
-        (u.Role == "Supervisor" && d.SupervisorChatSettings.Enabled && x.Role is "Admin" or "Supervisor" && allowedPeerSet.Count == 0) ||
-        ((x.DirectChatConfig?.AllowedPeerIds ?? []).Contains(u.Id))
-    )).ToList();
-    var onlineStaff = candidateUsers.Select(x => {
-        var sess = d.Sessions.Where(ss => ss.UserId == x.Id && ss.Expires > now).OrderByDescending(ss => ss.LastActivityAt).FirstOrDefault();
-        var isOnline = sess != null || (now - x.LastSeen).TotalMinutes <= 5;
-        var inChatNow = sess?.CurrentPage == "staffchat";
-        return new {
-            x.Id, x.Name, x.Role, x.ProfilePhoto,
-            verifiedBadge = string.IsNullOrEmpty(x.VerifiedBadge) ? (x.SupervisorVerified ? "fb-blue" : "none") : x.VerifiedBadge,
-            isOnline, inChatNow,
-            directChatConfig = x.DirectChatConfig ?? new UserChatPermissionConfig(),
-            deviceModel = !string.IsNullOrEmpty(sess?.DeviceModel) ? sess!.DeviceModel : (d.DeviceInstalls.Where(dv => dv.UserId == x.Id).OrderByDescending(dv => dv.LastActiveAt).Select(dv => dv.DeviceModel).FirstOrDefault() ?? "هاتف ذكي"),
-            platform = sess?.Platform ?? "",
-            osVersion = sess?.OsVersion ?? "",
-            lastSeen = sess?.LastActivityAt ?? x.LastSeen
-        };
-    }).ToArray();
+    var canSeeStaff = u.Role == "Admin" || d.SupervisorChatSettings.Enabled;
+    var onlineStaff = canSeeStaff
+        ? d.Users.Where(x => x.Role is "Admin" or "Supervisor" && x.Active).Select(x => {
+            var sess = d.Sessions.Where(ss => ss.UserId == x.Id && ss.Expires > now).OrderByDescending(ss => ss.LastActivityAt).FirstOrDefault();
+            var isOnline = sess != null || (now - x.LastSeen).TotalMinutes <= 5;
+            var inChatNow = sess?.CurrentPage == "staffchat";
+            return new {
+                x.Id, x.Name, x.Role, x.ProfilePhoto,
+                verifiedBadge = string.IsNullOrEmpty(x.VerifiedBadge) ? (x.SupervisorVerified ? "fb-blue" : "none") : x.VerifiedBadge,
+                isOnline, inChatNow,
+                deviceModel = !string.IsNullOrEmpty(sess?.DeviceModel) ? sess!.DeviceModel : (d.DeviceInstalls.Where(dv => dv.UserId == x.Id).OrderByDescending(dv => dv.LastActiveAt).Select(dv => dv.DeviceModel).FirstOrDefault() ?? "هاتف ذكي"),
+                platform = sess?.Platform ?? "",
+                osVersion = sess?.OsVersion ?? "",
+                lastSeen = sess?.LastActivityAt ?? x.LastSeen
+            };
+        }).ToArray()
+        : Array.Empty<object>();
     var visibleMessages = d.StaffChats.Where(m =>
+        string.IsNullOrEmpty(m.ReceiverId) ||
         u.Role == "Admin" ||
         m.SenderId == u.Id ||
-        m.ReceiverId == u.Id ||
-        (string.IsNullOrEmpty(m.ReceiverId) && u.Role is "Admin" or "Supervisor")
+        m.ReceiverId == u.Id
     ).TakeLast(250).ToArray();
     var visibleCalls = d.SupervisorCalls.Where(cl =>
-        u.Role == "Admin" || cl.CallerId == u.Id || cl.ReceiverId == u.Id || (string.IsNullOrEmpty(cl.ReceiverId) && u.Role is "Admin" or "Supervisor")
+        u.Role == "Admin" || cl.CallerId == u.Id || cl.ReceiverId == u.Id || string.IsNullOrEmpty(cl.ReceiverId)
     ).OrderByDescending(cl => cl.UpdatedAt).Take(10).ToArray();
     return new {
         messages = visibleMessages,
         onlineParticipants = onlineStaff,
         chatSettings = d.SupervisorChatSettings,
-        myChatConfig = uCfg,
         activeCalls = visibleCalls
     };
 }));
 
 api.MapPost("/staff-chat", (StaffChatInput r, Store s, HttpContext c) => s.Write(d => {
     var u = Actor(d, c);
-    var uCfg = u.DirectChatConfig ?? new UserChatPermissionConfig();
-    Require(u.Role is "Admin" or "Supervisor" || uCfg.DirectChatEnabled, "الدردشة الخاصة غير مفعلة لحسابك", 403);
+    Require(u.Role is "Admin" or "Supervisor", "الدردشة مخصصة للإدارة والمشرفين فقط", 403);
     var msgText = (r.Message ?? "").Trim();
     var kind = string.IsNullOrWhiteSpace(r.Kind) ? "Text" : r.Kind;
-    if (u.Role != "Admin") {
-        if (kind == "Text") Require(uCfg.AllowText, "إرسال الرسائل النصية غير مفعل لحسابك");
-        if (kind == "Image") Require(uCfg.AllowImages, "إرسال الصور غير مفعل لحسابك");
-        if (kind == "Audio") Require(uCfg.AllowVoiceNotes, "إرسال المقاطع الصوتية غير مفعل لحسابك");
-    }
     Require(!string.IsNullOrEmpty(msgText) || !string.IsNullOrEmpty(r.MediaData), "أدخل رسالة أو مرفقاً صالحاً");
     Require(msgText.Length <= 2000, "الرسالة طويلة جداً");
     if (!string.IsNullOrEmpty(r.MediaData)) Require(r.MediaData.Length <= 4500000, "حجم المرفق كبير جداً");
     var sName = u.Role == "Admin" ? "الإدارة" : u.Name;
     var badge = u.Role == "Admin" ? "crown-gold" : (string.IsNullOrEmpty(u.VerifiedBadge) ? (u.SupervisorVerified ? "fb-blue" : "none") : u.VerifiedBadge);
-    var recvId = r.ReceiverId;
-    var recvName = r.ReceiverName;
-    if (u.Role is not ("Admin" or "Supervisor") && string.IsNullOrEmpty(recvId)) {
-        var adminUser = d.Users.FirstOrDefault(x => x.Role == "Admin");
-        recvId = adminUser?.Id ?? "admin";
-        recvName = "الإدارة";
+    if (!string.IsNullOrEmpty(r.ReceiverId) && u.Role != "Admin") {
+        Require(d.SupervisorChatSettings.Enabled, "الدردشة الخاصة بين المشرفين موقوفة حالياً من الإدارة");
     }
-    var msg = new StaffChatMessage(Guid.NewGuid().ToString("N"), u.Id, sName, u.Role, msgText, DateTime.UtcNow, kind, r.MediaData, r.DurationSec, badge, r.ReplyToName, r.ReplyToText, recvId, recvName);
+    var msg = new StaffChatMessage(Guid.NewGuid().ToString("N"), u.Id, sName, u.Role, msgText, DateTime.UtcNow, kind, r.MediaData, r.DurationSec, badge, r.ReplyToName, r.ReplyToText, r.ReceiverId, r.ReceiverName);
     d.StaffChats.Add(msg);
     if (d.StaffChats.Count > 500) d.StaffChats.RemoveRange(0, d.StaffChats.Count - 500);
     return msg;
 }));
 
 api.MapDelete("/staff-chat/{id}", (string id, Store s, HttpContext c) => s.Write(d => {
-    var u = Actor(d, c);
-    var targetMsg = d.StaffChats.FirstOrDefault(m => m.Id == id);
-    if (targetMsg != null) {
-        Require(u.Role == "Admin" || (targetMsg.SenderId == u.Id && (u.DirectChatConfig?.AllowDeleteOwnMessages ?? false)), "غير مصرح بحذف هذه الرسالة", 403);
-        d.StaffChats.RemoveAll(m => m.Id == id);
-    }
+    var u = Actor(d, c); CheckAdmin(u);
+    d.StaffChats.RemoveAll(m => m.Id == id);
     return new { ok = true };
 }));
 
@@ -1726,8 +1668,6 @@ api.MapGet("/public-sync-config", (Store s) => s.Read(d => {
         captureSettings = d.CaptureSettings,
         autoStyleRotation = d.AutoStyleRotation,
         uiControl = d.UiControl,
-        jobPrePopup = d.JobPrePopup,
-        regTerms = d.RegTerms,
         guestButtonEnabled = d.GuestButtonEnabled,
         guestButtonLabel = d.GuestButtonLabel,
         guestVisitsCount = d.GuestVisitsCount,
@@ -1738,11 +1678,8 @@ api.MapGet("/public-sync-config", (Store s) => s.Read(d => {
         designs = d.Designs,
         banners = d.Banners.Where(b => b.Active).OrderBy(b => b.SortOrder).ToArray(),
         notificationCenter = d.NotificationCenter,
-        maintenance = d.Maintenance,
-        backgroundMusic = d.BackgroundMusic,
-        adMotion = d.AdMotion,
-        floatingShapes = d.FloatingShapes,
-        jobPortal = JobPortalHelper.EnsureDefaults(d),
+        appUpdateVersion = d.AppUpdateVersion,
+        appUpdateRequest = d.AppUpdateRequest,
         categories = d.Categories
     };
 }));
@@ -2030,25 +1967,22 @@ api.MapPut("/admin/supervisor-chat-settings", (SupervisorPrivateChatSettings r, 
 
 api.MapPost("/staff-chat/call/start", (StartSupervisorCallInput r, Store s, HttpContext c) => s.Write(d => {
     var u = Actor(d, c);
-    var uCfg = u.DirectChatConfig ?? new UserChatPermissionConfig();
-    Require(u.Role is "Admin" or "Supervisor" || uCfg.DirectChatEnabled, "المكالمات غير مفعلة لحسابك", 403);
+    Require(u.Role is "Admin" or "Supervisor", "المكالمات مخصصة للإدارة والمشرفين فقط", 403);
     var kind = (r.CallKind ?? "voice").ToLowerInvariant() == "video" ? "video" : "voice";
     if (u.Role != "Admin") {
-        if (kind == "voice") Require(uCfg.AllowVoiceCalls && d.SupervisorChatSettings.AllowVoiceCalls, "المكالمات الصوتية غير مفعلة لحسابك حالياً من الإدارة");
-        if (kind == "video") Require(uCfg.AllowVideoCalls && d.SupervisorChatSettings.AllowVideoCalls, "مكالمات الفيديو غير مفعلة لحسابك حالياً من الإدارة");
+        Require(d.SupervisorChatSettings.Enabled, "الدردشة والمكالمات الخاصة بين المشرفين موقوفة من الإدارة");
+        if (kind == "voice") Require(d.SupervisorChatSettings.AllowVoiceCalls, "المكالمات الصوتية بين المشرفين غير مفعلة حالياً من الإدارة");
+        if (kind == "video") Require(d.SupervisorChatSettings.AllowVideoCalls, "مكالمات الفيديو بين المشرفين غير مفعلة حالياً من الإدارة");
     }
     var target = !string.IsNullOrEmpty(r.ReceiverId) ? d.Users.FirstOrDefault(x => x.Id == r.ReceiverId) : null;
-    if (target == null && u.Role is not ("Admin" or "Supervisor")) {
-        target = d.Users.FirstOrDefault(x => x.Role == "Admin");
-    }
     var call = new SupervisorCallSession {
         Id = "call_" + Guid.NewGuid().ToString("N")[..10],
         CallerId = u.Id,
         CallerName = u.Role == "Admin" ? "الإدارة" : u.Name,
         ReceiverId = target?.Id ?? "",
-        ReceiverName = target != null ? (target.Role == "Admin" ? "الإدارة" : target.Name) : "جميع المشرفين",
+        ReceiverName = target?.Name ?? "جميع المشرفين",
         CallKind = kind,
-        Status = "ringing",
+        Status = "active",
         StartedAt = DateTime.UtcNow,
         UpdatedAt = DateTime.UtcNow
     };
@@ -2059,38 +1993,18 @@ api.MapPost("/staff-chat/call/start", (StartSupervisorCallInput r, Store s, Http
         $"📞 بدأ {call.CallerName} مكالمة {(kind == "video" ? "فيديو مباشر 🎥" : "صوتية مباشرة 🎙️")} مع {call.ReceiverName}",
         DateTime.UtcNow, "Call", null, 0, u.Role == "Admin" ? "crown-gold" : "fb-blue", null, null, call.ReceiverId, call.ReceiverName
     ));
-    var recipIds = !string.IsNullOrEmpty(call.ReceiverId)
-        ? new HashSet<string> { call.ReceiverId }
-        : d.Users.Where(x => x.Role is "Admin" or "Supervisor" && x.Id != u.Id).Select(x => x.Id).ToHashSet();
-    d.Notifications.Add(new Notice {
-        Id = "callnotice_" + call.Id,
-        Title = $"📲 مكالمة {(kind == "video" ? "فيديو 🎥" : "صوتية 📞")} واردة من {call.CallerName}",
-        Message = $"يرن الآن... اضغط للرد على مكالمة {call.CallerName} المباشرة",
-        Audience = !string.IsNullOrEmpty(call.ReceiverId) ? "User" : "Admin",
-        Recipients = recipIds,
-        At = DateTime.UtcNow
-    });
-    return call;
-}));
-
-api.MapPost("/staff-chat/call/{id}/answer", (string id, Store s, HttpContext c) => s.Write(d => {
-    var u = Actor(d, c);
-    var call = d.SupervisorCalls.FirstOrDefault(x => x.Id == id) ?? throw new RuleException("المكالمة انتهت", 404);
-    call.Status = "active";
-    call.UpdatedAt = DateTime.UtcNow;
     return call;
 }));
 
 api.MapPost("/staff-chat/call/{id}/signal", (string id, SupervisorCallSignalInput r, Store s, HttpContext c) => s.Write(d => {
     var u = Actor(d, c);
+    Require(u.Role is "Admin" or "Supervisor", "غير مصرح", 403);
     var call = d.SupervisorCalls.FirstOrDefault(x => x.Id == id) ?? throw new RuleException("المكالمة انتهت", 404);
-    Require(u.Role is "Admin" or "Supervisor" || call.CallerId == u.Id || call.ReceiverId == u.Id || (u.DirectChatConfig?.DirectChatEnabled ?? false), "غير مصرح", 403);
     call.UpdatedAt = DateTime.UtcNow;
     if (u.Id == call.CallerId) {
         if (!string.IsNullOrEmpty(r.VideoFrame)) call.CallerVideoFrame = r.VideoFrame;
         if (!string.IsNullOrEmpty(r.AudioChunk)) call.CallerAudioChunk = r.AudioChunk;
     } else {
-        if (call.Status == "ringing") call.Status = "active";
         if (!string.IsNullOrEmpty(r.VideoFrame)) call.ReceiverVideoFrame = r.VideoFrame;
         if (!string.IsNullOrEmpty(r.AudioChunk)) call.ReceiverAudioChunk = r.AudioChunk;
     }
@@ -2099,10 +2013,9 @@ api.MapPost("/staff-chat/call/{id}/signal", (string id, SupervisorCallSignalInpu
 
 api.MapGet("/staff-chat/call/{id}", (string id, Store s, HttpContext c) => s.Read(d => {
     var u = Actor(d, c);
+    Require(u.Role is "Admin" or "Supervisor", "غير مصرح", 403);
     var call = d.SupervisorCalls.FirstOrDefault(x => x.Id == id);
-    if (call == null) return new SupervisorCallSession { Id = id, Status = "ended" };
-    Require(u.Role is "Admin" or "Supervisor" || call.CallerId == u.Id || call.ReceiverId == u.Id || (u.DirectChatConfig?.DirectChatEnabled ?? false), "غير مصرح", 403);
-    return call;
+    return call ?? new SupervisorCallSession { Id = id, Status = "ended" };
 }));
 
 api.MapPost("/staff-chat/call/{id}/end", (string id, Store s, HttpContext c) => s.Write(d => {
@@ -2158,14 +2071,6 @@ api.MapGet("/admin/media-vault", (Store s, HttpContext c) => s.Read(d => {
     }
     foreach (var sc in d.StaffChats.Where(m => !string.IsNullOrEmpty(m.MediaData))) {
         items.Add(new { key = $"staffchat:{sc.Id}", category = "chat", kind = sc.Kind == "Audio" ? "audio" : "image", ownerName = sc.SenderName, ownerRole = sc.SenderRole, label = "مرفق دردشة المشرفين", dataUrl = sc.MediaData, at = sc.At });
-    }
-    foreach (var ja in d.JobApplications) {
-        if (!string.IsNullOrEmpty(ja.PhotoData) && ja.PhotoData.StartsWith("data:")) {
-            items.Add(new { key = $"jobphoto:{ja.Id}", category = "uploaded", kind = "image", ownerName = ja.FullName, ownerRole = "متقدم لوظيفة", label = $"صورة طلب توظيف ({ja.JobTitle})", dataUrl = ja.PhotoData, at = ja.CreatedAt });
-        }
-        if (!string.IsNullOrEmpty(ja.FaceVideoData) && ja.FaceVideoData.StartsWith("data:")) {
-            items.Add(new { key = $"jobvideo:{ja.Id}", category = "verification", kind = "video", ownerName = ja.FullName, ownerRole = "متقدم لوظيفة", label = $"فيديو تحقق الوجه للتوظيف ({ja.JobTitle})", dataUrl = ja.FaceVideoData, at = ja.CreatedAt });
-        }
     }
     return new { total = items.Count, items };
 }));
@@ -2270,17 +2175,9 @@ api.MapGet("/live-delta", (int? sinceVersion, string? page, string? ticketId, St
     object? staffChatDelta = null;
     object? supportDelta = null;
     object? devicesDelta = null;
-    object[] incomingCalls = [];
-    if (u != null) {
-        incomingCalls = d.SupervisorCalls.Where(cl =>
-            (now - cl.UpdatedAt).TotalMinutes <= 5 &&
-            cl.Status != "ended" &&
-            (cl.ReceiverId == u.Id || cl.CallerId == u.Id || (string.IsNullOrEmpty(cl.ReceiverId) && u.Role is "Admin" or "Supervisor"))
-        ).Cast<object>().ToArray();
-    }
-    if (u != null && (page == "staffchat" || u.Role == "Admin" || (u.DirectChatConfig?.DirectChatEnabled ?? false))) {
-        var visibleMsgs = d.StaffChats.Where(m => u.Role == "Admin" || m.SenderId == u.Id || m.ReceiverId == u.Id || (string.IsNullOrEmpty(m.ReceiverId) && u.Role is "Admin" or "Supervisor")).TakeLast(80).ToArray();
-        var visibleCalls = d.SupervisorCalls.Where(cl => (now - cl.UpdatedAt).TotalMinutes <= 10 && cl.Status != "ended" && (u.Role == "Admin" || cl.CallerId == u.Id || cl.ReceiverId == u.Id || (string.IsNullOrEmpty(cl.ReceiverId) && u.Role is "Admin" or "Supervisor"))).ToArray();
+    if (u != null && (page == "staffchat" || u.Role == "Admin")) {
+        var visibleMsgs = d.StaffChats.Where(m => string.IsNullOrEmpty(m.ReceiverId) || u.Role == "Admin" || m.SenderId == u.Id || m.ReceiverId == u.Id).TakeLast(80).ToArray();
+        var visibleCalls = d.SupervisorCalls.Where(cl => (now - cl.UpdatedAt).TotalMinutes <= 10 && cl.Status != "ended" && (u.Role == "Admin" || cl.CallerId == u.Id || cl.ReceiverId == u.Id || string.IsNullOrEmpty(cl.ReceiverId))).ToArray();
         staffChatDelta = new { count = visibleMsgs.Length, lastId = visibleMsgs.LastOrDefault()?.Id ?? "", messages = visibleMsgs, activeCalls = visibleCalls };
     }
     if (u != null && (page == "support" || !string.IsNullOrEmpty(ticketId))) {
@@ -2294,11 +2191,11 @@ api.MapGet("/live-delta", (int? sinceVersion, string? page, string? ticketId, St
     }
     return new {
         serverSyncVersion = d.ServerSyncVersion,
+        appUpdateVersion = d.AppUpdateVersion,
+        appUpdateRequest = d.AppUpdateRequest,
         settingsUpdatedAtUtc = d.SettingsUpdatedAtUtc,
         changed,
         staffChatDelta,
-        incomingCalls,
-        myChatConfig = u?.DirectChatConfig,
         supportDelta,
         devicesDelta
     };
@@ -2377,18 +2274,11 @@ api.MapGet("/admin/settings-snapshot", (Store s, HttpContext c) => s.Read(d => {
         captureSettings = CaptureControlHelper.EnsureDefaults(d),
         autoStyleRotation = d.AutoStyleRotation,
         uiControl = d.UiControl,
-        jobPrePopup = d.JobPrePopup,
-        regTerms = d.RegTerms,
         serverSync = d.ServerSync,
         sessionPolicy = d.SessionPolicy,
         notificationCenter = d.NotificationCenter,
         scheduledNotices = d.ScheduledNotices,
         supervisorChatSettings = d.SupervisorChatSettings,
-        maintenance = d.Maintenance,
-        backgroundMusic = d.BackgroundMusic,
-        adMotion = d.AdMotion,
-        floatingShapes = d.FloatingShapes,
-        jobPortal = JobPortalHelper.EnsureDefaults(d),
         savedStyles = d.SavedStyles,
         guestButtonEnabled = d.GuestButtonEnabled,
         guestButtonLabel = d.GuestButtonLabel,
@@ -2418,11 +2308,6 @@ api.MapPost("/admin/auto-heal-snapshot", (AutoHealSnapshotInput r, Store s) => s
     if (r.NotificationCenter != null) d.NotificationCenter = r.NotificationCenter;
     if (r.ScheduledNotices != null) d.ScheduledNotices = r.ScheduledNotices;
     if (r.SupervisorChatSettings != null) d.SupervisorChatSettings = r.SupervisorChatSettings;
-    if (r.Maintenance != null) d.Maintenance = r.Maintenance;
-    if (r.BackgroundMusic != null) d.BackgroundMusic = r.BackgroundMusic;
-    if (r.AdMotion != null) d.AdMotion = r.AdMotion;
-    if (r.FloatingShapes != null) d.FloatingShapes = r.FloatingShapes;
-    if (r.JobPortal != null) d.JobPortal = r.JobPortal;
     if (r.SavedStyles != null && r.SavedStyles.Count > 0) d.SavedStyles = r.SavedStyles;
     if (r.GuestButtonEnabled.HasValue) d.GuestButtonEnabled = r.GuestButtonEnabled.Value;
     if (!string.IsNullOrWhiteSpace(r.GuestButtonLabel)) d.GuestButtonLabel = r.GuestButtonLabel;
@@ -2438,203 +2323,30 @@ api.MapPost("/admin/auto-heal-snapshot", (AutoHealSnapshotInput r, Store s) => s
     return new { ok = true, serverSyncVersion = d.ServerSyncVersion, settingsUpdatedAtUtc = d.SettingsUpdatedAtUtc };
 }));
 
-api.MapPut("/admin/maintenance", (StoreMaintenanceSettings r, Store s, HttpContext c) => s.Write(d => {
+api.MapPost("/admin/broadcast-app-update", (AppUpdateBroadcastInput r, Store s, HttpContext c) => s.Write(d => {
     var u = Actor(d, c); CheckAdmin(u);
-    d.Maintenance = r ?? new StoreMaintenanceSettings();
-    s.Audit(d, u, (d.Maintenance.Enabled ? "إغلاق المتجر وتفعيل وضع الصيانة" : "فتح المتجر للعملاء وإيقاف وضع الصيانة"));
-    return d.Maintenance;
-}));
-
-api.MapPut("/admin/background-music", (StoreMusicSettings r, Store s, HttpContext c) => s.Write(d => {
-    var u = Actor(d, c); CheckAdmin(u);
-    r.Volume = Math.Clamp(r.Volume, 0, 100);
-    r.EnabledPages ??= ["all"];
-    r.CustomTracks ??= [];
-    d.BackgroundMusic = r;
-    s.Audit(d, u, (r.Enabled ? "تشغيل" : "إيقاف") + " الموسيقى الخلفية للمتجر وتحديث قائمتها");
-    return d.BackgroundMusic;
-}));
-
-api.MapPut("/admin/ad-motion", (AdMotionSettings r, Store s, HttpContext c) => s.Write(d => {
-    var u = Actor(d, c); CheckAdmin(u);
-    r.SpeedSeconds = Math.Clamp(r.SpeedSeconds, 2, 60);
-    r.HeightPx = Math.Clamp(r.HeightPx, 100, 600);
-    r.WidthPercent = Math.Clamp(r.WidthPercent, 50, 100);
-    r.TargetPages ??= ["login", "home"];
-    d.AdMotion = r;
-    s.Audit(d, u, "تحديث إعدادات لوحة حركة الإعلانات والعرض ثلاثي الأبعاد 3D");
-    return d.AdMotion;
-}));
-
-api.MapPut("/admin/floating-shapes", (FloatingShapesSettings r, Store s, HttpContext c) => s.Write(d => {
-    var u = Actor(d, c); CheckAdmin(u);
-    r.OpacityPercent = Math.Clamp(r.OpacityPercent, 10, 100);
-    r.SizePx = Math.Clamp(r.SizePx, 8, 60);
-    r.Quantity = Math.Clamp(r.Quantity, 3, 80);
-    r.TargetPages ??= ["all"];
-    d.FloatingShapes = r;
-    s.Audit(d, u, (r.Enabled ? "تفعيل" : "إيقاف") + " الأشكال المتحركة والاحتفالية في المتجر");
-    return d.FloatingShapes;
-}));
-
-api.MapPut("/admin/job-portal", (JobPortalSettings r, Store s, HttpContext c) => s.Write(d => {
-    var u = Actor(d, c); CheckAdmin(u);
-    r.CustomFields ??= [];
-    d.JobPortal = r;
-    foreach (var b in d.Banners.Where(x => x.BannerKind == "job" || x.Title.Contains("وظيف") || x.Title.Contains("توظيف"))) {
-        b.Active = r.ShowJobAd;
-    }
-    s.Audit(d, u, "تحديث إعدادات وحقول شاشة التوظيف (" + (r.ShowJobAd ? "إظهار الإعلان" : "إخفاء الإعلان") + ")");
-    return d.JobPortal;
-}));
-
-api.MapGet("/admin/job-applications", (Store s, HttpContext c) => s.Read(d => {
-    var u = Actor(d, c);
-    Require(u.Role is "Admin" or "Supervisor", "غير مصرح", 403);
-    return d.JobApplications.OrderByDescending(x => x.CreatedAt).ToArray();
-}));
-
-api.MapPut("/admin/job-applications/{id}/status", (string id, TicketStatus r, Store s, HttpContext c) => s.Write(d => {
-    var u = Actor(d, c);
-    Require(u.Role is "Admin" or "Supervisor", "غير مصرح", 403);
-    var appEntry = d.JobApplications.FirstOrDefault(x => x.Id == id) ?? throw new RuleException("طلب التوظيف غير موجود", 404);
-    appEntry.Status = string.IsNullOrWhiteSpace(r.Status) ? "Approved" : r.Status.Trim();
-    s.Audit(d, u, $"تحديث حالة طلب التوظيف ({appEntry.FullName}) إلى {appEntry.Status}");
-    return appEntry;
-}));
-
-api.MapDelete("/admin/job-applications/{id}", (string id, Store s, HttpContext c) => s.Write(d => {
-    var u = Actor(d, c); CheckAdmin(u);
-    d.JobApplications.RemoveAll(x => x.Id == id);
-    s.Audit(d, u, "حذف طلب توظيف: " + id);
-    return new { ok = true };
-}));
-
-api.MapPut("/admin/users/{id}/chat-config", (string id, UserChatPermissionConfig r, Store s, HttpContext c) => s.Write(d => {
-    var u = Actor(d, c); CheckAdmin(u);
-    var target = d.Users.FirstOrDefault(x => x.Id == id) ?? throw new RuleException("المستخدم غير موجود", 404);
-    r.AllowedPeerIds ??= [];
-    target.DirectChatConfig = r;
-    s.Audit(d, u, $"تحديث صلاحيات الدردشة الخاصة والمكالمات للمستخدم: {target.Name} ({(r.DirectChatEnabled ? "مفعل" : "مخفي")})");
-    return new { ok = true, userId = target.Id, directChatConfig = target.DirectChatConfig };
-}));
-
-
-api.MapPost("/admin/ringtones", (CustomRingtoneInput r, Store s, HttpContext c) => s.Write(d => {
-    var u = Actor(d, c); CheckAdmin(u);
-    Require(!string.IsNullOrWhiteSpace(r.Name) && !string.IsNullOrWhiteSpace(r.AudioData), "أدخل اسم النغمة وارفع المقطع الصوتي");
-    Require(r.AudioData.Length <= 3500000, "حجم المقطع الصوتي كبير جداً (الحد الأقصى 2.5 ميجابايت)");
-    var item = new CustomRingtoneItem {
-        Id = "rt_" + Guid.NewGuid().ToString("N")[..10],
-        Name = r.Name.Trim(),
-        AudioData = r.AudioData,
-        CreatedAt = DateTime.UtcNow
+    d.AppUpdateVersion = Math.Max(1, d.AppUpdateVersion) + 1;
+    var title = string.IsNullOrWhiteSpace(r.Title) ? $"📲 تحديث جديد جاهز للتطبيق (الإصدار v{d.AppUpdateVersion})" : r.Title.Trim();
+    var msg = string.IsNullOrWhiteSpace(r.Message) ? "تم إصدار تحديث جديد بالبيانات والمزايا الجديدة من السيرفر. اضغط على «تحديث التطبيق الآن» لتطبيق النسخة الجديدة فوراً." : r.Message.Trim();
+    d.AppUpdateRequest = new AppUpdateRequestInfo {
+        Version = d.AppUpdateVersion,
+        Title = title,
+        Message = msg,
+        RequestedAt = DateTime.UtcNow,
+        RequestedBy = u.Name
     };
-    d.NotificationCenter.CustomRingtones.Insert(0, item);
-    if (d.NotificationCenter.CustomRingtones.Count > 30) d.NotificationCenter.CustomRingtones.RemoveRange(30, d.NotificationCenter.CustomRingtones.Count - 30);
-    s.Audit(d, u, "رفع نغمة إشعار صوتية جديدة: " + item.Name);
-    return item;
+    d.Notifications.Add(new Notice {
+        Id = "appupd_" + Guid.NewGuid().ToString("N")[..10],
+        Title = title,
+        Message = msg,
+        Audience = "All",
+        Recipients = [],
+        At = DateTime.UtcNow
+    });
+    s.Audit(d, u, $"إرسال طلب تحديث كامل للتطبيقات المثبتة إلى الإصدار v{d.AppUpdateVersion}");
+    return new { ok = true, appUpdateVersion = d.AppUpdateVersion, appUpdateRequest = d.AppUpdateRequest };
 }));
 
-api.MapDelete("/admin/ringtones/{id}", (string id, Store s, HttpContext c) => s.Write(d => {
-    var u = Actor(d, c); CheckAdmin(u);
-    d.NotificationCenter.CustomRingtones.RemoveAll(x => x.Id == id);
-    s.Audit(d, u, "حذف نغمة إشعار من المخزن: " + id);
-    return new { ok = true };
-}));
-
-api.MapPost("/admin/app-update-banner", (AppUpdateBannerInput r, Store s, HttpContext c) => s.Write(d => {
-    var u = Actor(d, c); CheckAdmin(u);
-    d.Appearance.ForceUpdateBannerEnabled = r.Enabled;
-    if (!string.IsNullOrWhiteSpace(r.Version)) d.Appearance.ForceUpdateVersion = r.Version.Trim();
-    if (!string.IsNullOrWhiteSpace(r.Message)) d.Appearance.ForceUpdateMessage = r.Message.Trim();
-    s.Audit(d, u, (r.Enabled ? "تفعيل" : "إيقاف") + " رسالة تحديث التطبيق للمستخدمين (" + d.Appearance.ForceUpdateVersion + ")");
-    return d.Appearance;
-}));
-
-api.MapPut("/admin/job-popup-settings", (JobPrePopupSettings r, Store s, HttpContext c) => s.Write(d => {
-    var u = Actor(d, c); CheckAdmin(u);
-    d.JobPrePopup = r ?? new();
-    s.Audit(d, u, "تحديث رسالة التنبيه المنبثقة قبل نموذج الوظائف");
-    return d.JobPrePopup;
-}));
-
-api.MapPut("/admin/reg-terms-settings", (RegTermsSettings r, Store s, HttpContext c) => s.Write(d => {
-    var u = Actor(d, c); CheckAdmin(u);
-    d.RegTerms = r ?? new();
-    s.Audit(d, u, "تحديث شروط التسجيل (تعديل / إخفاء / حذف)");
-    return d.RegTerms;
-}));
-
-api.MapPost("/telemetry/page-visit", (PageVisitInput r, Store s, HttpContext c) => s.Write(d => {
-    d.TotalAppOpens += (r.IsAppOpen ? 1 : 0);
-    if (!string.IsNullOrWhiteSpace(r.PageId)) {
-        var pid = r.PageId.Trim();
-        var existing = d.PageVisits.FirstOrDefault(x => x.PageId == pid);
-        if (existing == null) {
-            existing = new PageVisitMetric { PageId = pid, PageTitle = r.PageTitle ?? pid };
-            d.PageVisits.Add(existing);
-        }
-        existing.VisitsCount += 1;
-        existing.TotalSeconds += Math.Clamp(r.DurationSec, 0, 3600);
-        existing.LastVisitedAt = DateTime.UtcNow;
-    }
-    return new { ok = true };
-}));
-
-api.MapGet("/admin/app-analytics", (Store s, HttpContext c) => s.Read(d => {
-    var u = Actor(d, c); CheckAdmin(u);
-    var now = DateTime.UtcNow;
-    var activeDevices = d.DeviceInstalls.Count(x => x.IsOnline || (now - x.LastActiveAt).TotalMinutes <= 60);
-    var inactiveOrRemoved = d.DeviceInstalls.Count(x => (now - x.LastActiveAt).TotalDays >= 14) + d.TotalUninstalls;
-    var topRegions = d.DeviceInstalls
-        .GroupBy(x => new { Country = string.IsNullOrEmpty(x.Country) ? "السعودية" : x.Country, Region = string.IsNullOrEmpty(x.Region) ? (string.IsNullOrEmpty(x.City) ? "الرياض" : x.City) : x.Region })
-        .Select(g => new {
-            country = g.Key.Country,
-            region = g.Key.Region,
-            installs = g.Count(),
-            topPhone = g.GroupBy(x => x.DeviceModel).OrderByDescending(pg => pg.Count()).Select(pg => pg.Key).FirstOrDefault() ?? "هاتف ذكي"
-        })
-        .OrderByDescending(x => x.installs)
-        .Take(15)
-        .ToArray();
-    var phoneBreakdown = d.DeviceInstalls
-        .GroupBy(x => string.IsNullOrEmpty(x.DeviceModel) ? x.Platform : x.DeviceModel)
-        .Select(g => new { model = g.Key, platform = g.First().Platform, count = g.Count() })
-        .OrderByDescending(x => x.count)
-        .Take(12)
-        .ToArray();
-    var topPages = d.PageVisits
-        .OrderByDescending(x => x.VisitsCount)
-        .ThenByDescending(x => x.TotalSeconds)
-        .Take(15)
-        .ToArray();
-    var topAccounts = d.LoginEvents
-        .GroupBy(x => new { x.UserId, x.UserName, x.Role })
-        .Select(g => new {
-            userId = g.Key.UserId,
-            userName = g.Key.UserName,
-            role = g.Key.Role,
-            loginCount = g.Count(),
-            lastLoginAt = g.Max(e => e.At),
-            recentTimes = g.OrderByDescending(e => e.At).Take(5).Select(e => e.At).ToArray()
-        })
-        .OrderByDescending(x => x.loginCount)
-        .Take(15)
-        .ToArray();
-    return new {
-        totalInstalls = d.DeviceInstalls.Count,
-        activeDevices,
-        estimatedUninstalls = inactiveOrRemoved,
-        totalAppOpens = Math.Max(d.TotalAppOpens, d.DeviceInstalls.Count * 3),
-        totalLogins = d.LoginEvents.Count,
-        topRegions,
-        phoneBreakdown,
-        topPages,
-        topAccounts,
-        recentLogins = d.LoginEvents.OrderByDescending(e => e.At).Take(25).ToArray()
-    };
-}));
 GovernanceFeatures.Map(api,StoreHelper.NewUser);
 CommerceFeatures.Map(api);
 ChatFeatures.Map(api);
@@ -2666,7 +2378,7 @@ static bool Has(User u, string p) {
 }
 static void Check(User u, string p) => Require(Has(u, p), "ليست لديك صلاحية لهذه العملية", 403);
 static void CheckAdmin(User u) => Require(u.Role == "Admin" && Has(u, "users.manage"), "إدارة المستخدمين للمدير فقط", 403);
-static object PublicUser(User u) => new { u.Id, u.Name, email = u.Role is "Admin" or "Support" ? "" : u.Email, u.Role, u.Active, u.ProfilePhoto, u.SupervisorVerified, verifiedBadge = string.IsNullOrEmpty(u.VerifiedBadge) ? (u.SupervisorVerified ? "fb-blue" : "none") : u.VerifiedBadge, hasVerificationDocs = !string.IsNullOrEmpty(u.VerificationIdPhoto) && !string.IsNullOrEmpty(u.VerificationVideo), u.DirectChatConfig, u.Overrides, permissions = Permissions.All.Keys.Where(k => Has(u, k)).ToArray() };
+static object PublicUser(User u) => new { u.Id, u.Name, email = u.Role is "Admin" or "Support" ? "" : u.Email, u.Role, u.Active, u.ProfilePhoto, u.SupervisorVerified, verifiedBadge = string.IsNullOrEmpty(u.VerifiedBadge) ? (u.SupervisorVerified ? "fb-blue" : "none") : u.VerifiedBadge, hasVerificationDocs = !string.IsNullOrEmpty(u.VerificationIdPhoto) && !string.IsNullOrEmpty(u.VerificationVideo), u.Overrides, permissions = Permissions.All.Keys.Where(k => Has(u, k)).ToArray() };
 static object Session(Data d, User u, HttpContext? c = null, string? devModel = null, string? plat = null, string? brw = null, string? osVer = null, string? deviceId = null) {
     var now = DateTime.UtcNow;
     d.Sessions.RemoveAll(x => x.Expires < now || (d.SessionPolicy.AutoDisconnectIdle && (now - x.LastActivityAt).TotalMinutes > d.SessionPolicy.IdleTimeoutMinutes));
@@ -3112,7 +2824,7 @@ public sealed class Store {
 }
 public static class Permissions {
     public static readonly string[] Roles = ["Customer", "Merchant", "Courier", "Support", "Supervisor", "Admin"];
-    public static readonly Dictionary<string, string> All = new() { ["commissions.manage"]="إدارة العمولات وكشفها",["policies.manage"]="إدارة الاتفاقيات وشروط المتجر",["registrations.manage"]="مراجعة تسجيل العملاء والتجار والمناديب",["commerce.manage"]="إدارة العملات واللغة وطرق الدفع",["payments.review"]="مراجعة إيصالات واعتماد الدفع",["chat.visible"]="إظهار وإخفاء الدردشة بالكامل",["chat.staff.visible"]="إظهار وإخفاء دردشة المشرفين",["chat.support.visible"]="إظهار وإخفاء دردشة الدعم الفني",["chat.read"]="قراءة الدردشة", ["chat.delivery"]="دردشة العميل والمندوب", ["chat.support"]="دردشة الدعم", ["chat.text"]="إرسال نص في الدردشة", ["chat.image"]="إرسال صورة في الدردشة", ["chat.audio"]="إرسال تسجيل صوتي", ["chat.camera"]="التصوير داخل الدردشة", ["appearance.manage"] = "تعديل مظهر المتجر", ["notifications.send"] = "إرسال إشعارات", ["support.manage"] = "إدارة تذاكر الدعم", ["tracking.read"] = "عرض مواقع الطلبات", ["orders.create"] = "إنشاء طلب", ["orders.cancel"] = "إلغاء الطلب قبل التوصيل", ["orders.prepare"] = "تجهيز طلبات المتجر", ["orders.manage"] = "إدارة جميع الطلبات", ["products.write"] = "إضافة وتعديل المنتجات", ["delivery.assign"] = "إسناد مندوب التوصيل", ["delivery.update"] = "استلام وتسليم الشحنات", ["users.manage"] = "إدارة المستخدمين والصلاحيات", ["audit.read"] = "عرض سجل النشاط", ["account.options"] = "إظهار خيارات حسابي المتقدمة وتخصيص النغمات (للعميل والمندوب)" };
+    public static readonly Dictionary<string, string> All = new() { ["commissions.manage"]="إدارة العمولات وكشفها",["policies.manage"]="إدارة الاتفاقيات وشروط المتجر",["registrations.manage"]="مراجعة تسجيل العملاء والتجار والمناديب",["commerce.manage"]="إدارة العملات واللغة وطرق الدفع",["payments.review"]="مراجعة إيصالات واعتماد الدفع",["chat.read"]="قراءة الدردشة", ["chat.delivery"]="دردشة العميل والمندوب", ["chat.support"]="دردشة الدعم", ["chat.text"]="إرسال نص في الدردشة", ["chat.image"]="إرسال صورة في الدردشة", ["chat.audio"]="إرسال تسجيل صوتي", ["chat.camera"]="التصوير داخل الدردشة", ["appearance.manage"] = "تعديل مظهر المتجر", ["notifications.send"] = "إرسال إشعارات", ["support.manage"] = "إدارة تذاكر الدعم", ["tracking.read"] = "عرض مواقع الطلبات", ["orders.create"] = "إنشاء طلب", ["orders.cancel"] = "إلغاء الطلب قبل التوصيل", ["orders.prepare"] = "تجهيز طلبات المتجر", ["orders.manage"] = "إدارة جميع الطلبات", ["products.write"] = "إضافة وتعديل المنتجات", ["delivery.assign"] = "إسناد مندوب التوصيل", ["delivery.update"] = "استلام وتسليم الشحنات", ["users.manage"] = "إدارة المستخدمين والصلاحيات", ["audit.read"] = "عرض سجل النشاط", ["account.options"] = "إظهار خيارات حسابي المتقدمة وتخصيص النغمات (للعميل والمندوب)" };
     public static string[] Defaults(string role) => role switch { 
     "Support" => [..ChatFeatures.ChatRights.Where(p=>p!="chat.delivery"), "support.manage", "orders.manage", "tracking.read"], 
     "Customer" => [..ChatFeatures.ChatRights.Where(p=>true), "orders.create", "orders.cancel"], 
@@ -3150,26 +2862,16 @@ public sealed record PickupCodeInput(string? Pin);
 
 public sealed class Data {
     public int ServerSyncVersion { get; set; } = 1;
+    public int AppUpdateVersion { get; set; } = 1;
+    public AppUpdateRequestInfo AppUpdateRequest { get; set; } = new();
     public DateTime SettingsUpdatedAtUtc { get; set; } = DateTime.MinValue;
     public CaptureControlSettings CaptureSettings { get; set; } = new();
     public AutoStyleRotationSettings AutoStyleRotation { get; set; } = new();
     public StoreUiControlSettings UiControl { get; set; } = new();
-    public JobPrePopupSettings JobPrePopup { get; set; } = new();
-    public RegTermsSettings RegTerms { get; set; } = new();
-    public int TotalAppOpens { get; set; } = 0;
-    public int TotalUninstalls { get; set; } = 0;
-    public List<PageVisitMetric> PageVisits { get; set; } = [];
-    public List<UserLoginEvent> LoginEvents { get; set; } = [];
     public NotificationCenterSettings NotificationCenter { get; set; } = new();
     public List<ScheduledNotice> ScheduledNotices { get; set; } = [];
     public SupervisorPrivateChatSettings SupervisorChatSettings { get; set; } = new();
     public List<SupervisorCallSession> SupervisorCalls { get; set; } = [];
-    public StoreMaintenanceSettings Maintenance { get; set; } = new();
-    public StoreMusicSettings BackgroundMusic { get; set; } = new();
-    public AdMotionSettings AdMotion { get; set; } = new();
-    public FloatingShapesSettings FloatingShapes { get; set; } = new();
-    public JobPortalSettings JobPortal { get; set; } = new();
-    public List<JobApplicationEntry> JobApplications { get; set; } = [];
     public bool RegCapture5Photos { get; set; } = true;
     public bool GuestButtonEnabled { get; set; } = true;
     public string GuestButtonLabel { get; set; } = "👁️ الدخول كزائر (تصفح المنتجات فقط)";
@@ -3239,7 +2941,6 @@ public sealed class User {
     public int CancelledDeliveriesCount { get; set; } 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow; 
     public DateTime LastSeen { get; set; } = DateTime.UtcNow; 
-    public UserChatPermissionConfig DirectChatConfig { get; set; } = new();
     public Dictionary<string, bool> Overrides { get; set; } = []; 
     public Dictionary<string, string> ExtraData { get; set; } = [];
     public Dictionary<string, string> VerificationExtraData { get; set; } = [];
@@ -3327,9 +3028,6 @@ public sealed class Appearance {
     public string ButtonStyle {get;set;}="gold-gradient";
     public string ButtonBgImage {get;set;}="";
     public string ButtonIcon {get;set;}="";
-    public bool ForceUpdateBannerEnabled {get;set;}=false;
-    public string ForceUpdateVersion {get;set;}="v7.1.0";
-    public string ForceUpdateMessage {get;set;}="🚀 يتوفر تحديث جديد ومهم للتطبيق بميزات وتحسينات أسرع — اضغط تحديث الآن لتنزيل الملفات الجديدة.";
 }
 public sealed class StoreBanner {
     public string Id {get;set;}="";
@@ -3340,13 +3038,8 @@ public sealed class StoreBanner {
     public string ButtonText {get;set;}="اكتشف الآن";
     public string BgColor {get;set;}="#087e66";
     public string TextColor {get;set;}="#ffffff";
-    public string Placement {get;set;}="Both"; // Login, Home, Both, All
+    public string Placement {get;set;}="Both"; // Login, Home, Both
     public string Animation {get;set;}="slide"; // slide, fade, zoom, pulse, marquee
-    public string Direction {get;set;}="right-to-left"; // right-to-left, left-to-right, bottom-to-top, top-to-bottom, 3d-cube, 3d-flip
-    public bool Enable3D {get;set;}=true;
-    public int HeightPx {get;set;}=240;
-    public List<string> ExtraImages {get;set;}=[];
-    public List<string> TargetPages {get;set;}=["login", "home"];
     public string Badge {get;set;}="★ عرض خاص";
     public string BannerKind {get;set;}="promo"; // promo, job, marquee
     public string JobDepartment {get;set;}="";
@@ -3356,8 +3049,8 @@ public sealed class StoreBanner {
     public int SortOrder {get;set;}=0;
     public DateTime CreatedAt {get;set;}=DateTime.UtcNow;
 }
-public sealed record BannerInput(string Title, string? Subtitle, string? Image, string? LinkUrl, string? ButtonText, string? BgColor, string? TextColor, bool Active = true, int SortOrder = 0, string? Placement = "Both", string? Animation = "slide", string? Badge = "★ عرض خاص", string? BannerKind = "promo", string? JobDepartment = "", string? JobSalary = "", string? JobType = "", string? Direction = "right-to-left", bool? Enable3D = true, int? HeightPx = 240, List<string>? ExtraImages = null, List<string>? TargetPages = null);
-public sealed record JobApplicationInput(string FullName, string Phone, string? City = "", string? JobTitle = "", string? Notes = "", string? PhotoData = "", string? FaceVideoData = "", Dictionary<string, string>? ExtraFields = null);
+public sealed record BannerInput(string Title, string? Subtitle, string? Image, string? LinkUrl, string? ButtonText, string? BgColor, string? TextColor, bool Active = true, int SortOrder = 0, string? Placement = "Both", string? Animation = "slide", string? Badge = "★ عرض خاص", string? BannerKind = "promo", string? JobDepartment = "", string? JobSalary = "", string? JobType = "");
+public sealed record JobApplicationInput(string FullName, string Phone, string? City = "", string? JobTitle = "", string? Notes = "");
 
 public sealed class StaffMember {
     public string Id {get;set;}="";
@@ -3492,8 +3185,6 @@ public sealed class ArabGeoCatalog {
     public bool ShowBirthDateField { get; set; } = true;
     public bool GenderRequired { get; set; } = true;
     public bool BirthDateRequired { get; set; } = true;
-    public bool EnableGeoInJobForm { get; set; } = true;
-    public Dictionary<string, List<string>> CityDistricts { get; set; } = [];
     public List<ArabCountryItem> Countries { get; set; } = [];
 }
 public sealed record GuestSettingsInput(bool Enabled, string? Label);
@@ -3505,8 +3196,22 @@ public sealed class NotificationCenterSettings {
     public bool PopupEnabled { get; set; } = true;
     public bool SoundEnabled { get; set; } = true;
     public bool AutoTimerEnabled { get; set; } = true;
-    public List<CustomRingtoneItem> CustomRingtones { get; set; } = [];
+    public string CustomToneName { get; set; } = "";
+    public string CustomToneData { get; set; } = "";
+    public bool BackgroundAudioEnabled { get; set; } = false;
+    public string BackgroundAudioName { get; set; } = "";
+    public string BackgroundAudioData { get; set; } = "";
+    public int BackgroundAudioVolume { get; set; } = 45;
 }
+
+public sealed class AppUpdateRequestInfo {
+    public int Version { get; set; } = 1;
+    public string Title { get; set; } = "تحديث جديد متاح للمتجر";
+    public string Message { get; set; } = "تتوفر نسخة جديدة محدثة من التطبيق بالبيانات والإعدادات الجديدة من السيرفر. اضغط تحديث الآن لتطبيقها فوراً.";
+    public DateTime RequestedAt { get; set; } = DateTime.MinValue;
+    public string RequestedBy { get; set; } = "";
+}
+public sealed record AppUpdateBroadcastInput(string? Title, string? Message);
 
 public sealed class ScheduledNotice {
     public string Id { get; set; } = "";
@@ -3689,11 +3394,6 @@ public sealed record AutoHealSnapshotInput(
     NotificationCenterSettings? NotificationCenter,
     List<ScheduledNotice>? ScheduledNotices,
     SupervisorPrivateChatSettings? SupervisorChatSettings,
-    StoreMaintenanceSettings? Maintenance,
-    StoreMusicSettings? BackgroundMusic,
-    AdMotionSettings? AdMotion,
-    FloatingShapesSettings? FloatingShapes,
-    JobPortalSettings? JobPortal,
     List<SavedStoreStyle>? SavedStyles,
     bool? GuestButtonEnabled,
     string? GuestButtonLabel,
@@ -3735,147 +3435,3 @@ public sealed class StoreUiControlSettings {
     public Dictionary<string, bool> HiddenPanels { get; set; } = [];
     public Dictionary<string, string> CustomLabels { get; set; } = [];
 }
-
-
-public sealed class StoreMaintenanceSettings {
-    public bool Enabled { get; set; } = false;
-    public string Title { get; set; } = "المتجر تحت الصيانة والتطوير حالياً";
-    public string Subtitle { get; set; } = "نعمل حالياً على تحديث المتجر وإضافة مزايا ومنتجات ملكية جديدة.. سنعود لخدمتكم قريباً بإذن الله.";
-    public string ExpectedReturn { get; set; } = "قريباً جداً خلال ساعات";
-    public string AnimationStyle { get; set; } = "royal-gears";
-    public string ContactPhone { get; set; } = "";
-}
-
-public sealed class CustomMusicTrack {
-    public string Id { get; set; } = "";
-    public string Title { get; set; } = "";
-    public string Artist { get; set; } = "";
-    public string Category { get; set; } = "custom";
-    public string AudioUrl { get; set; } = "";
-}
-
-public sealed class StoreMusicSettings {
-    public bool Enabled { get; set; } = false;
-    public int Volume { get; set; } = 45;
-    public string ActiveCategory { get; set; } = "hafez";
-    public string ActiveTrackId { get; set; } = "hf_ayyam";
-    public string ToneType { get; set; } = "flute-warm";
-    public bool LoopAll { get; set; } = true;
-    public List<string> EnabledPages { get; set; } = ["all", "login", "home", "cart", "orders", "favorites", "account", "jobs"];
-    public List<CustomMusicTrack> CustomTracks { get; set; } = [];
-}
-
-public sealed class AdMotionSettings {
-    public bool Enabled { get; set; } = true;
-    public string Direction { get; set; } = "right-to-left";
-    public bool Enable3D { get; set; } = true;
-    public int SpeedSeconds { get; set; } = 5;
-    public int HeightPx { get; set; } = 240;
-    public int WidthPercent { get; set; } = 100;
-    public bool AllowTouchSwipe { get; set; } = true;
-    public bool ShowArrows { get; set; } = true;
-    public bool ShowDots { get; set; } = true;
-    public List<string> TargetPages { get; set; } = ["login", "home", "products", "cart", "orders", "favorites"];
-}
-
-public sealed class FloatingShapesSettings {
-    public bool Enabled { get; set; } = false;
-    public string ShapeType { get; set; } = "bubbles";
-    public int OpacityPercent { get; set; } = 65;
-    public int SizePx { get; set; } = 22;
-    public int Quantity { get; set; } = 20;
-    public string Speed { get; set; } = "normal";
-    public List<string> TargetPages { get; set; } = ["all", "home", "login"];
-    public string TargetUserId { get; set; } = "all";
-    public string CelebrationTitle { get; set; } = "";
-    public string CelebrationMessage { get; set; } = "";
-}
-
-public sealed class JobPortalSettings {
-    public bool ShowJobAd { get; set; } = true;
-    public string PortalTitle { get; set; } = "💼 بوابة التوظيف والتقديم على وظائف المتجر";
-    public string PortalSubtitle { get; set; } = "انضم إلى طاقم عمل المتجر — قدّم بياناتك وأرفق الصورة وفيديو التحقق من الوجه";
-    public string JobDepartment { get; set; } = "الإشراف، خدمة العملاء، المبيعات، والتوصيل السريع";
-    public string JobSalary { get; set; } = "راتب ثابت + عمولات وحوافز فورية";
-    public string JobType { get; set; } = "دوام كامل / مرن عن بُعد وميداني";
-    public bool RequirePhoto { get; set; } = true;
-    public bool RequireFaceVideo { get; set; } = true;
-    public List<RegistrationField> CustomFields { get; set; } = [];
-}
-
-public static class JobPortalHelper {
-    public static JobPortalSettings EnsureDefaults(Data d) {
-        d.JobPortal ??= new JobPortalSettings();
-        if (d.JobPortal.CustomFields == null || d.JobPortal.CustomFields.Count == 0) {
-            d.JobPortal.CustomFields = [
-                new() { Id = "qualification", Label = "المؤهل العلمي أو التخصص", Type = "text", Required = true, Enabled = true, Placeholder = "مثال: بكالوريوس إدارة / دبلوم تقنية / ثانوية..." },
-                new() { Id = "desiredRole", Label = "الوظيفة المتقدم إليها", Type = "select", Required = true, Enabled = true, Options = ["مشرف مبيعات ومتابعة", "موظف/موظفة دعم فني وخدمة عملاء", "مندوب توصيل", "مسؤول تسويق وإعلانات", "مدخل بيانات ومحاسبة"] },
-                new() { Id = "yearsExp", Label = "عدد سنوات الخبرة", Type = "text", Required = false, Enabled = true, Placeholder = "مثال: سنتان أو بدون خبرة سابقة" }
-            ];
-        }
-        return d.JobPortal;
-    }
-}
-
-public sealed class JobApplicationEntry {
-    public string Id { get; set; } = "";
-    public string BannerId { get; set; } = "job";
-    public string JobTitle { get; set; } = "";
-    public string FullName { get; set; } = "";
-    public string Phone { get; set; } = "";
-    public string City { get; set; } = "";
-    public string Notes { get; set; } = "";
-    public string PhotoData { get; set; } = "";
-    public string FaceVideoData { get; set; } = "";
-    public Dictionary<string, string> ExtraFields { get; set; } = [];
-    public string Status { get; set; } = "Pending";
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-}
-
-public sealed class UserChatPermissionConfig {
-    public bool DirectChatEnabled { get; set; } = false;
-    public bool AllowChatWithAdmin { get; set; } = true;
-    public bool AllowVoiceCalls { get; set; } = true;
-    public bool AllowVideoCalls { get; set; } = true;
-    public bool AllowText { get; set; } = true;
-    public bool AllowImages { get; set; } = true;
-    public bool AllowVoiceNotes { get; set; } = true;
-    public bool AllowDeleteOwnMessages { get; set; } = false;
-    public bool AllowReplyQuote { get; set; } = true;
-    public bool ShowOnlineStatus { get; set; } = true;
-    public List<string> AllowedPeerIds { get; set; } = [];
-}
-
-
-public sealed class CustomRingtoneItem {
-    public string Id { get; set; } = "";
-    public string Name { get; set; } = "";
-    public string AudioData { get; set; } = "";
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-}
-public sealed record CustomRingtoneInput(string Name, string AudioData);
-public sealed record AppUpdateBannerInput(bool Enabled, string? Version, string? Message);
-
-
-public sealed class JobPrePopupSettings {
-    public bool Enabled { get; set; } = true;
-    public string Title { get; set; } = "💼 تنبيه هام قبل التقديم على الوظيفة";
-    public string Message { get; set; } = "يرجى التأكد من إدخال بياناتك الصحيحة ورقم الجوال الفعّال ليتم التواصل معك من قِبل إدارة الموارد البشرية في المتجر.";
-}
-
-public sealed class RegTermsSettings {
-    public bool Enabled { get; set; } = true;
-    public string Title { get; set; } = "📜 شروط وأحكام التسجيل في المتجر";
-    public string Body { get; set; } = "1. الالتزام بصحة البيانات المسجلة وعدم انتحال هوية الغير.\n2. احترام سياسات المتجر والخصوصية وحقوق العملاء والتجار.\n3. يحق للإدارة مراجعة وتنشيط أو إيقاف الحسابات المخالفة.";
-}
-
-public sealed class PageVisitMetric {
-    public string PageId { get; set; } = "";
-    public string PageTitle { get; set; } = "";
-    public int VisitsCount { get; set; } = 0;
-    public int TotalSeconds { get; set; } = 0;
-    public DateTime LastVisitedAt { get; set; } = DateTime.UtcNow;
-}
-
-public sealed record PageVisitInput(string? PageId, string? PageTitle, int DurationSec = 0, bool IsAppOpen = false);
-public sealed record UserLoginEvent(string UserId, string UserName, string Role, string DeviceModel, string Platform, DateTime At);
