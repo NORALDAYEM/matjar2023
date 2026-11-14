@@ -191,6 +191,9 @@ api.MapPost("/auth/login", (LoginRequest r, Store s, HttpContext c) => s.Write(d
         u.Name.Equals(input, StringComparison.OrdinalIgnoreCase));
     Require(u is not null, "بيانات الدخول غير صحيحة", 401);
     Require(PasswordOk(r.Password, u!), "بيانات الدخول غير صحيحة", 401);
+    if (d.Maintenance != null && d.Maintenance.Enabled) {
+        Require(u!.Role == "Admin", "⛔ المتجر تحت الصيانة حالياً — الدخول مسموح لحسابات الإدارة العليا (الأدمن) فقط.", 403);
+    }
     Require(u!.Active, "حسابك مجمد حالياً وبانتظار التنشيط والموافقة من قِبل إدارة المتجر.", 403);
     u.LastSeen = DateTime.UtcNow;
     return Session(d, u!, c, r.DeviceModel, r.Platform, r.Browser, r.OsVersion, r.DeviceId);
