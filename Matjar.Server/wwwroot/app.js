@@ -2708,7 +2708,7 @@ function renderAuth(tab='login'){
  const isRegister = tab === 'register';
  const isForgot = tab === 'forgot';
 
- $('#app').innerHTML = `<div class="vip-auth-page" style="display:flex;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap">
+ $('#app').innerHTML = `<div class="vip-auth-page">
   <div id="login-ads-container">${renderLoginAdsCarousel()}</div>
   <div class="vip-auth-card">
    <div class="vip-logo-container">
