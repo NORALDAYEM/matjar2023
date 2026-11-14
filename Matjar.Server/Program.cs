@@ -59,7 +59,61 @@ app.MapGet("/api/app-icon.png", (Store s, IWebHostEnvironment env) => s.Read<IRe
     return Results.NotFound();
 }));
 app.UseStaticFiles(new StaticFileOptions { ContentTypeProvider = contentTypeProvider });
+// Security Headers Middleware (حماية المتجر من الاختراق و XSS و Clickjacking)
+app.Use(async (context, next) => {
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["X-Frame-Options"] = "SAMEORIGIN";
+    context.Response.Headers["X-XSS-Protection"] = "1; mode=block";
+    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    await next();
+});
+
+// Dynamic PWA Manifest & Dynamic App Icon so installed phones update their icon & store name
+app.MapGet("/manifest.webmanifest", (Store s) => s.Read(d => {
+    var name = string.IsNullOrWhiteSpace(d.Appearance.StoreName) ? "التسوق" : d.Appearance.StoreName;
+    var sub = string.IsNullOrWhiteSpace(d.Appearance.Subtitle) ? "كل ما تحب، أقرب إليك" : d.Appearance.Subtitle;
+    var theme = string.IsNullOrWhiteSpace(d.Appearance.Primary) ? "#087e66" : d.Appearance.Primary;
+    var ver = d.ServerSyncVersion;
+    var hasCustomLogo = !string.IsNullOrWhiteSpace(d.Appearance.Logo) && d.Appearance.Logo.StartsWith("data:image/");
+    var iconUrl = hasCustomLogo ? $"/api/app-icon.png?v={ver}" : $"/apple-touch-icon.png?v={ver}";
+    var manifestObj = new {
+        id = "/?app=matjar",
+        name = name,
+        short_name = name,
+        description = sub,
+        lang = "ar",
+        dir = "rtl",
+        start_url = $"/?v={ver}",
+        scope = "/",
+        display = "standalone",
+        orientation = "portrait",
+        background_color = "#031711",
+        theme_color = theme,
+        icons = new object[] {
+            new { src = iconUrl, sizes = "192x192", type = "image/png", purpose = "any maskable" },
+            new { src = iconUrl, sizes = "512x512", type = "image/png", purpose = "any maskable" },
+            new { src = $"/icon.svg?v={ver}", sizes = "any", type = "image/svg+xml", purpose = "any" }
+        }
+    };
+    return Results.Json(manifestObj, contentType: "application/manifest+json; charset=utf-8");
+}));
+
 var api = app.MapGroup("/api");
+
+api.MapGet("/app-icon.png", (Store s, IWebHostEnvironment env) => {
+    var logo = s.Read(d => d.Appearance.Logo);
+    if (!string.IsNullOrWhiteSpace(logo) && logo.StartsWith("data:image/") && logo.Contains(",")) {
+        try {
+            var b64 = logo[(logo.IndexOf(",") + 1)..];
+            var bytes = Convert.FromBase64String(b64);
+            var mime = logo.StartsWith("data:image/jpeg") ? "image/jpeg" : logo.StartsWith("data:image/webp") ? "image/webp" : "image/png";
+            return Results.File(bytes, mime);
+        } catch {}
+    }
+    var fallback = Path.Combine(env.WebRootPath, "apple-touch-icon.png");
+    if (File.Exists(fallback)) return Results.File(File.ReadAllBytes(fallback), "image/png");
+    return Results.NotFound();
+});
 api.MapGet("/health", () => new { name = "التسوق", status = "ok", version = "1.7.0", platforms = new[] { "iOS", "Android", "Web/PWA" } });
 api.MapGet("/setup", (Store s) => new { required = s.Read(d => d.Users.Count == 0) });
 api.MapPost("/setup", (SetupRequest r, Store s, HttpContext c) => s.Write(d => {
