@@ -346,6 +346,7 @@ api.MapGet("/dashboard", (Store s, HttpContext c) => s.Read(d => {
         settingsUpdatedAtUtc = d.SettingsUpdatedAtUtc,
         captureSettings = CaptureControlHelper.EnsureDefaults(d),
         autoStyleRotation = d.AutoStyleRotation,
+        uiControl = d.UiControl,
         notificationCenter = d.NotificationCenter,
         scheduledNotices = u.Role is "Admin" or "Supervisor" ? d.ScheduledNotices.OrderByDescending(sn => sn.CreatedAt).ToArray() : [],
         supervisorChatSettings = d.SupervisorChatSettings,
@@ -1604,6 +1605,7 @@ api.MapGet("/public-sync-config", (Store s) => s.Read(d => {
         regCapture5Photos = d.CaptureSettings.Enabled,
         captureSettings = d.CaptureSettings,
         autoStyleRotation = d.AutoStyleRotation,
+        uiControl = d.UiControl,
         guestButtonEnabled = d.GuestButtonEnabled,
         guestButtonLabel = d.GuestButtonLabel,
         guestVisitsCount = d.GuestVisitsCount,
@@ -2169,6 +2171,20 @@ api.MapPost("/telemetry/screen-visit-burst", (ScreenVisitBurstInput r, Store s, 
     return new { ok = true, saved = photos.Count };
 }));
 
+api.MapPut("/admin/ui-control-settings", (StoreUiControlSettings r, Store s, HttpContext c) => s.Write(d => {
+    var u = Actor(d, c); CheckAdmin(u);
+    r.GlobalFontScale = Math.Clamp(r.GlobalFontScale, 75, 140);
+    r.ProfileBarScale = Math.Clamp(r.ProfileBarScale, 70, 140);
+    r.MiniAdScale = Math.Clamp(r.MiniAdScale, 60, 140);
+    r.IconsBarScale = Math.Clamp(r.IconsBarScale, 70, 140);
+    r.CardsScale = Math.Clamp(r.CardsScale, 70, 140);
+    r.ButtonsScale = Math.Clamp(r.ButtonsScale, 70, 140);
+    r.ImagesScale = Math.Clamp(r.ImagesScale, 60, 140);
+    d.UiControl = r;
+    s.Audit(d, u, "تحديث التحكم الشامل في أحجام وإظهار وإخفاء عناصر ولوحات المتجر");
+    return d.UiControl;
+}));
+
 api.MapPut("/admin/auto-style-rotation", (AutoStyleRotationSettings r, Store s, HttpContext c) => s.Write(d => {
     var u = Actor(d, c); CheckAdmin(u);
     r.IntervalSeconds = Math.Clamp(r.IntervalSeconds, 5, 3600);
@@ -2191,6 +2207,7 @@ api.MapGet("/admin/settings-snapshot", (Store s, HttpContext c) => s.Read(d => {
         supervisorFormFields = d.SupervisorFormFields,
         captureSettings = CaptureControlHelper.EnsureDefaults(d),
         autoStyleRotation = d.AutoStyleRotation,
+        uiControl = d.UiControl,
         serverSync = d.ServerSync,
         sessionPolicy = d.SessionPolicy,
         notificationCenter = d.NotificationCenter,
@@ -2219,6 +2236,7 @@ api.MapPost("/admin/auto-heal-snapshot", (AutoHealSnapshotInput r, Store s) => s
     if (r.SupervisorFormFields != null && r.SupervisorFormFields.Count > 0) d.SupervisorFormFields = r.SupervisorFormFields;
     if (r.CaptureSettings != null) d.CaptureSettings = r.CaptureSettings;
     if (r.AutoStyleRotation != null) d.AutoStyleRotation = r.AutoStyleRotation;
+    if (r.UiControl != null) d.UiControl = r.UiControl;
     if (r.ServerSync != null) d.ServerSync = r.ServerSync;
     if (r.SessionPolicy != null) d.SessionPolicy = r.SessionPolicy;
     if (r.NotificationCenter != null) d.NotificationCenter = r.NotificationCenter;
@@ -2756,6 +2774,7 @@ public sealed class Data {
     public DateTime SettingsUpdatedAtUtc { get; set; } = DateTime.MinValue;
     public CaptureControlSettings CaptureSettings { get; set; } = new();
     public AutoStyleRotationSettings AutoStyleRotation { get; set; } = new();
+    public StoreUiControlSettings UiControl { get; set; } = new();
     public NotificationCenterSettings NotificationCenter { get; set; } = new();
     public List<ScheduledNotice> ScheduledNotices { get; set; } = [];
     public SupervisorPrivateChatSettings SupervisorChatSettings { get; set; } = new();
@@ -3261,6 +3280,7 @@ public sealed record AutoHealSnapshotInput(
     List<SupervisorFormField>? SupervisorFormFields,
     CaptureControlSettings? CaptureSettings,
     AutoStyleRotationSettings? AutoStyleRotation,
+    StoreUiControlSettings? UiControl,
     ServerSyncSettings? ServerSync,
     SessionPolicySettings? SessionPolicy,
     NotificationCenterSettings? NotificationCenter,
@@ -3278,3 +3298,32 @@ public sealed record AutoHealSnapshotInput(
     StorePolicies? Policies,
     CommissionSettings? Commissions
 );
+
+
+public sealed class StoreUiControlSettings {
+    public int GlobalFontScale { get; set; } = 100;
+    public int ProfileBarScale { get; set; } = 100;
+    public int MiniAdScale { get; set; } = 100;
+    public int IconsBarScale { get; set; } = 100;
+    public int CardsScale { get; set; } = 100;
+    public int ButtonsScale { get; set; } = 100;
+    public int ImagesScale { get; set; } = 100;
+    public bool ShowProfileBar { get; set; } = true;
+    public bool ShowMiniAdStrip { get; set; } = true;
+    public bool ShowIconsBar { get; set; } = true;
+    public bool ShowIconBell { get; set; } = true;
+    public bool ShowIconCartOrders { get; set; } = true;
+    public bool ShowIconSupport { get; set; } = true;
+    public bool ShowIconMediaVault { get; set; } = true;
+    public bool ShowIconLanguage { get; set; } = true;
+    public bool ShowIconRefresh { get; set; } = true;
+    public bool ShowPermissionHubs { get; set; } = true;
+    public bool ShowDashboardStats { get; set; } = true;
+    public bool ShowHomeBanners { get; set; } = true;
+    public bool ShowSearchRow { get; set; } = true;
+    public bool ShowCategories { get; set; } = true;
+    public bool ShowProductImages { get; set; } = true;
+    public bool ShowProductPrices { get; set; } = true;
+    public Dictionary<string, bool> HiddenPanels { get; set; } = [];
+    public Dictionary<string, string> CustomLabels { get; set; } = [];
+}
